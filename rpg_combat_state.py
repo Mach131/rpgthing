@@ -4,7 +4,8 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import SkillData, SkillEffect, EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack
+from rpg_classes_skills import SkillData, AttackSkillData, SkillEffect, \
+    EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked
 
 if TYPE_CHECKING:
     from rpg_combat_entity import CombatEntity
@@ -78,17 +79,25 @@ ACC: {statString[BaseStats.ACC]}, AVO: {statString[BaseStats.AVO]}, SPD: {statSt
             self.multStatMod[stat] /= multStatMap[stat]
 
     """
+        Removes effects with no duration. Returns the set of expiring effects.
+    """
+    def durationCheck(self) -> set[SkillEffect]:
+        result = set()
+        for effect in self.activeSkillEffects:
+            if effect.effectDuration is None:
+                continue
+            if self.activeSkillEffects[effect] >= effect.effectDuration:
+                result.add(effect)
+        return result
+
+    """
         Increments the amount of time skills have been active. Returns the set of expiring effects.
     """
     def durationTick(self) -> set[SkillEffect]:
         result = set()
         for effect in self.activeSkillEffects:
             self.activeSkillEffects[effect] += 1
-            if effect.effectDuration is None:
-                continue
-            if self.activeSkillEffects[effect] >= effect.effectDuration:
-                result.add(effect)
-        return result
+        return self.durationCheck()
 
     def getEffectFunctions(self, effectTiming : EffectTimings) -> list:
         result = []
@@ -111,7 +120,8 @@ class CombatController(object):
         for team in [self.playerTeam, self.opponentTeam]:
             for entity in team:
                 self.combatStateMap[entity] = EntityCombatState(entity)
-                self.combatStateMap[entity].activeSkillEffects
+                for skill in entity.availablePassiveSkills:
+                    [self.addSkillEffect(entity, skillEffect) for skillEffect in skill.skillEffects]
 
         self.rng : random.Random = random.Random()
 
@@ -225,6 +235,17 @@ class CombatController(object):
         return originalHP - self.combatStateMap[defender].currentHP
 
     """
+        Makes a target gain health. Returns actual health gained.
+    """
+    def gainHealth(self, entity : CombatEntity, hpGain : int) -> int:
+        originalHP : int = self.combatStateMap[entity].currentHP
+        self.combatStateMap[entity].currentHP = min(self.getMaxHealth(entity), originalHP + hpGain)
+        healthGained : int = self.combatStateMap[entity].currentHP - originalHP
+        if healthGained > 0:
+            print(f"{entity.name} restores {healthGained} health!") # TODO: logging
+        return healthGained
+
+    """
         Makes a target spend mana. Returns actual mana spent.
     """
     def spendMana(self, entity : CombatEntity, mpCost : int) -> int:
@@ -237,14 +258,23 @@ class CombatController(object):
     """
     def gainMana(self, entity : CombatEntity, mpGain : int) -> int:
         originalMP : int = self.combatStateMap[entity].currentMP
-        self.combatStateMap[entity].currentMP = min(self.combatStateMap[entity].getTotalStatValue(BaseStats.MP), originalMP + mpGain)
-        return self.combatStateMap[entity].currentMP - originalMP
+        self.combatStateMap[entity].currentMP = min(self.getMaxMana(entity), originalMP + mpGain)
+        manaGained = self.combatStateMap[entity].currentMP - originalMP
+        if manaGained > 0:
+            print(f"{entity.name} restores {manaGained} mana!") # TODO: logging
+        return manaGained
 
     def getCurrentHealth(self, entity : CombatEntity) -> int:
         return self.combatStateMap[entity].currentHP
 
+    def getMaxHealth(self, entity : CombatEntity) -> int:
+        return self.combatStateMap[entity].getTotalStatValue(BaseStats.HP)
+
     def getCurrentMana(self, entity : CombatEntity) -> int:
         return self.combatStateMap[entity].currentMP
+
+    def getMaxMana(self, entity : CombatEntity) -> int:
+        return self.combatStateMap[entity].getTotalStatValue(BaseStats.MP)
 
     """
         Reduce an entity's action timer. Returns updated timer amount.
@@ -327,6 +357,25 @@ class CombatController(object):
     def performAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool) -> AttackResultInfo:
         # TODO: range check here?
 
+        # initial attack
+        attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, isBasic)
+        self._cleanupEffects(attacker)
+
+        # process bonus attacks
+        while len(attackResultInfo.bonusAttacks) > 0:
+            bonusAttacker, bonusTarget, bonusAttackData = attackResultInfo.bonusAttacks.pop(0)
+            self.performActiveSkill(bonusAttacker, bonusTarget, bonusAttackData)
+            bonusAttackResultInfo : AttackResultInfo = self._doSingleAttack(bonusAttacker, bonusTarget, bonusAttackData.isPhysical, False)
+            attackResultInfo.addBonusResultInfo(bonusAttackResultInfo)
+            self._cleanupEffects(bonusAttacker)
+
+        self._endPlayerTurn(attacker)
+
+        return attackResultInfo
+    
+    def _doSingleAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool) -> AttackResultInfo:
+        # TODO: range check here?
+
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
             effectFunction.applyEffect(self, attacker, defender)
@@ -338,10 +387,11 @@ class CombatController(object):
             damage, isCritical = self.rollForDamage(attacker, defender, isPhysical)
             damageDealt = self.applyDamage(attacker, defender, damage)
 
-        attackResultInfo = AttackResultInfo(checkHit, damageDealt, isCritical)
+        attackResultInfo = AttackResultInfo(attacker, defender, checkHit, damageDealt, isCritical)
 
         actionTimerUsage : float = DEFAULT_ATTACK_TIMER_USAGE
         actionTimeMult : float = 1
+
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.AFTER_ATTACK):
             if isinstance(effectFunction, EFAfterNextAttack):
                 effectResult = effectFunction.applyEffect(self, attacker, defender, attackResultInfo)
@@ -351,14 +401,22 @@ class CombatController(object):
                     actionTimeMult = effectResult.actionTimeMult
             elif isinstance(effectFunction, EFBeforeNextAttack_Revert):
                 effectFunction.applyEffect(self, attacker, defender)
+        for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.WHEN_ATTACKED):
+            if isinstance(effectFunction, EFWhenAttacked):
+                effectFunction.applyEffect(self, defender, attacker, attackResultInfo)
 
         if isBasic:
             self.gainMana(attacker, BASIC_ATTACK_MP_GAIN)
             self.spendActionTimer(attacker, actionTimerUsage * actionTimeMult)
 
-        self._endPlayerTurn(attacker)
-
         return attackResultInfo
+    
+    """
+        Cleanup after an attack. At the moment, just removes single-attack skills.
+    """
+    def _cleanupEffects(self, player) -> None:
+        for expiredEffect in self.combatStateMap[player].durationCheck():
+            self.removeSkillEffect(player, expiredEffect)
 
     """
         Cleanup for end of turn. At the moment, just decreases effect durations.
@@ -373,7 +431,22 @@ class ActionResultInfo(object):
         self.startAttack : bool = startAttack
 
 class AttackResultInfo(object):
-    def __init__(self, attackHit : bool, damageDealt : int, isCritical : bool) -> None:
+    def __init__(self, attacker : CombatEntity, defender : CombatEntity, attackHit : bool, damageDealt : int, isCritical : bool) -> None:
+        self.attacker : CombatEntity = attacker
+        self.defender : CombatEntity = defender
         self.attackHit : bool = attackHit
         self.damageDealt : int = damageDealt
         self.isCritical : bool = isCritical
+        self.bonusAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = []
+        self.bonusResultInfo : AttackResultInfo | None = None
+
+    def addBonusAttack(self, user : CombatEntity, target : CombatEntity, attackData : AttackSkillData):
+        self.bonusAttacks.append((user, target, attackData))
+
+    def addBonusResultInfo(self, attackResultInfo : AttackResultInfo):
+        self.bonusAttacks += attackResultInfo.bonusAttacks
+
+        if self.bonusResultInfo is None:
+            self.bonusResultInfo = attackResultInfo
+        else:
+            self.bonusResultInfo.addBonusResultInfo(attackResultInfo)

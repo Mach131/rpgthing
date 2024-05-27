@@ -4,13 +4,16 @@ from rpg_consts import *
 from rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
 
 class CombatEntity(object):
-    def __init__(self, name : str) -> None:
+    def __init__(self, name : str, passiveSkills : list[SkillData], activeSkills : list[SkillData]) -> None:
         self.name = name
         self.baseStats : dict[BaseStats, int] = {}
         self.flatStatMod : dict[Stats, float] = {}
         self.multStatMod : dict[Stats, float] = {}
 
         self.passiveBonusSkills : list[PassiveSkillData] = []
+
+        self.availablePassiveSkills : list[SkillData] = passiveSkills
+        self.availableActiveSkills : list[SkillData] = activeSkills
 
     def __repr__(self) -> str:
         return f"<CombatEntity: {self.name}>"
@@ -42,7 +45,7 @@ ACC: {self.baseStats[BaseStats.ACC]}, AVO: {self.baseStats[BaseStats.AVO]}, SPD:
 class Player(CombatEntity):
     """Initializes the Player at level 1"""
     def __init__(self, name : str, playerClass : PlayerClassNames) -> None:
-        super().__init__(name)
+        super().__init__(name, [], [])
 
         self.playerLevel : int = 1
         self.playerExp : int = 0
@@ -58,8 +61,6 @@ class Player(CombatEntity):
                 self.classExp[className] = 0
 
         self.currentPlayerClass : PlayerClassNames = playerClass
-        self.availableActiveSkills : list[SkillData] = []
-        self.availablePassiveSkills : list[SkillData] = []
 
         self._updateBaseStats()
         self._updateClassSkills()

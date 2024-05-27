@@ -64,7 +64,8 @@ classDataList = [
 class SkillData(object):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int,
             isActiveSkill : bool, isFreeSkill : bool, description : str,
-            mpCost : int | None, actionTime : float | None, causesAttack : bool, skillEffects : list[SkillEffect]) -> None:
+            mpCost : int | None, actionTime : float | None, causesAttack : bool, skillEffects : list[SkillEffect],
+            register : bool = True) -> None:
         self.skillName : str = skillName
         self.playerClass : PlayerClassNames = playerClass
         self.rank : int = rank
@@ -76,7 +77,8 @@ class SkillData(object):
         self.causesAttack : bool = causesAttack
         self.skillEffects : list[SkillEffect] = skillEffects[:]
 
-        self.registerSkill()
+        if register:
+            self.registerSkill()
 
     """ Associates this skill with the appropriate ClassData; expected to be called on startup """
     def registerSkill(self) -> None:
@@ -123,8 +125,8 @@ class PassiveSkillData(SkillData):
 
 class AttackSkillData(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
-            isPhysical : bool, attackStatMultiplier : float, actionTime : float, skillEffects : list[SkillEffect]):
-        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, True, skillEffects)
+            isPhysical : bool, attackStatMultiplier : float, actionTime : float, skillEffects : list[SkillEffect], register : bool = True):
+        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, True, skillEffects, register)
 
         self.isPhysical = isPhysical
         self.attackStatMultiplier = attackStatMultiplier
@@ -136,6 +138,10 @@ class AttackSkillData(SkillData):
         ], 0)
         self.skillEffects.append(basicAttackSkillEffects)
 
+class CounterSkillData(AttackSkillData):
+    def __init__(self, isPhysical : bool, attackStatMultiplier : float, skillEffects : list[SkillEffect]):
+        super().__init__("", None, 0, False, 0, "",
+            isPhysical, attackStatMultiplier, 0, skillEffects, False)
 
 class SkillEffect(object):
     def __init__(self, effectFunctions : list[EffectFunction], effectDuration : int | None):
@@ -209,14 +215,22 @@ class EFAfterNextAttack(EffectFunction):
         self.func(controller, user, target, attackResultInfo, result)
         return result
 
+"""A reaction to the results of being attacked."""
+class EFWhenAttacked(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.WHEN_ATTACKED)
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity,
+            attackResultInfo : AttackResultInfo) -> EffectFunctionResult:
+        result = EffectFunctionResult()
+        self.func(controller, user, attacker, attackResultInfo, result)
+        return result
+
 class EffectFunctionResult(object):
-    def __init__(self, bonusAttackData : AttackSkillData | None = None, actionTime : float | None = None, actionTimeMult : float | None = None):
-        self.bonusAttackData = bonusAttackData
+    def __init__(self, actionTime : float | None = None, actionTimeMult : float | None = None):
         self.actionTime = actionTime
         self.actionTimeMult = actionTimeMult
-
-    def setBonusAttackData(self, bonusAttackData : AttackSkillData):
-        self.bonusAttackData = bonusAttackData
 
     def setActionTime(self, actionTime: float):
         self.actionTime = actionTime

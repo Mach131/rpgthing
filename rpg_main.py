@@ -36,11 +36,16 @@ class CombatInputHandler(object):
 
     def doAttack(self, combatController : CombatController, target : CombatEntity, isPhysical : bool, isBasic : bool):
         print (f"{self.entity.name} attacks {target.name}!")
-        attackResult : AttackResultInfo = combatController.performAttack(self.entity, target, isPhysical, isBasic)
-        if not attackResult.attackHit:
-            print ("Attack missed!\n")
-        else:
-            print(f"{attackResult.damageDealt} damage{' (Crit)' if attackResult.isCritical else ''}!\n")
+        attackResult : AttackResultInfo | None = combatController.performAttack(self.entity, target, isPhysical, isBasic)
+        while attackResult is not None:
+            if not attackResult.attackHit:
+                print ("Attack missed!\n")
+            else:
+                print(f"{attackResult.damageDealt} damage{' (Crit)' if attackResult.isCritical else ''}!\n")
+            
+            attackResult = attackResult.bonusResultInfo
+            if attackResult is not None:
+                print(f"{attackResult.attacker.name} performs an extra attack against {attackResult.defender.name}!")
 
     def doSkill(self, combatController : CombatController, target : CombatEntity, skillData : SkillData) -> ActionResultInfo:
         actionResult : ActionResultInfo = combatController.performActiveSkill(self.entity, target, skillData)

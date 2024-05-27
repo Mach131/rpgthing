@@ -83,6 +83,7 @@ class EffectTimings(Enum):
     IMMEDIATE = auto()
     BEFORE_ATTACK = auto()
     AFTER_ATTACK = auto()
+    WHEN_ATTACKED = auto()
 
 """ Combat """
 MAX_ACTION_TIMER = 100
