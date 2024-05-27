@@ -1,14 +1,18 @@
 from __future__ import annotations
-from typing import Callable, TypeAlias, Protocol
 from functools import reduce
+from typing import Callable, TYPE_CHECKING
 
 from rpg_consts import *
-from rpg_combat_entity import *
-from rpg_combat_state import *
+
+if TYPE_CHECKING:
+    from rpg_combat_entity import CombatEntity
+    from rpg_combat_state import CombatController, AttackResultInfo
 
 ### Classes
 
 class PlayerClassData(object):
+    PLAYER_CLASS_DATA_MAP : dict[PlayerClassNames, PlayerClassData] = {}
+
     def __init__(self, className : PlayerClassNames, classRequirements : list[PlayerClassNames]) -> None:
         self.className : PlayerClassNames = className
         self.isBaseClass : bool = len(classRequirements) == 0
@@ -16,14 +20,27 @@ class PlayerClassData(object):
 
         self.rankSkills : dict[int, SkillData] = {}
 
+        PlayerClassData.PLAYER_CLASS_DATA_MAP[self.className] = self
+
+    """ Adds a skill for the given rank of a given class. Returns true if successful (i.e. no overlap)."""
+    @staticmethod
+    def registerSkill(className : PlayerClassNames, rank : int, skillData : SkillData) -> bool:
+        classData : PlayerClassData = PlayerClassData.PLAYER_CLASS_DATA_MAP[className]
+        if classData.rankSkills.get(rank, None) is None:
+            classData.rankSkills[rank] = skillData
+            return True
+        return False
+
     """ Provides a list of all of this class's skills, up to the given rank. """
-    def getSkillsForRank(self, rank : int) -> list[SkillData]:
+    @staticmethod
+    def getSkillsForRank(className : PlayerClassNames, rank : int) -> list[SkillData]:
+        classData : PlayerClassData = PlayerClassData.PLAYER_CLASS_DATA_MAP[className]
         results : list[SkillData] = []
 
-        maxRank : int = MAX_BASE_CLASS_RANK if self.isBaseClass else MAX_ADVANCED_CLASS_RANK
+        maxRank : int = MAX_BASE_CLASS_RANK if classData.isBaseClass else MAX_ADVANCED_CLASS_RANK
         for i in range(1, min(maxRank, rank) + 1):
-            if i in self.rankSkills:
-                results.append(self.rankSkills[i])
+            if i in classData.rankSkills:
+                results.append(classData.rankSkills[i])
 
         return results
 
@@ -41,8 +58,6 @@ classDataList = [
     PlayerClassData(AdvancedPlayerClassNames.WIZARD, [BasePlayerClassNames.MAGE]),
     PlayerClassData(AdvancedPlayerClassNames.SAINT, [BasePlayerClassNames.MAGE])
 ]
-PLAYER_CLASS_DATA_MAP : dict[PlayerClassNames, PlayerClassData] = {classData.className: classData for classData in classDataList}
-
 
 ### Skills
 
@@ -61,12 +76,11 @@ class SkillData(object):
         self.causesAttack : bool = causesAttack
         self.skillEffects : list[SkillEffect] = skillEffects[:]
 
-        self.registerSkill(PLAYER_CLASS_DATA_MAP)
+        self.registerSkill()
 
     """ Associates this skill with the appropriate ClassData; expected to be called on startup """
-    def registerSkill(self, playerClassDataMap : dict[PlayerClassNames, PlayerClassData]) -> None:
-        assert(playerClassDataMap[self.playerClass].rankSkills.get(self.rank, None) is None)
-        playerClassDataMap[self.playerClass].rankSkills[self.rank] = self
+    def registerSkill(self) -> None:
+        assert(PlayerClassData.registerSkill(self.playerClass, self.rank, self))
 
     def enablePassiveBonuses(self, entity : CombatEntity) -> None:
         pass
@@ -210,20 +224,5 @@ class EffectFunctionResult(object):
     def setActionTimeMult(self, actionTimeMult: float):
         self.actionTimeMult = actionTimeMult
 
-# Should move these eventually
-PassiveSkillData("Warrior's Resolution", BasePlayerClassNames.WARRIOR, 1, False,
-    "Increases HP by 100, ATK by 10, and DEF by 5.",
-    {BaseStats.HP: 100, BaseStats.ATK: 10, BaseStats.DEF: 5}, {}, [])
-
-AttackSkillData("Great Swing", BasePlayerClassNames.WARRIOR, 2, False, 20,
-    "Attack with 1.5x ATK.",
-    True, 1.5, DEFAULT_ATTACK_TIMER_USAGE, [])
-
-PassiveSkillData("Rogue's Instinct", BasePlayerClassNames.ROGUE, 1, False,
-    "Increases AVO by 25, SPD by 10, and ATK by 5.",
-    {BaseStats.AVO: 25, BaseStats.SPD: 10, BaseStats.ATK: 5}, {}, [])
-
-AttackSkillData("Swift Strike", BasePlayerClassNames.ROGUE, 2, False, 10,
-    "Attack with 0.7x ATK, but a reduced time until next action.",
-    True, 0.7, DEFAULT_ATTACK_TIMER_USAGE / 2, [])
-
+# load definitions
+from rpg_skill_definitions import *

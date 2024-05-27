@@ -1,10 +1,13 @@
 from __future__ import annotations
-
-from rpg_consts import *
-from rpg_combat_entity import *
-import rpg_classes
+from typing import TYPE_CHECKING
 import random
 import math
+
+from rpg_consts import *
+from rpg_classes_skills import SkillData, SkillEffect, EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack
+
+if TYPE_CHECKING:
+    from rpg_combat_entity import CombatEntity
 
 class EntityCombatState(object):
     def __init__(self, entity : CombatEntity) -> None:
@@ -304,7 +307,7 @@ class CombatController(object):
 
         immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, skill.getAllEffectFunctions())
         for effectFunction in immediateEffects:
-            assert(isinstance(effectFunction, rpg_classes.EFImmediate))
+            assert(isinstance(effectFunction, EFImmediate))
             effectFunction.applyEffect(self, user, target)
 
         # add skill effects to active
@@ -325,7 +328,7 @@ class CombatController(object):
         # TODO: range check here?
 
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
-            assert(isinstance(effectFunction, rpg_classes.EFBeforeNextAttack))
+            assert(isinstance(effectFunction, EFBeforeNextAttack))
             effectFunction.applyEffect(self, attacker, defender)
 
         checkHit : bool = self.rollForHit(attacker, defender)
@@ -340,13 +343,13 @@ class CombatController(object):
         actionTimerUsage : float = DEFAULT_ATTACK_TIMER_USAGE
         actionTimeMult : float = 1
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.AFTER_ATTACK):
-            if isinstance(effectFunction, rpg_classes.EFAfterNextAttack):
+            if isinstance(effectFunction, EFAfterNextAttack):
                 effectResult = effectFunction.applyEffect(self, attacker, defender, attackResultInfo)
                 if effectResult.actionTime is not None:
                     actionTimerUsage = effectResult.actionTime
                 if effectResult.actionTimeMult is not None:
                     actionTimeMult = effectResult.actionTimeMult
-            elif isinstance(effectFunction, rpg_classes.EFBeforeNextAttack_Revert):
+            elif isinstance(effectFunction, EFBeforeNextAttack_Revert):
                 effectFunction.applyEffect(self, attacker, defender)
 
         if isBasic:

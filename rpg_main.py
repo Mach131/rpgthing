@@ -1,9 +1,10 @@
 import traceback
 import random
 
-from rpg_combat_entity import *
-from rpg_combat_state import *
 from rpg_consts import *
+from rpg_combat_entity import CombatEntity, Player
+from rpg_classes_skills import AttackSkillData, SkillData
+from rpg_combat_state import CombatController, ActionResultInfo, AttackResultInfo
 
 def simpleCombatSimulation(p1 : Player, p2 : Player, starting_dist : int = 1) -> None:
     cc : CombatController = CombatController([p1], [p2])

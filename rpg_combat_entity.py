@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from rpg_consts import *
-from rpg_classes import *
+from rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
 
 class CombatEntity(object):
     def __init__(self, name : str) -> None:
@@ -78,8 +78,7 @@ class Player(CombatEntity):
         self.availableActiveSkills = []
         self.availablePassiveSkills = []
 
-        currentClassData : PlayerClassData = PLAYER_CLASS_DATA_MAP[self.currentPlayerClass]
-        for skillData in currentClassData.getSkillsForRank(self.classRanks[self.currentPlayerClass]):
+        for skillData in PlayerClassData.getSkillsForRank(self.currentPlayerClass, self.classRanks[self.currentPlayerClass]):
             if skillData.isActiveSkill:
                 self.availableActiveSkills.append(skillData)
             else:
