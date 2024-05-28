@@ -37,8 +37,8 @@ baseStatValues_base : dict[BaseStats, int] = {
   BaseStats.DEF: 10,
   BaseStats.MAG: 10,
   BaseStats.RES: 10,
-  BaseStats.ACC: 15, # was 50; changed based on low level testing
-  BaseStats.AVO: 15, # was 50; changed based on low level testing
+  BaseStats.ACC: 50, # was 50; changed based on low level testing
+  BaseStats.AVO: 50, # was 50; changed based on low level testing
   BaseStats.SPD: 20
 }
 
@@ -93,6 +93,8 @@ BASIC_ATTACK_MP_GAIN = 4
 
 DAMAGE_FORMULA_K = 0.5 # ratio when attack = defense
 DAMAGE_FORMULA_C = 2 # scaling, higher means a steeper dropoff/alignment as ratio increases/decreases
+
+ACCURACY_FORMULA_C = 1 # similar scaling factor; may not be needed
 
 ACTION_TIME_DISPLAY_MULTIPLIER = 0.08
 

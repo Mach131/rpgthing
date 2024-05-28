@@ -150,9 +150,9 @@ if __name__ == '__main__':
     p1 = Player("me", BasePlayerClassNames.WARRIOR)
     p1.playerLevel = 3
     p1.freeStatPoints = 12
-    p1.assignStatPoints([BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,
-                         BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,
-                         BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,])
+    p1.assignStatPoints([BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,
+                         BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,
+                         BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,])
     p1.classRanks[BasePlayerClassNames.WARRIOR] = 3
     p1._updateClassSkills()
 
@@ -160,8 +160,8 @@ if __name__ == '__main__':
     p2.playerLevel = 3
     p2.freeStatPoints = 12
     p2.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP,
-                         BaseStats.HP, BaseStats.ACC, BaseStats.AVO, BaseStats.SPD,
-                         BaseStats.AVO, BaseStats.ACC, BaseStats.ATK, BaseStats.SPD])
+                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP,
+                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
     p2.classRanks[BasePlayerClassNames.ROGUE] = 3
     p2._updateClassSkills()
 

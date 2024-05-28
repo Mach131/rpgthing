@@ -197,11 +197,17 @@ class CombatController(object):
         distance : int | None = self.checkDistance(attacker, defender)
         distanceMod : float = 1
         if distance is not None:
-            distanceMod = 1.1 - (0.1 * (distance ** 2))
+            distanceMod = 1.1 - (0.1 * (distance ** 2)) #TODO: may change with archer skill, check combat stats
 
         attackerAcc : float = self.combatStateMap[attacker].getTotalStatValue(BaseStats.ACC)
         defenderAvo : float = self.combatStateMap[defender].getTotalStatValue(BaseStats.AVO)
-        hitChance : float = ((attackerAcc * distanceMod)/defenderAvo) ** 0.5
+       
+        accAvoRatio : float = attackerAcc/defenderAvo
+        distanceMultiplier : float = 2 * (distanceMod ** 0.5)
+        domainScaleTerm : float = math.tan(math.pi * (1 - (2 ** (1 - accAvoRatio))) / 2)
+        hitChance : float = distanceMultiplier / (1 + math.exp(-ACCURACY_FORMULA_C * domainScaleTerm))
+        print(f"hit chance: {hitChance*100:.3f}%")
+
         return self.rng.random() <= hitChance
 
     """
