@@ -1,5 +1,8 @@
 from enum import Enum, auto
 
+def void(x):
+    return None
+
 """ Stats """
 class Stats(Enum):
     pass
@@ -21,13 +24,23 @@ class CombatStats(Stats):
     AGGRO_MULT = auto()
     RANGE = auto()
     DAMAGE_REDUCTION = auto()
+    WEAKNESS_MODIFIER = auto()
+    RESISTANCE_MODIFIER = auto()
+    BONUS_WEAKNESS_DAMAGE = auto()
+    IGNORE_RESISTANCE = auto()
+    HEALING_EFFECTIVENESS = auto()
 
 baseCombatStats : dict[CombatStats, float] = {
     CombatStats.CRIT_RATE: 0.1,
     CombatStats.CRIT_DAMAGE: 2.5,
     CombatStats.AGGRO_MULT: 1,
     CombatStats.RANGE: 0,
-    CombatStats.DAMAGE_REDUCTION: 0
+    CombatStats.DAMAGE_REDUCTION: 0,
+    CombatStats.WEAKNESS_MODIFIER: 0.2,
+    CombatStats.RESISTANCE_MODIFIER: 0.2,
+    CombatStats.BONUS_WEAKNESS_DAMAGE: 0,
+    CombatStats.IGNORE_RESISTANCE: 0,
+    CombatStats.HEALING_EFFECTIVENESS: 1
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -92,7 +105,7 @@ DEFAULT_ATTACK_TIMER_USAGE = 70
 BASIC_ATTACK_MP_GAIN = 4
 
 DAMAGE_FORMULA_K = 0.5 # ratio when attack = defense
-DAMAGE_FORMULA_C = 2 # scaling, higher means a steeper dropoff/alignment as ratio increases/decreases
+DAMAGE_FORMULA_C = 2.0 # scaling, higher means a steeper dropoff/alignment as ratio increases/decreases
 
 ACCURACY_FORMULA_C = 1 # similar scaling factor; may not be needed
 
@@ -102,3 +115,216 @@ class ActionSuccessState(Enum):
     SUCCESS = auto()
     FAILURE_MANA = auto()
     FAILURE_RANGE = auto()
+
+""" Equips """
+
+class EquipmentSlot(Enum):
+    WEAPON = auto()
+    HAT = auto()
+    OVERALL = auto()
+    SHOES = auto()
+
+class WeaponType(Enum):
+    SWORD = auto()
+    SPEAR = auto()
+    FLAIL = auto()
+    HAMMER = auto()
+    SWORDSHIELD = auto()
+    DAGGER = auto()
+    BOW = auto()
+    CROSSBOW = auto()
+    FIREARM = auto()
+    WAND = auto()
+    STAFF = auto()
+    FOCUS = auto()
+
+class AttackType(Enum):
+    MELEE = auto()
+    RANGED = auto()
+    MAGIC = auto()
+
+class AttackAttribute(Enum):
+    pass
+
+class PhysicalAttackAttribute(AttackAttribute):
+    PIERCING = auto()
+    SLASHING = auto()
+    CRUSHING = auto()
+
+class MagicalAttackAttribute(AttackAttribute):
+    NEUTRAL = auto()
+    FIRE = auto()
+    ICE = auto()
+    WIND = auto()
+    LIGHT = auto()
+    DARK = auto()
+
+DEFAULT_ATTACK_TYPE = AttackType.MELEE
+DEFAULT_ATTACK_ATTRIBUTE = PhysicalAttackAttribute.CRUSHING
+
+itemRarityStrings = [
+    "Common",
+    "Uncommon",
+    "Rare",
+    "Epic",
+    "Legendary"
+]
+MAX_ITEM_RARITY = 4
+MAX_ITEM_RANK = 10
+MAX_RANK_STAT_SCALING = 0.75
+
+class WeaponTypeAttributes(object):
+    def __init__(self, basicAttackType : AttackType, basicAttackAttribute : AttackAttribute, maxRange : int,
+                permittedClasses : list[BasePlayerClassNames]):
+        self.basicAttackType : AttackType = basicAttackType
+        self.basicAttackAttribute : AttackAttribute = basicAttackAttribute
+        self.maxRange : int = maxRange
+        self.permittedClasses : list[BasePlayerClassNames] = permittedClasses
+
+weaponTypeAttributeMap = {
+    WeaponType.SWORD: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.SLASHING, 1,
+                                           [BasePlayerClassNames.WARRIOR]),
+    WeaponType.SPEAR: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.PIERCING, 1,
+                                           [BasePlayerClassNames.WARRIOR, BasePlayerClassNames.ROGUE]),
+    WeaponType.FLAIL: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.CRUSHING, 1,
+                                           [BasePlayerClassNames.WARRIOR]),
+    WeaponType.HAMMER: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.CRUSHING, 0,
+                                           [BasePlayerClassNames.WARRIOR]),
+    WeaponType.SWORDSHIELD: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.SLASHING, 0,
+                                           [BasePlayerClassNames.WARRIOR]),
+    WeaponType.DAGGER: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.PIERCING, 0,
+                                           [BasePlayerClassNames.WARRIOR, BasePlayerClassNames.ROGUE]),
+    WeaponType.BOW: WeaponTypeAttributes(AttackType.RANGED, PhysicalAttackAttribute.PIERCING, 2,
+                                           [BasePlayerClassNames.RANGER, BasePlayerClassNames.ROGUE]),
+    WeaponType.CROSSBOW: WeaponTypeAttributes(AttackType.RANGED, PhysicalAttackAttribute.PIERCING, 3,
+                                           [BasePlayerClassNames.RANGER, BasePlayerClassNames.ROGUE]),
+    WeaponType.FIREARM: WeaponTypeAttributes(AttackType.RANGED, PhysicalAttackAttribute.PIERCING, 3,
+                                           [BasePlayerClassNames.RANGER]),
+    WeaponType.WAND: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.CRUSHING, 0,
+                                           [BasePlayerClassNames.MAGE]),
+    WeaponType.STAFF: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.CRUSHING, 1,
+                                           [BasePlayerClassNames.MAGE]),
+    WeaponType.FOCUS: WeaponTypeAttributes(AttackType.MAGIC, MagicalAttackAttribute.NEUTRAL, 1,
+                                           [BasePlayerClassNames.MAGE]),
+}
+
+class WeaponClasses(Enum):
+    BROADSWORD = auto(),
+    KATANA = auto(),
+    SABRE = auto(),
+    SPEAR = auto(),
+    NAGINATA = auto(),
+    SCYTHE = auto(),
+    MACE = auto(),
+    MORNINGSTAR = auto(),
+    FLAIL = auto(),
+    OTSUCHI = auto(),
+    WARHAMMER = auto(),
+    DIVINEHAMMER = auto(),
+    KITESHIELDSWORD = auto(),
+    TOWERSHIELDSWORD = auto(),
+    BUCKLERSWORD = auto(),
+    DAGGER = auto(),
+    STILETTO = auto(),
+    DIRK = auto(),
+    RECURVEBOW = auto(),
+    COMPOUNDBOW = auto(),
+    LONGBOW = auto(),
+    RECURVECROSSBOW = auto(),
+    COMPOUNDCROSSBOW = auto(),
+    PISTOLCROSSBOW = auto(),
+    RIFLE = auto(),
+    HANDGUN = auto(),
+    LAUNCHER = auto(),
+    EMBEDDEDWAND = auto(),
+    WOODENWAND = auto(),
+    STEELWAND = auto(),
+    GEMSTONESTAFF = auto(),
+    WOODENSTAFF = auto(),
+    HYBRIDSTAFF = auto(),
+    AMULET = auto(),
+    CRYSTAL = auto(),
+    TOME = auto()
+
+class WeaponAttributes(object):
+    def __init__(self, name : str, weaponType: WeaponType, baseStats: dict[BaseStats, int]) -> None:
+        self.name : str = name
+        self.weaponType : WeaponType = weaponType
+        self.baseStats : dict[BaseStats, int] = baseStats.copy()
+
+weaponClassAttributeMap = {
+    WeaponClasses.BROADSWORD: WeaponAttributes("Broadsword", WeaponType.SWORD,
+            {BaseStats.ATK: 10, BaseStats.ACC: 10, BaseStats.SPD: 5}),
+    WeaponClasses.KATANA: WeaponAttributes("Katana", WeaponType.SWORD,
+            {BaseStats.ATK: 7, BaseStats.DEF: 2, BaseStats.RES: 2, BaseStats.ACC: 8, BaseStats.AVO: 2, BaseStats.SPD: 4}),
+    WeaponClasses.SABRE: WeaponAttributes("Sabre", WeaponType.SWORD,
+            {BaseStats.ATK: 8, BaseStats.ACC: 12, BaseStats.SPD: 6}),
+    WeaponClasses.SPEAR: WeaponAttributes("Spear", WeaponType.SPEAR,
+            {BaseStats.ATK: 7, BaseStats.ACC: 8, BaseStats.AVO: 5, BaseStats.SPD: 6}),
+    WeaponClasses.NAGINATA: WeaponAttributes("Naginata", WeaponType.SPEAR,
+            {BaseStats.ATK: 5, BaseStats.ACC: 8, BaseStats.AVO: 8, BaseStats.SPD: 7}),
+    WeaponClasses.SCYTHE: WeaponAttributes("Scythe", WeaponType.SPEAR,
+            {BaseStats.ATK: 8, BaseStats.ACC: 9, BaseStats.AVO: 4, BaseStats.SPD: 5}),
+    WeaponClasses.MORNINGSTAR: WeaponAttributes("Morning Star", WeaponType.FLAIL,
+            {BaseStats.ATK: 13, BaseStats.ACC: 8, BaseStats.SPD: 2}),
+    WeaponClasses.FLAIL: WeaponAttributes("Flail", WeaponType.FLAIL,
+            {BaseStats.ATK: 16, BaseStats.ACC: 3, BaseStats.SPD: 2}),
+    WeaponClasses.MACE: WeaponAttributes("Mace", WeaponType.FLAIL,
+            {BaseStats.ATK: 12, BaseStats.ACC: 6, BaseStats.SPD: 3}),
+    WeaponClasses.OTSUCHI: WeaponAttributes("Otsuchi", WeaponType.HAMMER,
+            {BaseStats.ATK: 15, BaseStats.ACC: 12, BaseStats.SPD: 4}),
+    WeaponClasses.WARHAMMER: WeaponAttributes("War Hammer", WeaponType.HAMMER,
+            {BaseStats.ATK: 18, BaseStats.ACC: 9, BaseStats.SPD: 2}),
+    WeaponClasses.DIVINEHAMMER: WeaponAttributes("Divine Hammer", WeaponType.HAMMER,
+            {BaseStats.ATK: 12, BaseStats.MAG: 6, BaseStats.RES: 5, BaseStats.ACC: 10, BaseStats.SPD: 3}),
+    WeaponClasses.KITESHIELDSWORD: WeaponAttributes("Kite Shield & Sword", WeaponType.SWORDSHIELD,
+            {BaseStats.ATK: 10, BaseStats.DEF: 5, BaseStats.ACC: 10, BaseStats.SPD: 4}),
+    WeaponClasses.TOWERSHIELDSWORD: WeaponAttributes("Tower Shield & Sword", WeaponType.SWORDSHIELD,
+            {BaseStats.ATK: 8, BaseStats.DEF: 8, BaseStats.ACC: 10, BaseStats.SPD: 2}),
+    WeaponClasses.BUCKLERSWORD: WeaponAttributes("Buckler & Sword", WeaponType.SWORDSHIELD,
+            {BaseStats.ATK: 7, BaseStats.DEF: 4, BaseStats.ACC: 10, BaseStats.SPD: 7}),
+    WeaponClasses.DAGGER: WeaponAttributes("Dagger", WeaponType.DAGGER,
+            {BaseStats.ATK: 6, BaseStats.ACC: 13, BaseStats.SPD: 10}),
+    WeaponClasses.STILETTO: WeaponAttributes("Stiletto", WeaponType.DAGGER,
+            {BaseStats.ATK: 4, BaseStats.ACC: 15, BaseStats.SPD: 15}),
+    WeaponClasses.DIRK: WeaponAttributes("Dirk", WeaponType.DAGGER,
+            {BaseStats.ATK: 5, BaseStats.ACC: 13, BaseStats.AVO: 4, BaseStats.SPD: 8}),
+    WeaponClasses.RECURVEBOW: WeaponAttributes("Recurve Bow", WeaponType.BOW,
+            {BaseStats.ATK: 6, BaseStats.ACC: 9, BaseStats.SPD: 10}),
+    WeaponClasses.COMPOUNDBOW: WeaponAttributes("Compound Bow", WeaponType.BOW,
+            {BaseStats.ATK: 8, BaseStats.ACC: 8, BaseStats.SPD: 8}),
+    WeaponClasses.LONGBOW: WeaponAttributes("Longbow", WeaponType.BOW,
+            {BaseStats.ATK: 6, BaseStats.ACC: 9, BaseStats.AVO: 3, BaseStats.SPD: 7}),
+    WeaponClasses.RECURVECROSSBOW: WeaponAttributes("Recurve Crossbow", WeaponType.CROSSBOW,
+            {BaseStats.ATK: 9, BaseStats.ACC: 12, BaseStats.SPD: 5}),
+    WeaponClasses.COMPOUNDCROSSBOW: WeaponAttributes("Compound Crossbow", WeaponType.CROSSBOW,
+            {BaseStats.ATK: 12, BaseStats.ACC: 12, BaseStats.SPD: 2}),
+    WeaponClasses.PISTOLCROSSBOW: WeaponAttributes("Pistol Crossbow", WeaponType.CROSSBOW,
+            {BaseStats.ATK: 8, BaseStats.ACC: 10, BaseStats.SPD: 6}),
+    WeaponClasses.RIFLE: WeaponAttributes("Rifle", WeaponType.FIREARM,
+            {BaseStats.ATK: 14, BaseStats.ACC: 6, BaseStats.SPD: 2}),
+    WeaponClasses.HANDGUN: WeaponAttributes("Handgun", WeaponType.FIREARM,
+            {BaseStats.ATK: 10, BaseStats.ACC: 5, BaseStats.SPD: 5}),
+    WeaponClasses.LAUNCHER: WeaponAttributes("Launcher", WeaponType.FIREARM,
+            {BaseStats.ATK: 16, BaseStats.ACC: 10}),
+    WeaponClasses.EMBEDDEDWAND: WeaponAttributes("Embedded Wand", WeaponType.WAND,
+            {BaseStats.ATK: 2, BaseStats.MAG: 10, BaseStats.ACC: 10, BaseStats.SPD: 7}),
+    WeaponClasses.WOODENWAND: WeaponAttributes("Wooden Wand", WeaponType.WAND,
+            {BaseStats.ATK: 2, BaseStats.MAG: 8, BaseStats.ACC: 7, BaseStats.SPD: 10}),
+    WeaponClasses.STEELWAND: WeaponAttributes("Steel Wand", WeaponType.WAND,
+            {BaseStats.ATK: 2, BaseStats.MAG: 8, BaseStats.ACC: 13, BaseStats.SPD: 7}),
+    WeaponClasses.GEMSTONESTAFF: WeaponAttributes("Gemstone Staff", WeaponType.STAFF,
+            {BaseStats.ATK: 4, BaseStats.MAG: 15, BaseStats.ACC: 10, BaseStats.SPD: 3}),
+    WeaponClasses.WOODENSTAFF: WeaponAttributes("Wooden Staff", WeaponType.STAFF,
+            {BaseStats.ATK: 4, BaseStats.MAG: 10, BaseStats.DEF: 3, BaseStats.RES: 3, BaseStats.ACC: 9, BaseStats.SPD: 2}),
+    WeaponClasses.HYBRIDSTAFF: WeaponAttributes("Hybrid Staff", WeaponType.STAFF,
+            {BaseStats.ATK: 8, BaseStats.MAG: 9, BaseStats.ACC: 10, BaseStats.SPD: 5}),
+    WeaponClasses.AMULET: WeaponAttributes("Amulet", WeaponType.FOCUS,
+            {BaseStats.MAG: 6, BaseStats.RES: 4, BaseStats.ACC: 7, BaseStats.SPD: 6}),
+    WeaponClasses.CRYSTAL: WeaponAttributes("Crystal", WeaponType.FOCUS,
+            {BaseStats.MAG: 5, BaseStats.RES: 5, BaseStats.ACC: 5, BaseStats.SPD: 7}),
+    WeaponClasses.TOME: WeaponAttributes("Tome", WeaponType.FOCUS,
+            {BaseStats.MAG: 9, BaseStats.ACC: 8, BaseStats.SPD: 6}),
+}
+
+EQUIP_CURSE_CHANCE = 0.1

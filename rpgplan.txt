@@ -187,7 +187,7 @@ Weapon (child of Equipment)
 
 StatusEffect
 	StatusType (status)
-	Source (CombatEntity)
+	Source (CombatEntity)-
 	Original Duration (number)
 	Remaining Duration (number)
 
@@ -195,4 +195,4 @@ StunStatusEffect (child of StatusEffect)
 BurnStatusEffect (child of StatusEffect)
 BlindStatusEffect (child of StatusEffect)
 PoisonStatusEffect (child of StatusEffect)
-
+ExhaustStatusEffect (child of StatusEffect)

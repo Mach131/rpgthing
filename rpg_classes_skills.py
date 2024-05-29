@@ -91,12 +91,12 @@ class SkillData(object):
         pass
 
     def getAllEffectFunctions(self) -> list[EffectFunction]:
-        return reduce(lambda a, b: a+b, list(map(lambda skillEffect : skillEffect.effectFunctions, self.skillEffects)))
+        return reduce(lambda a, b: a+b, list(map(lambda skillEffect : skillEffect.effectFunctions, self.skillEffects)), [])
 
 class PassiveSkillData(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, description : str, 
-            flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect]):
-        super().__init__(skillName, playerClass, rank, False, isFreeSkill, description, None, None, False, skillEffects)
+            flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect],  register : bool = True):
+        super().__init__(skillName, playerClass, rank, False, isFreeSkill, description, None, None, False, skillEffects, register)
 
         self.flatStatBonuses = flatStatBonuses.copy()
         self.multStatBonuses = multStatBonuses.copy()
@@ -140,7 +140,7 @@ class AttackSkillData(SkillData):
 
 class CounterSkillData(AttackSkillData):
     def __init__(self, isPhysical : bool, attackStatMultiplier : float, skillEffects : list[SkillEffect]):
-        super().__init__("", None, 0, False, 0, "",
+        super().__init__("", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
             isPhysical, attackStatMultiplier, 0, skillEffects, False)
 
 class SkillEffect(object):

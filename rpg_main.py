@@ -5,6 +5,7 @@ from rpg_consts import *
 from rpg_combat_entity import CombatEntity, Player
 from rpg_classes_skills import AttackSkillData, SkillData
 from rpg_combat_state import CombatController, ActionResultInfo, AttackResultInfo
+from rpg_items import * # TODO
 
 def simpleCombatSimulation(p1 : Player, p2 : Player, starting_dist : int = 1) -> None:
     cc : CombatController = CombatController([p1], [p2])
@@ -68,6 +69,8 @@ class PlayerInputHandler(CombatInputHandler):
             inp : str = input(">>> ")
 
             inpSplit = inp.strip().split()
+            if len(inpSplit) == 0:
+                continue
             command = inpSplit[0]
 
             if command == "attack":
@@ -77,8 +80,8 @@ class PlayerInputHandler(CombatInputHandler):
                         raise IndexError
                     target = targetList[index - 1]
 
-                    # TODO: attack type checking, prob needs weapon implementation
-                    self.doAttack(combatController, target, True, True)
+                    isPhysical = self.player.basicAttackType != AttackType.MAGIC
+                    self.doAttack(combatController, target, isPhysical, True)
                     return
                 except ValueError:
                     print(f"Invalid target; use 'attack [index]'.")
@@ -145,6 +148,13 @@ class PlayerInputHandler(CombatInputHandler):
             print(f"Time to next action: {nextActionTime:.3f}")
         print()
 
+def rerollWeapon(player : Player):
+    weaponClass = random.choice(list(filter(
+        lambda wc: player.currentPlayerClass in weaponTypeAttributeMap[weaponClassAttributeMap[wc].weaponType].permittedClasses,
+        [weaponClass for weaponClass in WeaponClasses])))
+    newWeapon = generateWeapon(0, 10, weaponClass)
+    print(newWeapon.getDescription())
+    player.equipItem(newWeapon)
 
 if __name__ == '__main__':
     p1 = Player("me", BasePlayerClassNames.WARRIOR)
@@ -154,7 +164,9 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,])
     p1.classRanks[BasePlayerClassNames.WARRIOR] = 3
-    p1._updateClassSkills()
+    rerollWeapon(p1)
+    # p1._updateAvailableSkills()
+    print()
 
     p2 = Player("you", BasePlayerClassNames.ROGUE)
     p2.playerLevel = 3
@@ -163,7 +175,9 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP,
                          BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
     p2.classRanks[BasePlayerClassNames.ROGUE] = 3
-    p2._updateClassSkills()
+    rerollWeapon(p2)
+    # p2._updateAvailableSkills()
+    print()
 
     simpleCombatSimulation(p1, p2, 2)
 

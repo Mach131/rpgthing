@@ -20,9 +20,19 @@ class EntityCombatState(object):
         self.flatStatMod : dict[Stats, float] = {}
         self.multStatMod : dict[Stats, float] = {}
 
+        self.attackEnchantment : list[tuple[SkillEffect, AttackAttribute]] = []
+        self.weaknesses : list[AttackAttribute] = []
+        self.resistances : list[AttackAttribute] = []
+
         self.actionTimer : float = 0
 
         self.activeSkillEffects: dict[SkillEffect, int] = {}
+
+    def _adjustCurrentValues(self):
+        if self.currentHP > self.getTotalStatValue(BaseStats.HP):
+            self.currentHP = self.getTotalStatValue(BaseStats.HP)
+        if self.currentMP > self.getTotalStatValue(BaseStats.MP):
+            self.currentMP = self.getTotalStatValue(BaseStats.MP)
 
     def getTotalStatValue(self, stat : Stats) -> int:
         base : int = self.entity.getStatValue(stat)
@@ -65,18 +75,22 @@ ACC: {statString[BaseStats.ACC]}, AVO: {statString[BaseStats.AVO]}, SPD: {statSt
     def applyFlatStatBonuses(self, flatStatMap : dict[Stats, float]) -> None:
         for stat in flatStatMap:
             self.flatStatMod[stat] = self.flatStatMod.get(stat, 0) + flatStatMap[stat]
+        self._adjustCurrentValues()
 
     def applyMultStatBonuses(self, multStatMap : dict[Stats, float]) -> None:
         for stat in multStatMap:
             self.multStatMod[stat] = self.multStatMod.get(stat, 1) * multStatMap[stat]
+        self._adjustCurrentValues()
 
     def revertFlatStatBonuses(self, flatStatMap : dict[Stats, float]) -> None:
         for stat in flatStatMap:
             self.flatStatMod[stat] -= flatStatMap[stat]
+        self._adjustCurrentValues()
 
     def revertMultStatBonuses(self, multStatMap : dict[Stats, float]) -> None:
         for stat in multStatMap:
             self.multStatMod[stat] /= multStatMap[stat]
+        self._adjustCurrentValues()
 
     """
         Removes effects with no duration. Returns the set of expiring effects.
@@ -104,6 +118,44 @@ ACC: {statString[BaseStats.ACC]}, AVO: {statString[BaseStats.AVO]}, SPD: {statSt
         for skillEffect in self.activeSkillEffects:
             result += list(filter(lambda effectFunction : effectFunction.effectTiming == effectTiming, skillEffect.effectFunctions))
         return result
+    
+    """
+        Updates the current weapon attribute (previous enchantments are remembered, but not expressed.)
+    """
+    def addChangedAttackAttribute(self, skillEffect : SkillEffect, attribute : AttackAttribute) -> None:
+        if any(map(lambda effectData: effectData[0] == skillEffect, self.attackEnchantment)):
+            return
+        self.attackEnchantment.insert(0, (skillEffect, attribute))
+
+    """
+        Removes an enchantment associated with the given skill.
+    """
+    def removeChangedAttackAttribute(self, skillEffect : SkillEffect) -> None:
+        for i in range(len(self.attackEnchantment)):
+            if self.attackEnchantment[i][0] == skillEffect:
+                self.attackEnchantment.pop(i)
+                return
+            
+    def getCurrentAttackAttribute(self) -> AttackAttribute:
+        if len(self.attackEnchantment) > 0:
+            return self.attackEnchantment[0][1]
+        return self.entity.basicAttackAttribute
+    
+    """
+        Accounts for weaknesses and resistances.
+    """
+    def getAttributeDamageMultiplier(self, attackAttribute : AttackAttribute, bonusWeaknessDamage : float, ignoreResistance : float) -> float:
+        weaknessInstances : int = self.weaknesses.count(attackAttribute)
+        weaknessModifier : float = self.getTotalStatValueFloat(CombatStats.WEAKNESS_MODIFIER) * (1 + bonusWeaknessDamage)
+        weaknessMultiplier : float = (1 + weaknessModifier) ** weaknessInstances
+
+        resistanceInstances : int = self.resistances.count(attackAttribute)
+        resistanceModifier : float = self.getTotalStatValueFloat(CombatStats.RESISTANCE_MODIFIER) * (1 - ignoreResistance)
+        if resistanceModifier < 0: resistanceModifier = 0
+        resistanceMultiplier : float = (1 + resistanceModifier) ** -resistanceInstances
+
+        return weaknessMultiplier * resistanceMultiplier
+
 
 class CombatController(object):
     def __init__(self, playerTeam : list[CombatEntity], opponentTeam : list[CombatEntity]) -> None:
@@ -121,6 +173,7 @@ class CombatController(object):
             for entity in team:
                 self.combatStateMap[entity] = EntityCombatState(entity)
                 for skill in entity.availablePassiveSkills:
+                    self._activateImmediateEffects(entity, entity, skill)
                     [self.addSkillEffect(entity, skillEffect) for skillEffect in skill.skillEffects]
 
         self.rng : random.Random = random.Random()
@@ -225,26 +278,37 @@ class CombatController(object):
         isCrit : bool = self.rng.random() <= critChance
         critFactor : float = critDamage if isCrit else 1
 
+        attackAttribute : AttackAttribute = self.combatStateMap[attacker].getCurrentAttackAttribute()
+        bonusWeaknessDamage : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.BONUS_WEAKNESS_DAMAGE)
+        ignoreResistance : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.IGNORE_RESISTANCE)
+        attributeMultiplier : float = self.combatStateMap[defender].getAttributeDamageMultiplier(
+            attackAttribute, bonusWeaknessDamage, ignoreResistance)
+
         damageReduction : float = self.combatStateMap[defender].getTotalStatValueFloat(CombatStats.DAMAGE_REDUCTION)
 
         statRatio : float = attackerOS/defenderDS
         damageFactor : float = 1 - math.exp((statRatio ** DAMAGE_FORMULA_C) * math.log(1 - DAMAGE_FORMULA_K))
         variationFactor : float = self.rng.uniform(0.9, 1.1)
-        return (math.ceil(attackerOS * damageFactor * variationFactor * critFactor * (1 - damageReduction)), isCrit)
+        return (math.ceil(attackerOS * damageFactor * variationFactor * critFactor * attributeMultiplier * (1 - damageReduction)), isCrit)
 
     """
         Makes a target take damage. Returns actual damage taken.
     """
     def applyDamage(self, attacker : CombatEntity, defender : CombatEntity, damageTaken : int) -> int:
+        # If doing anything with attacker, first ensure it's not the same as the defender (e.g. weapon curse)
         originalHP : int = self.combatStateMap[defender].currentHP
         self.combatStateMap[defender].currentHP = max(0, originalHP - damageTaken)
         return originalHP - self.combatStateMap[defender].currentHP
 
     """
-        Makes a target gain health. Returns actual health gained.
+        Makes a target gain health, subject to healing effectiveness. Returns actual health gained.
     """
     def gainHealth(self, entity : CombatEntity, hpGain : int) -> int:
         originalHP : int = self.combatStateMap[entity].currentHP
+
+        healingEffectiveness = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.HEALING_EFFECTIVENESS)
+        hpGain = max(0, math.ceil(hpGain * healingEffectiveness))
+
         self.combatStateMap[entity].currentHP = min(self.getMaxHealth(entity), originalHP + hpGain)
         healthGained : int = self.combatStateMap[entity].currentHP - originalHP
         if healthGained > 0:
@@ -281,6 +345,20 @@ class CombatController(object):
 
     def getMaxMana(self, entity : CombatEntity) -> int:
         return self.combatStateMap[entity].getTotalStatValue(BaseStats.MP)
+    
+    def addWeaknessStacks(self, entity : CombatEntity, attackAttribute : AttackAttribute, numStacks : int) -> None:
+        self.combatStateMap[entity].weaknesses += [attackAttribute] * numStacks
+    
+    def addResistanceStacks(self, entity : CombatEntity, attackAttribute : AttackAttribute, numStacks : int) -> None:
+        self.combatStateMap[entity].resistances += [attackAttribute] * numStacks
+
+    def removeWeaknessStacks(self, entity : CombatEntity, attackAttribute : AttackAttribute, numStacks : int) -> None:
+        for i in range(numStacks):
+            self.combatStateMap[entity].weaknesses.remove(attackAttribute)
+
+    def removeResistanceStacks(self, entity : CombatEntity, attackAttribute : AttackAttribute, numStacks : int) -> None:
+        for i in range(numStacks):
+            self.combatStateMap[entity].resistances.remove(attackAttribute)
 
     """
         Reduce an entity's action timer. Returns updated timer amount.
@@ -329,6 +407,12 @@ class CombatController(object):
     def revertMultStatBonuses(self, entity : CombatEntity, multStatMap : dict[Stats, float]) -> None:
         self.combatStateMap[entity].revertMultStatBonuses(multStatMap)
 
+    def _activateImmediateEffects(self, user : CombatEntity, target : CombatEntity, skill : SkillData):
+        immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, skill.getAllEffectFunctions())
+        for effectFunction in immediateEffects:
+            assert(isinstance(effectFunction, EFImmediate))
+            effectFunction.applyEffect(self, user, target)
+
     """-
         Performs an active skill. Indicates if an attack should begin; otherwise, performs end of action/turn cleanup.
     """
@@ -341,10 +425,7 @@ class CombatController(object):
             else:
                 self.spendMana(user, skill.mpCost)
 
-        immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, skill.getAllEffectFunctions())
-        for effectFunction in immediateEffects:
-            assert(isinstance(effectFunction, EFImmediate))
-            effectFunction.applyEffect(self, user, target)
+        self._activateImmediateEffects(user, target, skill)
 
         # add skill effects to active
         for effect in skill.skillEffects:

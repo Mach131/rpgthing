@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from rpg_consts import *
 from rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
+from rpg_items import Item, Equipment, Weapon
 
 class CombatEntity(object):
     def __init__(self, name : str, passiveSkills : list[SkillData], activeSkills : list[SkillData]) -> None:
@@ -14,6 +15,9 @@ class CombatEntity(object):
 
         self.availablePassiveSkills : list[SkillData] = passiveSkills
         self.availableActiveSkills : list[SkillData] = activeSkills
+
+        self.basicAttackType : AttackType = DEFAULT_ATTACK_TYPE
+        self.basicAttackAttribute : AttackAttribute = DEFAULT_ATTACK_ATTRIBUTE
 
     def __repr__(self) -> str:
         return f"<CombatEntity: {self.name}>"
@@ -62,8 +66,10 @@ class Player(CombatEntity):
 
         self.currentPlayerClass : PlayerClassNames = playerClass
 
+        self.equipment : dict[EquipmentSlot, Equipment] = {}
+
         self._updateBaseStats()
-        self._updateClassSkills()
+        self._updateAvailableSkills()
 
     def _updateBaseStats(self) -> None:
         for baseStat in BaseStats:
@@ -72,7 +78,7 @@ class Player(CombatEntity):
             increment : int = baseStatValues_perLevel[baseStat]
             self.baseStats[baseStat] = base + (level * increment)
 
-    def _updateClassSkills(self) -> None:
+    def _updateAvailableSkills(self) -> None:
         for passiveSkill in self.availablePassiveSkills:
             passiveSkill.disablePassiveBonuses(self)
 
@@ -85,6 +91,11 @@ class Player(CombatEntity):
             else:
                 skillData.enablePassiveBonuses(self)
                 self.availablePassiveSkills.append(skillData)
+
+        for equip in self.equipment.values():
+            for traitSkill in equip.currentTraitSkills:
+                traitSkill.enablePassiveBonuses(self)
+                self.availablePassiveSkills.append(traitSkill)
 
 
     """
@@ -111,3 +122,45 @@ class Player(CombatEntity):
 
         self._updateBaseStats()
         return result
+    
+    """
+        Puts on an item, replacing any item currently equipped in the same slot. Automatically updates
+        stats accordingly, and returns an item if one was unequipped.
+    """
+    def equipItem(self, newEquip: Equipment) -> Equipment | None:
+        equipSlot = newEquip.equipSlot
+        oldEquip : Equipment | None = self.equipment.get(equipSlot, None)
+
+        if oldEquip is not None:
+            oldStatMap = oldEquip.getStatMap()
+            for stat in oldStatMap:
+                self.flatStatMod[stat] -= oldStatMap[stat]
+
+        self.equipment[equipSlot] = newEquip
+        newStatMap = newEquip.getStatMap()
+        for stat in newStatMap:
+            self.flatStatMod[stat] = self.flatStatMod.get(stat, 0) + newStatMap[stat]
+        
+        if equipSlot == EquipmentSlot.WEAPON:
+            assert(isinstance(newEquip, Weapon))
+            self.basicAttackType = weaponTypeAttributeMap[newEquip.weaponType].basicAttackType
+            self.basicAttackAttribute = weaponTypeAttributeMap[newEquip.weaponType].basicAttackAttribute
+
+        self._updateAvailableSkills()
+        return oldEquip
+    """
+        As above, but does not equip a new item as a replacement.
+    """
+    def unequipItem(self, equipSlot : EquipmentSlot) -> Equipment | None:
+        oldEquip : Equipment | None = self.equipment.get(equipSlot, None)
+        if oldEquip is not None:
+            oldStatMap = oldEquip.getStatMap()
+            for stat in oldStatMap:
+                self.flatStatMod[stat] -= oldStatMap[stat]
+        
+        if equipSlot == EquipmentSlot.WEAPON:
+            self.basicAttackType = DEFAULT_ATTACK_TYPE
+            self.basicAttackAttribute = DEFAULT_ATTACK_ATTRIBUTE
+
+        self._updateAvailableSkills()
+        return oldEquip

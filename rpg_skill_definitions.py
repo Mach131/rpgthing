@@ -15,7 +15,7 @@ AttackSkillData("Great Swing", BasePlayerClassNames.WARRIOR, 2, False, 20,
 PassiveSkillData("Endurance", BasePlayerClassNames.WARRIOR, 3, True,
     "Recovers 2% HP at the end of your turn.",
     {}, {}, [SkillEffect([EFAfterNextAttack(
-      lambda controller, user, _1, _2, _3: controller.gainHealth(user, round(controller.getMaxHealth(user) * 0.02))
+      lambda controller, user, _1, _2, _3: void(controller.gainHealth(user, round(controller.getMaxHealth(user) * 0.02)))
     )], None)])
 
 # Rogue
