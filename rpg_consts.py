@@ -208,7 +208,22 @@ weaponTypeAttributeMap = {
                                            [BasePlayerClassNames.MAGE]),
 }
 
-class WeaponClasses(Enum):
+class EquipAttributes(object):
+    def __init__(self, name : str, equipSlot : EquipmentSlot, baseStats: dict[BaseStats, int], bonusTrait : bool) -> None:
+        self.name : str = name
+        self.equipSlot : EquipmentSlot = equipSlot
+        self.baseStats : dict[BaseStats, int] = baseStats.copy()
+        self.bonusTrait : bool = bonusTrait
+
+class WeaponAttributes(EquipAttributes):
+    def __init__(self, name : str, weaponType: WeaponType, baseStats: dict[BaseStats, int]) -> None:
+        super().__init__(name, EquipmentSlot.WEAPON, baseStats, False)
+        self.weaponType : WeaponType = weaponType
+
+class EquipClass(Enum):
+    pass
+
+class WeaponClasses(EquipClass):
     BROADSWORD = auto(),
     KATANA = auto(),
     SABRE = auto(),
@@ -245,14 +260,8 @@ class WeaponClasses(Enum):
     AMULET = auto(),
     CRYSTAL = auto(),
     TOME = auto()
-
-class WeaponAttributes(object):
-    def __init__(self, name : str, weaponType: WeaponType, baseStats: dict[BaseStats, int]) -> None:
-        self.name : str = name
-        self.weaponType : WeaponType = weaponType
-        self.baseStats : dict[BaseStats, int] = baseStats.copy()
-
-weaponClassAttributeMap = {
+    
+weaponClassAttributeMap : dict[WeaponClasses, WeaponAttributes] = {
     WeaponClasses.BROADSWORD: WeaponAttributes("Broadsword", WeaponType.SWORD,
             {BaseStats.ATK: 10, BaseStats.ACC: 10, BaseStats.SPD: 5}),
     WeaponClasses.KATANA: WeaponAttributes("Katana", WeaponType.SWORD,
@@ -327,4 +336,111 @@ weaponClassAttributeMap = {
             {BaseStats.MAG: 9, BaseStats.ACC: 8, BaseStats.SPD: 6}),
 }
 
-EQUIP_CURSE_CHANCE = 0.1
+class HatClasses(EquipClass):
+    ARMET = auto(),
+    KETTLEHELM = auto(),
+    GREATHELM = auto(),
+    CIRCLET = auto(),
+    TOPHAT = auto(),
+    WIZARDHAT = auto(),
+    VISORHELMET = auto(),
+    GLASSES = auto(),
+    PARTEDVEIL = auto(),
+    HELMET = auto(),
+    SLEEPINGCAP = auto()
+
+hatClassAttributeMap : dict[HatClasses, EquipAttributes] = {
+    HatClasses.ARMET: EquipAttributes("Armet", EquipmentSlot.HAT,
+            {BaseStats.HP: 50, BaseStats.DEF: 8}, False),
+    HatClasses.KETTLEHELM: EquipAttributes("Kettle Helm", EquipmentSlot.HAT,
+            {BaseStats.HP: 80, BaseStats.DEF: 2}, False),
+    HatClasses.GREATHELM: EquipAttributes("Great Helm", EquipmentSlot.HAT,
+            {BaseStats.DEF: 12}, False),
+    HatClasses.CIRCLET: EquipAttributes("Circlet", EquipmentSlot.HAT,
+            {BaseStats.MP: 5, BaseStats.RES: 8}, False),
+    HatClasses.TOPHAT: EquipAttributes("Top Hat", EquipmentSlot.HAT,
+            {BaseStats.HP: 20, BaseStats.MP: 5}, False),
+    HatClasses.WIZARDHAT: EquipAttributes("Wizard Hat", EquipmentSlot.HAT,
+            {BaseStats.DEF: 2, BaseStats.RES: 10}, False),
+    HatClasses.VISORHELMET: EquipAttributes("Visor Helmet", EquipmentSlot.HAT,
+            {BaseStats.DEF: 2, BaseStats.ACC: 10}, False),
+    HatClasses.GLASSES: EquipAttributes("Glasses", EquipmentSlot.HAT,
+            {BaseStats.HP: 20, BaseStats.ACC: 8}, False),
+    HatClasses.PARTEDVEIL: EquipAttributes("Parted Veil", EquipmentSlot.HAT,
+            {BaseStats.RES: 2, BaseStats.ACC: 10}, False),
+    HatClasses.HELMET: EquipAttributes("Helmet", EquipmentSlot.HAT,
+            {BaseStats.HP: 10, BaseStats.DEF: 4, BaseStats.RES: 4, BaseStats.ACC: 5}, False),
+    HatClasses.SLEEPINGCAP: EquipAttributes("Sleeping Cap", EquipmentSlot.HAT,
+            {BaseStats.DEF: 4, BaseStats.RES: 4, BaseStats.ACC: 3}, True)
+}
+
+class OverallClasses(EquipClass):
+    PLATEARMOR = auto(),
+    SCALEMAIL = auto(),
+    LEATHERARMOR = auto(),
+    SORCERERCOAT = auto(),
+    LEATHERROBES = auto(),
+    SILKCLOAK = auto(),
+    OUTFIT = auto(),
+    COSTUME = auto()
+
+overallClassAttributeMap : dict[OverallClasses, EquipAttributes] = {
+    OverallClasses.PLATEARMOR: EquipAttributes("Plate Armor", EquipmentSlot.OVERALL,
+            {BaseStats.DEF: 10}, False),
+    OverallClasses.SCALEMAIL: EquipAttributes("Scale Mail", EquipmentSlot.OVERALL,
+            {BaseStats.DEF: 8, BaseStats.SPD: 2}, False),
+    OverallClasses.LEATHERARMOR: EquipAttributes("Leather Armor", EquipmentSlot.OVERALL,
+            {BaseStats.HP: 15, BaseStats.DEF: 6, BaseStats.SPD: 2}, False),
+    OverallClasses.SORCERERCOAT: EquipAttributes("Sorcerer's Coat", EquipmentSlot.OVERALL,
+            {BaseStats.RES: 12}, False),
+    OverallClasses.LEATHERROBES: EquipAttributes("Leather Robes", EquipmentSlot.OVERALL,
+            {BaseStats.MP: 5, BaseStats.RES: 8, BaseStats.SPD: 2}, False),
+    OverallClasses.SILKCLOAK: EquipAttributes("Silk Cloak", EquipmentSlot.OVERALL,
+            {BaseStats.RES: 6, BaseStats.SPD: 4}, False),
+    OverallClasses.OUTFIT: EquipAttributes("Outfit", EquipmentSlot.OVERALL,
+            {BaseStats.DEF: 4, BaseStats.RES: 4, BaseStats.AVO: 3, BaseStats.SPD: 3}, False),
+    OverallClasses.COSTUME: EquipAttributes("Costume", EquipmentSlot.OVERALL,
+            {BaseStats.DEF: 4, BaseStats.RES: 4, BaseStats.SPD: 2}, True)
+}
+
+class ShoeClasses(EquipClass):
+    BALLETSHOES = auto(),
+    MOCCASINS = auto(),
+    SANDALS = auto(),
+    BAREFOOTSHOES = auto(),
+    CUSHIONEDSHOES = auto(),
+    SNEAKERS = auto(),
+    BOOTS = auto(),
+    SLIPPERS = auto()
+
+shoeClassAttributeMap : dict[ShoeClasses, EquipAttributes] = {
+    ShoeClasses.BALLETSHOES: EquipAttributes("Ballet Shoes", EquipmentSlot.SHOES,
+            {BaseStats.AVO: 10}, False),
+    ShoeClasses.MOCCASINS: EquipAttributes("Moccasins", EquipmentSlot.SHOES,
+            {BaseStats.AVO: 6, BaseStats.SPD: 3}, False),
+    ShoeClasses.SANDALS: EquipAttributes("Sandals", EquipmentSlot.SHOES,
+            {BaseStats.AVO: 5, BaseStats.RES: 2, BaseStats.SPD: 2}, False),
+    ShoeClasses.BAREFOOTSHOES: EquipAttributes("Barefoot Shoes", EquipmentSlot.SHOES,
+            {BaseStats.SPD: 6}, False),
+    ShoeClasses.CUSHIONEDSHOES: EquipAttributes("Cushioned Shoes", EquipmentSlot.SHOES,
+            {BaseStats.HP: 15, BaseStats.SPD: 3}, False),
+    ShoeClasses.SNEAKERS: EquipAttributes("Sneakers", EquipmentSlot.SHOES,
+            {BaseStats.ACC: 2, BaseStats.AVO: 2, BaseStats.SPD: 4}, False),
+    ShoeClasses.BOOTS: EquipAttributes("Boots", EquipmentSlot.SHOES,
+            {BaseStats.DEF: 2, BaseStats.RES: 2, BaseStats.AVO: 2, BaseStats.SPD: 2}, False),
+    ShoeClasses.SLIPPERS: EquipAttributes("Slippers", EquipmentSlot.SHOES,
+            {BaseStats.AVO: 2, BaseStats.SPD: 2}, True)
+}
+
+def getEquipClassAttributes(equipClass: EquipClass) -> EquipAttributes:
+    if isinstance(equipClass, WeaponClasses):
+        return weaponClassAttributeMap[equipClass]
+    elif isinstance(equipClass, HatClasses):
+        return hatClassAttributeMap[equipClass]
+    elif isinstance(equipClass, OverallClasses):
+        return overallClassAttributeMap[equipClass]
+    elif isinstance(equipClass, ShoeClasses):
+        return shoeClassAttributeMap[equipClass]
+    assert(False)
+
+EQUIP_CURSE_CHANCE = 0.15

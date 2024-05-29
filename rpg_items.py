@@ -37,7 +37,7 @@ DESCRIPTIVE_ADVERBS = [
     "Extremely", "Exceedingly", "Arguably", "Comparatively", "Consecutively", "Honestly", "Truthfully", "Lovingly", "Perfectly", "Highly",
     "Likely", "Nearly", "Barely", "Least", "Deeply", "Fully", "Completely", "Casually", "Tastefully", "Madly", "Purely", "Privately",
     "Publicly", "Eagerly", "Beautifully", "Proudly", "Elegantly", "Confidently", "Incessantly", "Boldly", "Carefully", "Cautiously",
-    "Carelessly", "Easily", "Awkwardly", "Nearby", "Cheerfully", "Abruptly", "Late", "Everyday", "Soon", "Coldly", "Angrily", "Curiously",
+    "Carelessly", "Easily", "Awkwardly", "Nearby", "Cheerfully", "Abruptly", "Late", "Everyday", "Coldly", "Angrily", "Curiously",
     "Noisily", "Loudly", "Earnestly", "Interestingly", "Readily", "Vaguely", "Unwillingly", "Obediently", "Rapidly", "Continuously",
     "Consciously", "Instinctively", "Boldly", "Brightly", "Cunningly", "Suitably", "Appropriately", "Currently", "Doubtfully", "Ambiguously",
     "Momentarily", "Gently", "Superficially", "Supremely", "Adequately", "Comfortably", "Conveniently", "Generously", "Briefly",
@@ -136,6 +136,12 @@ def makeWeaknessTrait(attribute : AttackAttribute):
                     lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect(
                         [EFImmediate(lambda controller, user, _1, _2: controller.addWeaknessStacks(user, attribute, r+1))], None)], False))
 
+def makeResistanceTrait(attribute : AttackAttribute):
+    attributeString = attribute.name[0] + attribute.name[1:].lower()
+    return EquipmentTrait(lambda r, c: f"Gain {r+1} stack(s) of {attributeString}-attribute resistance.",
+                    lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect(
+                        [EFImmediate(lambda controller, user, _1, _2: controller.addResistanceStacks(user, attribute, r+1))], None)], False))
+
 statHpTrait = makeStatUpTrait(BaseStats.HP, 2)
 statMpTrait = makeStatUpTrait(BaseStats.MP, 3)
 statAtkTrait = makeStatUpTrait(BaseStats.ATK, 5)
@@ -145,6 +151,15 @@ statResTrait = makeStatUpTrait(BaseStats.RES, 6)
 statAccTrait = makeStatUpTrait(BaseStats.ACC, 3)
 statAvoTrait = makeStatUpTrait(BaseStats.AVO, 3)
 statSpdTrait = makeStatUpTrait(BaseStats.SPD, 5)
+
+resistSlashTrait = makeResistanceTrait(PhysicalAttackAttribute.SLASHING)
+resistPierceTrait = makeResistanceTrait(PhysicalAttackAttribute.PIERCING)
+resistCrushTrait = makeResistanceTrait(PhysicalAttackAttribute.CRUSHING)
+resistFireTrait = makeResistanceTrait(MagicalAttackAttribute.FIRE)
+resistIceTrait = makeResistanceTrait(MagicalAttackAttribute.ICE)
+resistWindTrait = makeResistanceTrait(MagicalAttackAttribute.WIND)
+resistLightTrait = makeResistanceTrait(MagicalAttackAttribute.LIGHT)
+resistDarkTrait = makeResistanceTrait(MagicalAttackAttribute.DARK)
 
 """ Use a formatting field in description to indicate the part to replace with the amount. """
 def makeFlatStatBonusTrait(stat: Stats, scaling : int, description : str):
@@ -182,63 +197,72 @@ manaCostCurse = EquipmentTrait(lambda r, c: f"When attacking, spend {r+1}% of yo
     [SkillEffect([EFBeforeNextAttack({}, {},
         lambda controller, user, _1:
             void(controller.spendMana(user, math.ceil(controller.getMaxMana(user) * ((r+1)*0.01)))), None)], None)], False))
-curseTraits : list[EquipmentTrait] = [
-    makeStatDownTrait(BaseStats.HP, 4),
-    makeStatDownTrait(BaseStats.MP, 4),
-    makeStatDownTrait(BaseStats.DEF, 5),
-    makeStatDownTrait(BaseStats.RES, 5),
-    makeStatDownTrait(BaseStats.ACC, 3),
-    makeStatDownTrait(BaseStats.AVO, 3),
-    makeStatDownTrait(BaseStats.SPD, 4),
-    makeWeaknessTrait(PhysicalAttackAttribute.SLASHING),
-    makeWeaknessTrait(PhysicalAttackAttribute.PIERCING),
-    makeWeaknessTrait(PhysicalAttackAttribute.CRUSHING),
-    makeWeaknessTrait(MagicalAttackAttribute.FIRE),
-    makeWeaknessTrait(MagicalAttackAttribute.ICE),
-    makeWeaknessTrait(MagicalAttackAttribute.WIND),
-    makeWeaknessTrait(MagicalAttackAttribute.LIGHT),
-    makeWeaknessTrait(MagicalAttackAttribute.DARK),
-    makeFlatStatBonusTrait(CombatStats.HEALING_EFFECTIVENESS, -6, "Decrease healing effectiveness by {}%."),
-    healthCostCurse,
-    manaCostCurse
-]
 
-# TODO: weakness/resistance traits, append to the maps in state as immediate
-#   (may need to define a revert method for changing equips mid-fight; probably won't be used yet)
+def getCurseTraits(equipType : EquipmentSlot) -> list[EquipmentTrait]:
+    curseTraits = [
+        makeStatDownTrait(BaseStats.HP, 4),
+        makeStatDownTrait(BaseStats.MP, 4),
+        makeStatDownTrait(BaseStats.DEF, 5),
+        makeStatDownTrait(BaseStats.RES, 5),
+        makeStatDownTrait(BaseStats.ACC, 3),
+        makeStatDownTrait(BaseStats.AVO, 3),
+        makeStatDownTrait(BaseStats.SPD, 4),
+        makeWeaknessTrait(PhysicalAttackAttribute.SLASHING),
+        makeWeaknessTrait(PhysicalAttackAttribute.PIERCING),
+        makeWeaknessTrait(PhysicalAttackAttribute.CRUSHING),
+        makeWeaknessTrait(MagicalAttackAttribute.FIRE),
+        makeWeaknessTrait(MagicalAttackAttribute.ICE),
+        makeWeaknessTrait(MagicalAttackAttribute.WIND),
+        makeWeaknessTrait(MagicalAttackAttribute.LIGHT),
+        makeWeaknessTrait(MagicalAttackAttribute.DARK),
+        healthCostCurse,
+        manaCostCurse
+    ]
+    if equipType in [EquipmentSlot.HAT, EquipmentSlot.OVERALL, EquipmentSlot.SHOES]:
+        curseTraits.append(makeFlatStatBonusTrait(CombatStats.HEALING_EFFECTIVENESS, -6, "Decrease healing effectiveness by {}%."))
+    return curseTraits
 
-def getWeaponTraitWeights(rarity : int, hasCurse : bool) -> dict[EquipmentTrait, int]: #TODO: put on correct piece of equipment
+def getEquipTraitWeights(equipType : EquipmentSlot, rarity : int, hasCurse : bool) -> dict[EquipmentTrait, int]: #TODO: put on correct piece of equipment
     return {
-        statHpTrait: 4,
-        statMpTrait: 4,
-        statAtkTrait: 4,
-        statMagTrait: 4,
-        statDefTrait: 4,
-        statResTrait: 4,
-        statAccTrait: 4,
-        statAvoTrait: 4,
-        statSpdTrait: 4,
+        statHpTrait: 4 if equipType in [EquipmentSlot.HAT, EquipmentSlot.OVERALL, EquipmentSlot.SHOES] else 0,
+        statMpTrait: 4 if equipType in [EquipmentSlot.HAT, EquipmentSlot.OVERALL] else 0,
+        statAtkTrait: 4 if equipType is EquipmentSlot.WEAPON else 0,
+        statMagTrait: 4 if equipType is EquipmentSlot.WEAPON else 0,
+        statDefTrait: 4 if equipType is EquipmentSlot.OVERALL else 0,
+        statResTrait: 4 if equipType is EquipmentSlot.OVERALL else 0,
+        statAccTrait: 4 if equipType is EquipmentSlot.HAT else 0,
+        statAvoTrait: 4 if equipType is EquipmentSlot.SHOES else 0,
+        statSpdTrait: 4 if equipType is EquipmentSlot.SHOES else 0,
+        resistSlashTrait: 1 if equipType is EquipmentSlot.OVERALL else 0,
+        resistPierceTrait: 1 if equipType is EquipmentSlot.OVERALL else 0,
+        resistCrushTrait: 1 if equipType is EquipmentSlot.OVERALL else 0,
+        resistFireTrait: 1 if equipType is EquipmentSlot.OVERALL else 0,
+        resistIceTrait: 1 if equipType is EquipmentSlot.OVERALL else 0,
+        resistWindTrait: 1 if equipType is EquipmentSlot.OVERALL else 0,
+        resistLightTrait: 1 if equipType is EquipmentSlot.OVERALL else 0,
+        resistDarkTrait: 1 if equipType is EquipmentSlot.OVERALL else 0,
         bonusWeaknessTrait: 3,
         ignoreResistanceTrait: 3,
         critRateTrait: 3,
         critDamageTrait: 3,
         aggroIncreaseTrait: 2,
         aggroDecreaseTrait: 2,
-        healthDrainTrait: 3 if hasCurse else 0,
-        manaGainTrait: 3 if (hasCurse and rarity >= 2) else 0
+        healthDrainTrait: 2 if (equipType is EquipmentSlot.WEAPON and hasCurse) else 0,
+        manaGainTrait: 2 if (equipType is EquipmentSlot.WEAPON and hasCurse and rarity >= 2) else 0
     }
 
-def generateWeapon(rarity : int, rank : int, weapon : None | WeaponClasses = None) -> Weapon:
-    weaponClass : WeaponClasses | None = weapon
-    if weaponClass is None:
-        weaponClass = random.choice([weaponClass for weaponClass in WeaponClasses])
-    weaponAttributes : WeaponAttributes = weaponClassAttributeMap[weaponClass]
+def generateEquip(rarity : int, rank : int, equipClass : EquipClass) -> Equipment:
+    equipClassAttributes = getEquipClassAttributes(equipClass)
+    equipSlot = equipClassAttributes.equipSlot
 
     curseTrait : EquipmentTrait | None = None
-    numTraits : int = 4 # TODO: math.ceil((rarity + 1)/2)
+    numTraits : int = math.ceil((rarity + 1)/2) if equipSlot is EquipmentSlot.WEAPON else math.ceil((rarity+1)/3)
+    if equipClassAttributes.bonusTrait:
+        numTraits += 1
     
     if random.random() <= EQUIP_CURSE_CHANCE:
-        curseTrait = random.choice(curseTraits)
-    traitMap = getWeaponTraitWeights(rarity, curseTrait is not None)
+        curseTrait = random.choice(getCurseTraits(equipSlot))
+    traitMap = getEquipTraitWeights(equipSlot, rarity, curseTrait is not None)
     traitList = np.array(list(traitMap.keys()))
     traitWeights = np.array(list(traitMap.values()))
     traitWeights = traitWeights / sum(traitWeights)
@@ -247,7 +271,32 @@ def generateWeapon(rarity : int, rank : int, weapon : None | WeaponClasses = Non
     adverbCount = math.floor(rarity/2)
     descriptors = random.sample(DESCRIPTIVE_ADVERBS, adverbCount)
     descriptors.append(random.choice(DESCRIPTIVE_ADJECTIVES))
-    fullName = f"{' '.join(descriptors)} {weaponAttributes.name}"
-    return Weapon(fullName, weaponAttributes.weaponType, weaponAttributes.baseStats,
-                  curseTrait, traits, rarity, rank)
+    fullName = f"{' '.join(descriptors)} {equipClassAttributes.name}"
+    if isinstance(equipClassAttributes, WeaponAttributes):
+        return Weapon(fullName, equipClassAttributes.weaponType, equipClassAttributes.baseStats,
+                      curseTrait, traits, rarity, rank)
+    else:
+        return Equipment(fullName, equipSlot, equipClassAttributes.baseStats,
+                         curseTrait, traits, rarity, rank)
+
+def generateWeapon(rarity : int, rank : int, weaponClass : None | WeaponClasses = None) -> Equipment:
+    if weaponClass is None:
+        weaponClass = random.choice([weaponClass for weaponClass in WeaponClasses])
+    return generateEquip(rarity, rank, weaponClass)
+
+def generateHat(rarity : int, rank : int, hatClass : None | HatClasses = None) -> Equipment:
+    if hatClass is None:
+        hatClass = random.choice([hatClass for hatClass in HatClasses])
+    return generateEquip(rarity, rank, hatClass)
+
+def generateOverall(rarity : int, rank : int, overallClass : None | OverallClasses = None) -> Equipment:
+    if overallClass is None:
+        overallClass = random.choice([overallClass for overallClass in OverallClasses])
+    return generateEquip(rarity, rank, overallClass)
+
+def generateShoes(rarity : int, rank : int, shoeClass : None | ShoeClasses = None) -> Equipment:
+    if shoeClass is None:
+        shoeClass = random.choice([shoeClass for shoeClass in ShoeClasses])
+    return generateEquip(rarity, rank, shoeClass)
+    
 

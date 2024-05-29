@@ -148,15 +148,22 @@ class PlayerInputHandler(CombatInputHandler):
             print(f"Time to next action: {nextActionTime:.3f}")
         print()
 
-def rerollWeapon(player : Player):
+def rerollWeapon(player : Player, testRarity : int = 0):
     weaponClass = random.choice(list(filter(
         lambda wc: player.currentPlayerClass in weaponTypeAttributeMap[weaponClassAttributeMap[wc].weaponType].permittedClasses,
         [weaponClass for weaponClass in WeaponClasses])))
-    newWeapon = generateWeapon(0, 10, weaponClass)
+    newWeapon = generateWeapon(testRarity, 10, weaponClass)
     print(newWeapon.getDescription())
     player.equipItem(newWeapon)
 
+def rerollOtherEquips(player : Player, testRarity : int = 0):
+    for drip in [generateHat(testRarity, 10), generateOverall(testRarity, 10), generateShoes(testRarity, 10)]:
+        print(drip.getDescription())
+        player.equipItem(drip)
+
 if __name__ == '__main__':
+    testRarity = 4
+
     p1 = Player("me", BasePlayerClassNames.WARRIOR)
     p1.playerLevel = 3
     p1.freeStatPoints = 12
@@ -164,7 +171,8 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,])
     p1.classRanks[BasePlayerClassNames.WARRIOR] = 3
-    rerollWeapon(p1)
+    rerollWeapon(p1, testRarity)
+    rerollOtherEquips(p1, testRarity)
     # p1._updateAvailableSkills()
     print()
 
@@ -175,7 +183,8 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP,
                          BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
     p2.classRanks[BasePlayerClassNames.ROGUE] = 3
-    rerollWeapon(p2)
+    rerollWeapon(p2, testRarity)
+    rerollOtherEquips(p2, testRarity)
     # p2._updateAvailableSkills()
     print()
 
