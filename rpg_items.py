@@ -114,8 +114,15 @@ class Equipment(Item):
 class Weapon(Equipment):
     def __init__(self, name : str, weaponType : WeaponType, baseStats : dict[BaseStats, int],
                 curse : EquipmentTrait | None, traits : list[EquipmentTrait], rarity : int, rank : int) -> None:
+        weaponRange = weaponTypeAttributeMap[weaponType].maxRange
+        self.rangeSkill = PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {CombatStats.RANGE: weaponRange}, {}, [], False)
+
         super().__init__(name, EquipmentSlot.WEAPON, baseStats, curse, traits, rarity, rank)
         self.weaponType : WeaponType = weaponType
+
+    def reloadTraitSkills(self):
+        super().reloadTraitSkills()
+        self.currentTraitSkills.append(self.rangeSkill)
 
 # Weapon/trait definition; move later?
 
@@ -138,9 +145,10 @@ def makeWeaknessTrait(attribute : AttackAttribute):
 
 def makeResistanceTrait(attribute : AttackAttribute):
     attributeString = attribute.name[0] + attribute.name[1:].lower()
-    return EquipmentTrait(lambda r, c: f"Gain {r+1} stack(s) of {attributeString}-attribute resistance.",
+    return EquipmentTrait(lambda r, c: f"Gain {r+1+(1 if c else 0)} stack(s) of {attributeString}-attribute resistance.",
                     lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect(
-                        [EFImmediate(lambda controller, user, _1, _2: controller.addResistanceStacks(user, attribute, r+1))], None)], False))
+                        [EFImmediate(lambda controller, user, _1, _2: controller.addResistanceStacks(user, attribute, r+1+(1 if c else 0)))],
+                        None)], False))
 
 statHpTrait = makeStatUpTrait(BaseStats.HP, 2)
 statMpTrait = makeStatUpTrait(BaseStats.MP, 3)

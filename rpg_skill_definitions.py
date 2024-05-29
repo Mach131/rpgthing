@@ -29,8 +29,9 @@ AttackSkillData("Swift Strike", BasePlayerClassNames.ROGUE, 2, False, 10,
     True, 0.7, DEFAULT_ATTACK_TIMER_USAGE / 2, [])
 
 def illusionFn(controller, user, attacker, attackInfo, _2):
-    if not attackInfo.attackHit:
-        counterData = CounterSkillData(True, 0.7, [])
+    if attackInfo.inRange and not attackInfo.attackHit:
+        counterData = CounterSkillData(True, 0.7,
+                                       [SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)])
         attackInfo.addBonusAttack(user, attacker, counterData)
 PassiveSkillData("Illusion", BasePlayerClassNames.ROGUE, 3, True,
     "When dodging an enemy in range, counter with 0.7x ATK.",

@@ -53,15 +53,24 @@ class EntityCombatState(object):
         statString = {stat: self.getFullStatusStatString(stat) for stat in BaseStats}
         return f"""{self.getStateOverviewString()}
 ATK: {statString[BaseStats.ATK]}, DEF: {statString[BaseStats.DEF]}, MAG: {statString[BaseStats.MAG]}, RES: {statString[BaseStats.RES]}
-ACC: {statString[BaseStats.ACC]}, AVO: {statString[BaseStats.AVO]}, SPD: {statString[BaseStats.SPD]}"""
+ACC: {statString[BaseStats.ACC]}, AVO: {statString[BaseStats.AVO]}, SPD: {statString[BaseStats.SPD]}
+Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFullStatusPercentStatString(CombatStats.CRIT_RATE)}, Crit Damage: {self.getFullStatusPercentStatString(CombatStats.CRIT_DAMAGE)}"""
 
-    def getFullStatusStatString(self, stat : BaseStats) -> str:
+    def getFullStatusStatString(self, stat : Stats) -> str:
         baseStatValue = self.entity.getStatValue(stat)
         totalStatValue = self.getTotalStatValue(stat)
         if baseStatValue == totalStatValue:
             return str(totalStatValue)
         else:
             return f"{totalStatValue} ({baseStatValue})"
+        
+    def getFullStatusPercentStatString(self, stat : CombatStats) -> str:
+        baseStatValue = self.entity.getStatValueFloat(stat)
+        totalStatValue = self.getTotalStatValueFloat(stat)
+        if baseStatValue == totalStatValue:
+            return f"{totalStatValue*100:.1f}%"
+        else:
+            return f"{totalStatValue*100:.1f}% ({baseStatValue*100:.1f}%)"
 
     """ Given that action timer fills at a rate speed ** 0.5, gets time until it reaches the maximum. """
     def getTimeToFullAction(self) -> float:
@@ -236,6 +245,9 @@ class CombatController(object):
         Returns None if the given entities are invalid.
     """
     def updateDistance(self, entity1 : CombatEntity, entity2 : CombatEntity, newDistance : int) -> int | None:
+        if newDistance > MAX_DISTANCE:
+            newDistance = MAX_DISTANCE
+
         teamValidator = self._separateTeamValidator(entity1, entity2)
         if teamValidator is None:
             return None
@@ -413,12 +425,33 @@ class CombatController(object):
             assert(isinstance(effectFunction, EFImmediate))
             effectFunction.applyEffect(self, user, target)
 
+    """
+        Performs a repositioning action, performing end-of-turn cleanup.
+        Returns a map of changed distances to targets, from the user's perspective.
+        If the result is empty, the reposition failed.
+    """
+    def performReposition(self, user : CombatEntity, target : CombatEntity, distanceChange : int) -> dict[CombatEntity, int]:
+        if distanceChange > MAX_SINGLE_REPOSITION:
+            distanceChange = MAX_SINGLE_REPOSITION
+        if distanceChange < -MAX_SINGLE_REPOSITION:
+            distanceChange = -MAX_SINGLE_REPOSITION
+
+        oldDistance = self.checkDistance(user, target)
+        if oldDistance is None:
+            return {}
+        newDistance = self.updateDistance(user, target, oldDistance + distanceChange)
+        if newDistance is None:
+            return {}
+        
+        self.spendActionTimer(user, DEFAULT_REPOSITION_TIMER_USAGE * abs(distanceChange))
+        self._endPlayerTurn(user)
+
+        return {target: newDistance}
+
     """-
         Performs an active skill. Indicates if an attack should begin; otherwise, performs end of action/turn cleanup.
     """
     def performActiveSkill(self, user : CombatEntity, target : CombatEntity, skill : SkillData) -> ActionResultInfo:
-        # TODO: also do range check here
-
         if skill.mpCost is not None:
             if self.combatStateMap[user].currentMP < skill.mpCost:
                 return ActionResultInfo(ActionSuccessState.FAILURE_MANA, False)
@@ -442,8 +475,6 @@ class CombatController(object):
         Performs all steps of an attack, modifying HP, Action Timers, etc. as needed.
     """
     def performAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool) -> AttackResultInfo:
-        # TODO: range check here?
-
         # initial attack
         attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, isBasic)
         self._cleanupEffects(attacker)
@@ -461,20 +492,27 @@ class CombatController(object):
         return attackResultInfo
     
     def _doSingleAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool) -> AttackResultInfo:
-        # TODO: range check here?
+        inRange = True
 
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
             effectFunction.applyEffect(self, attacker, defender)
 
+        distance = self.checkDistance(attacker, defender)
+        if distance is None:
+            inRange = False
+        elif self.combatStateMap[attacker].getTotalStatValue(CombatStats.IGNORE_RANGE_CHECK) == 0:
+            if self.combatStateMap[attacker].getTotalStatValue(CombatStats.RANGE) < distance:
+                inRange = False
+
         checkHit : bool = self.rollForHit(attacker, defender)
         damageDealt : int = 0
         isCritical : bool = False
-        if checkHit:
+        if inRange and checkHit:
             damage, isCritical = self.rollForDamage(attacker, defender, isPhysical)
             damageDealt = self.applyDamage(attacker, defender, damage)
 
-        attackResultInfo = AttackResultInfo(attacker, defender, checkHit, damageDealt, isCritical)
+        attackResultInfo = AttackResultInfo(attacker, defender, inRange, checkHit, damageDealt, isCritical)
 
         actionTimerUsage : float = DEFAULT_ATTACK_TIMER_USAGE
         actionTimeMult : float = 1
@@ -518,9 +556,11 @@ class ActionResultInfo(object):
         self.startAttack : bool = startAttack
 
 class AttackResultInfo(object):
-    def __init__(self, attacker : CombatEntity, defender : CombatEntity, attackHit : bool, damageDealt : int, isCritical : bool) -> None:
+    def __init__(self, attacker : CombatEntity, defender : CombatEntity, inRange : bool,
+                 attackHit : bool, damageDealt : int, isCritical : bool) -> None:
         self.attacker : CombatEntity = attacker
         self.defender : CombatEntity = defender
+        self.inRange : bool = inRange
         self.attackHit : bool = attackHit
         self.damageDealt : int = damageDealt
         self.isCritical : bool = isCritical

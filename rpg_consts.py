@@ -23,6 +23,7 @@ class CombatStats(Stats):
     CRIT_DAMAGE = auto()
     AGGRO_MULT = auto()
     RANGE = auto()
+    IGNORE_RANGE_CHECK = auto()
     DAMAGE_REDUCTION = auto()
     WEAKNESS_MODIFIER = auto()
     RESISTANCE_MODIFIER = auto()
@@ -35,6 +36,7 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.CRIT_DAMAGE: 2.5,
     CombatStats.AGGRO_MULT: 1,
     CombatStats.RANGE: 0,
+    CombatStats.IGNORE_RANGE_CHECK: 0,
     CombatStats.DAMAGE_REDUCTION: 0,
     CombatStats.WEAKNESS_MODIFIER: 0.2,
     CombatStats.RESISTANCE_MODIFIER: 0.2,
@@ -101,6 +103,10 @@ class EffectTimings(Enum):
 """ Combat """
 MAX_ACTION_TIMER = 100
 DEFAULT_ATTACK_TIMER_USAGE = 70
+DEFAULT_REPOSITION_TIMER_USAGE = 50
+
+MAX_SINGLE_REPOSITION = 2
+MAX_DISTANCE = 3
 
 BASIC_ATTACK_MP_GAIN = 4
 
