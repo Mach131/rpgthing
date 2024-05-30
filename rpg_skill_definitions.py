@@ -73,7 +73,41 @@ AttackSkillData("Magic Missile", BasePlayerClassNames.MAGE, 2, False, 15,
     False, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)])
 
 PassiveSkillData("Mana Flow", BasePlayerClassNames.MAGE, 3, True,
-    "When attacking, restore MP equal to 5%% of the damge you deal (max 30).",
+    "When attacking, restore MP equal to 5% of the damge you deal (max 30).",
     {}, {}, [SkillEffect([EFAfterNextAttack(
         lambda controller, user, _1, attackInfo, _2: void(controller.gainMana(user, min(math.ceil(attackInfo.damageDealt * 0.05), 30)))
+    )], None)])
+
+
+####
+
+# Mercenary
+
+PassiveSkillData("Mercenary's Strength", AdvancedPlayerClassNames.MERCENARY, 1, False,
+    "Increases ATK by 15% and ACC by 10%.",
+    {}, {BaseStats.ATK: 1.15, BaseStats.ACC: 1.10}, [])
+
+AttackSkillData("Sweeping Blow", AdvancedPlayerClassNames.MERCENARY, 2, False, 30,
+    "Attack with 0.8x ATK, reducing DEF of the target by 15% on hit.",
+    True, 0.8, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFAfterNextAttack(
+        lambda controller, _1, target, attackInfo, _2:
+            controller.applyMultStatBonuses(target, {BaseStats.DEF: 0.85}) if attackInfo.attackHit else None
+    )], 0)])
+
+
+def confrontationFn(controller, user, target, revert):
+    if revert: # check if was initially at range 0
+        if controller.combatStateMap[user].getTotalStatValue(CombatStats.FLAG_CONFRONT) == 0:
+            return
+    else: # check if currently at range 0
+        if controller.checkDistance(user, target) > 0:
+            return
+    amount = 1.1 if not revert else 1/1.1
+    controller.applyMultStatBonuses(user, {BaseStats.ATK: amount, BaseStats.ACC: amount})
+    controller.applyFlatStatBonuses(user, {CombatStats.FLAG_CONFRONT: 1 if not revert else -1})
+PassiveSkillData("Confrontation", AdvancedPlayerClassNames.MERCENARY, 3, True,
+    "When attacking at distance 0, increase ATK and ACC by 10%.",
+    {}, {}, [SkillEffect([EFBeforeNextAttack({}, {},
+                    lambda controller, user, target: confrontationFn(controller, user, target, False),
+                    lambda controller, user, target, _: confrontationFn(controller, user, target, True)
     )], None)])

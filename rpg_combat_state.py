@@ -5,7 +5,7 @@ import math
 
 from rpg_consts import *
 from rpg_classes_skills import SkillData, AttackSkillData, SkillEffect, \
-    EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked
+    EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, EFOnDistanceChange
 
 if TYPE_CHECKING:
     from rpg_combat_entity import CombatEntity
@@ -260,7 +260,17 @@ class CombatController(object):
         if teamValidator is None:
             return None
         player, opponent = teamValidator
+        oldDistance = self.distanceMap[player][opponent]
         self.distanceMap[player][opponent] = newDistance
+
+        # TODO: may need to do something with result
+        for effectFunction in self.combatStateMap[entity1].getEffectFunctions(EffectTimings.ON_REPOSITION):
+            assert(isinstance(effectFunction, EFOnDistanceChange))
+            effectFunction.applyEffect(self, entity1, entity2, True, oldDistance, newDistance)
+        for effectFunction in self.combatStateMap[entity2].getEffectFunctions(EffectTimings.ON_REPOSITION):
+            assert(isinstance(effectFunction, EFOnDistanceChange))
+            effectFunction.applyEffect(self, entity1, entity2, False, oldDistance, newDistance)
+
         return self.distanceMap[player][opponent]
 
     """

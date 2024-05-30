@@ -31,6 +31,7 @@ class CombatStats(Stats):
     IGNORE_RESISTANCE = auto()
     HEALING_EFFECTIVENESS = auto()
     ACCURACY_DISTANCE_MOD = auto()
+    FLAG_CONFRONT = auto()
 
 baseCombatStats : dict[CombatStats, float] = {
     CombatStats.CRIT_RATE: 0.1,
@@ -44,7 +45,8 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.BONUS_WEAKNESS_DAMAGE: 0,
     CombatStats.IGNORE_RESISTANCE: 0,
     CombatStats.HEALING_EFFECTIVENESS: 1,
-    CombatStats.ACCURACY_DISTANCE_MOD: 2
+    CombatStats.ACCURACY_DISTANCE_MOD: 2,
+    CombatStats.FLAG_CONFRONT: 0
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -94,6 +96,8 @@ class AdvancedPlayerClassNames(PlayerClassNames):
 MAX_BASE_CLASS_RANK = 3
 MAX_ADVANCED_CLASS_RANK = 9
 
+MAX_FREE_SKILLS = 4
+
 """ Effects """
 
 class EffectTimings(Enum):
@@ -101,6 +105,7 @@ class EffectTimings(Enum):
     BEFORE_ATTACK = auto()
     AFTER_ATTACK = auto()
     WHEN_ATTACKED = auto()
+    ON_REPOSITION = auto()
 
 """ Combat """
 MAX_ACTION_TIMER = 100

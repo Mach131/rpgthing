@@ -3,7 +3,7 @@ import random
 
 from rpg_consts import *
 from rpg_combat_entity import CombatEntity, Player
-from rpg_classes_skills import AttackSkillData, SkillData
+from rpg_classes_skills import AttackSkillData, PlayerClassData, SkillData
 from rpg_combat_state import CombatController, ActionResultInfo, AttackResultInfo
 from rpg_items import * # TODO
 
@@ -203,7 +203,8 @@ class PlayerInputHandler(CombatInputHandler):
 
 def rerollWeapon(player : Player, testRarity : int = 0):
     weaponClass = random.choice(list(filter(
-        lambda wc: player.currentPlayerClass in weaponTypeAttributeMap[weaponClassAttributeMap[wc].weaponType].permittedClasses,
+        lambda wc: any([baseClass in weaponTypeAttributeMap[weaponClassAttributeMap[wc].weaponType].permittedClasses
+                        for baseClass in PlayerClassData.getBaseClasses(player.currentPlayerClass)]),
         [weaponClass for weaponClass in WeaponClasses])))
     newWeapon = generateWeapon(testRarity, 10, weaponClass)
     print(newWeapon.getDescription())
@@ -263,7 +264,8 @@ if __name__ == '__main__':
     rerollOtherEquips(p4, testRarity)
     print()
 
-    simpleCombatSimulation([p1, p2], [p3, p4], 2)
+    # simpleCombatSimulation([p1], [p3], 0)
+    # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:
         inp = input("> ")

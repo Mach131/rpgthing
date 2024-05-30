@@ -31,18 +31,59 @@ class PlayerClassData(object):
             return True
         return False
 
-    """ Provides a list of all of this class's skills, up to the given rank. """
+    """
+        Provides a list of all of this class's skills, up to the given rank.
+        Also includes all skills for required classes.
+    """
     @staticmethod
-    def getSkillsForRank(className : PlayerClassNames, rank : int) -> list[SkillData]:
+    def getSkillsForRank(className : PlayerClassNames, rank : int, _all : bool = False) -> list[SkillData]:
         classData : PlayerClassData = PlayerClassData.PLAYER_CLASS_DATA_MAP[className]
         results : list[SkillData] = []
 
+        for requiredClass in classData.classRequirements:
+            results += PlayerClassData.getSkillsForRank(requiredClass, 9, True)
+
         maxRank : int = MAX_BASE_CLASS_RANK if classData.isBaseClass else MAX_ADVANCED_CLASS_RANK
+        if _all:
+            rank = maxRank
         for i in range(1, min(maxRank, rank) + 1):
             if i in classData.rankSkills:
                 results.append(classData.rankSkills[i])
 
         return results
+
+    """ Gets the free skill for a specific rank. Returns None if it is not a free skill. """
+    @staticmethod
+    def getFreeSkillForRank(className : PlayerClassNames, rank : int) -> SkillData | None:
+        classData : PlayerClassData = PlayerClassData.PLAYER_CLASS_DATA_MAP[className]
+        if rank in classData.rankSkills:
+            rankSkill = classData.rankSkills[rank]
+            if rankSkill.isFreeSkill:
+                return rankSkill
+        return None
+    
+    """ Gets the base classes a class requires (indicating which weapons it can use, for instance). """
+    @staticmethod
+    def getBaseClasses(className : PlayerClassNames) -> list[BasePlayerClassNames]:
+        classData : PlayerClassData = PlayerClassData.PLAYER_CLASS_DATA_MAP[className]
+        if classData.isBaseClass:
+            assert(isinstance(classData.className, BasePlayerClassNames))
+            return [classData.className]
+        else:
+            result = []
+            for requiredClass in classData.classRequirements:
+                result += PlayerClassData.getBaseClasses(requiredClass)
+            return result
+    
+    """ Gets all classes a class depends on (including itself), rather than just the base classes. """
+    @staticmethod
+    def getAllClassDependencies(className : PlayerClassNames) -> list[PlayerClassNames]:
+        classData : PlayerClassData = PlayerClassData.PLAYER_CLASS_DATA_MAP[className]
+        result = [className]
+        for requiredClass in classData.classRequirements:
+            result += PlayerClassData.getAllClassDependencies(requiredClass)
+        return result
+
 
 classDataList = [
     PlayerClassData(BasePlayerClassNames.WARRIOR, []),
@@ -225,6 +266,18 @@ class EFWhenAttacked(EffectFunction):
             attackResultInfo : AttackResultInfo) -> EffectFunctionResult:
         result = EffectFunctionResult()
         self.func(controller, user, attacker, attackResultInfo, result)
+        return result
+
+"""A reaction to the distance to a target being changed."""
+class EFOnDistanceChange(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, bool, int, int, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.ON_REPOSITION)
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity, bool, int, int, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity,
+            userMoved : bool, initialDistance : int, finalDistance : int) -> EffectFunctionResult:
+        result = EffectFunctionResult()
+        self.func(controller, user, target, userMoved, initialDistance, finalDistance, result)
         return result
 
 class EffectFunctionResult(object):
