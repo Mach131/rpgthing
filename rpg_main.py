@@ -63,6 +63,10 @@ class CombatInputHandler(object):
         for changedTarget in changedDistances:
             print (f"Distance to {changedTarget.name} is now {changedDistances[changedTarget]}.")
         return True
+    
+    def doDefend(self, combatController : CombatController) -> None:
+        combatController.performDefend(self.entity)
+        print (f"{self.entity.name} defends against the next attack!")
 
 class PlayerInputHandler(CombatInputHandler):
     def __init__(self, player : Player):
@@ -72,7 +76,7 @@ class PlayerInputHandler(CombatInputHandler):
     def takeTurn(self, combatController : CombatController):
         while True:
             targetList = combatController.getTargets(self.player)
-            print(f"What will {self.player.name} do? (attack, skill, approach, retreat, check)")
+            print(f"What will {self.player.name} do? (attack, skill, approach, retreat, defend, check)")
             inp : str = input(">>> ")
 
             inpSplit = inp.strip().split()
@@ -167,6 +171,10 @@ class PlayerInputHandler(CombatInputHandler):
                     except IndexError:
                         print(f"Invalid target or amount; use 'retreat [targetIndices...] [amount]' (there are currently {len(targetList)} targetable enemies).")
 
+            elif command == "defend":
+                self.doDefend(combatController)
+                return
+
             elif command == "check":
                 if len(inpSplit) == 1:
                     self.doCheck(combatController, self.player)
@@ -183,6 +191,7 @@ class PlayerInputHandler(CombatInputHandler):
                         print(f"Invalid target; use 'check [index]'.")
                     except IndexError:
                         print(f"Invalid target; there are currently {len(targetList)} targetable enemies.")
+
             else:
                 print("Command not recognized; try again.")
 
@@ -225,6 +234,8 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,])
     p1.classRanks[BasePlayerClassNames.WARRIOR] = 3
+    p1.changeClass(AdvancedPlayerClassNames.MERCENARY)
+    [p1.rankUp() for i in range(2)]
     rerollWeapon(p1, testRarity)
     rerollOtherEquips(p1, testRarity)
     # p1._updateAvailableSkills()
@@ -264,7 +275,7 @@ if __name__ == '__main__':
     rerollOtherEquips(p4, testRarity)
     print()
 
-    # simpleCombatSimulation([p1], [p3], 0)
+    simpleCombatSimulation([p1], [p2], 0)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

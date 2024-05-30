@@ -118,7 +118,12 @@ MAX_SINGLE_REPOSITION = 2
 MAX_DISTANCE = 3
 DEFAULT_STARTING_DISTANCE = 2
 
+DEFEND_DAMAGE_MULTIPLIER = 0.75
+
 BASIC_ATTACK_MP_GAIN = 4
+REPOSITION_MP_GAIN = 2
+DEFEND_MP_GAIN = 3
+DEFEND_HIT_MP_GAIN = 2
 
 DAMAGE_FORMULA_K = 0.5 # ratio when attack = defense
 DAMAGE_FORMULA_C = 2.0 # scaling, higher means a steeper dropoff/alignment as ratio increases/decreases

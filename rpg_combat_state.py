@@ -28,6 +28,8 @@ class EntityCombatState(object):
 
         self.activeSkillEffects: dict[SkillEffect, int] = {}
 
+        self.defendActive : bool = False
+
     def _adjustCurrentValues(self):
         if self.currentHP > self.getTotalStatValue(BaseStats.HP):
             self.currentHP = self.getTotalStatValue(BaseStats.HP)
@@ -315,11 +317,17 @@ class CombatController(object):
             attackAttribute, bonusWeaknessDamage, ignoreResistance)
 
         damageReduction : float = self.combatStateMap[defender].getTotalStatValueFloat(CombatStats.DAMAGE_REDUCTION)
+        defenseReduction : float = 1
+        if self.combatStateMap[defender].defendActive:
+            defenseReduction *= DEFEND_DAMAGE_MULTIPLIER
+            self.gainMana(defender, DEFEND_HIT_MP_GAIN)
+            self.combatStateMap[defender].defendActive = False
 
         statRatio : float = attackerOS/defenderDS
         damageFactor : float = 1 - math.exp((statRatio ** DAMAGE_FORMULA_C) * math.log(1 - DAMAGE_FORMULA_K))
         variationFactor : float = self.rng.uniform(0.9, 1.1)
-        return (math.ceil(attackerOS * damageFactor * variationFactor * critFactor * attributeMultiplier * (1 - damageReduction)), isCrit)
+        return (math.ceil(attackerOS * damageFactor * variationFactor * critFactor * attributeMultiplier
+                          * (1 - damageReduction) * defenseReduction), isCrit)
 
     """
         Makes a target take damage. Returns actual damage taken.
@@ -449,6 +457,8 @@ class CombatController(object):
         If the result is empty, the reposition failed.
     """
     def performReposition(self, user : CombatEntity, targets : list[CombatEntity], distanceChange : int) -> dict[CombatEntity, int]:
+        self._beginPlayerTurn(user)
+
         if distanceChange > MAX_SINGLE_REPOSITION:
             distanceChange = MAX_SINGLE_REPOSITION
         if distanceChange < -MAX_SINGLE_REPOSITION:
@@ -469,15 +479,30 @@ class CombatController(object):
             newDistances[target] = self.updateDistance(user, target, oldDistances[target] + distanceChange)
             assert(newDistances[target] is not None)
 
+        self.gainMana(user, REPOSITION_MP_GAIN)
         self.spendActionTimer(user, timerCost)
         self._endPlayerTurn(user)
 
         return newDistances
 
+    """
+        Performs a defend action, performing end-of-turn cleanup.
+    """
+    def performDefend(self, user : CombatEntity) -> None:
+        self._beginPlayerTurn(user)
+
+        self.combatStateMap[user].defendActive = True
+
+        self.gainMana(user, DEFEND_MP_GAIN)
+        self.spendActionTimer(user, MAX_ACTION_TIMER)
+        self._endPlayerTurn(user)
+
     """-
         Performs an active skill. Indicates if an attack should begin; otherwise, performs end of action/turn cleanup.
     """
     def performActiveSkill(self, user : CombatEntity, target : CombatEntity, skill : SkillData) -> ActionResultInfo:
+        self._beginPlayerTurn(user)
+
         if skill.mpCost is not None:
             if self.combatStateMap[user].currentMP < skill.mpCost:
                 return ActionResultInfo(ActionSuccessState.FAILURE_MANA, False)
@@ -501,6 +526,9 @@ class CombatController(object):
         Performs all steps of an attack, modifying HP, Action Timers, etc. as needed.
     """
     def performAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool) -> AttackResultInfo:
+        if isBasic:
+            self._beginPlayerTurn(attacker)
+
         # initial attack
         attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, isBasic)
         self._cleanupEffects(attacker)
@@ -568,6 +596,12 @@ class CombatController(object):
     def _cleanupEffects(self, player) -> None:
         for expiredEffect in self.combatStateMap[player].durationCheck():
             self.removeSkillEffect(player, expiredEffect)
+
+    """
+        Cleanup for beginning of turn. At the moment, just disables defend.
+    """
+    def _beginPlayerTurn(self, player) -> None:
+        self.combatStateMap[player].defendActive = False
 
     """
         Cleanup for end of turn. At the moment, just decreases effect durations.
