@@ -30,6 +30,7 @@ class CombatStats(Stats):
     BONUS_WEAKNESS_DAMAGE = auto()
     IGNORE_RESISTANCE = auto()
     HEALING_EFFECTIVENESS = auto()
+    ACCURACY_DISTANCE_MOD = auto()
 
 baseCombatStats : dict[CombatStats, float] = {
     CombatStats.CRIT_RATE: 0.1,
@@ -42,7 +43,8 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.RESISTANCE_MODIFIER: 0.2,
     CombatStats.BONUS_WEAKNESS_DAMAGE: 0,
     CombatStats.IGNORE_RESISTANCE: 0,
-    CombatStats.HEALING_EFFECTIVENESS: 1
+    CombatStats.HEALING_EFFECTIVENESS: 1,
+    CombatStats.ACCURACY_DISTANCE_MOD: 2
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -103,10 +105,13 @@ class EffectTimings(Enum):
 """ Combat """
 MAX_ACTION_TIMER = 100
 DEFAULT_ATTACK_TIMER_USAGE = 70
-DEFAULT_REPOSITION_TIMER_USAGE = 50
+DEFAULT_APPROACH_TIMER_USAGE = 42.5
+DEFAULT_RETREAT_TIMER_USAGE = 50
+DEFAULT_MULTI_REPOSITION_TIMER_USAGE = 7.5
 
 MAX_SINGLE_REPOSITION = 2
 MAX_DISTANCE = 3
+DEFAULT_STARTING_DISTANCE = 2
 
 BASIC_ATTACK_MP_GAIN = 4
 

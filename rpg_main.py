@@ -7,13 +7,9 @@ from rpg_classes_skills import AttackSkillData, SkillData
 from rpg_combat_state import CombatController, ActionResultInfo, AttackResultInfo
 from rpg_items import * # TODO
 
-def simpleCombatSimulation(p1 : Player, p2 : Player, starting_dist : int = 1) -> None:
-    cc : CombatController = CombatController([p1], [p2])
-    handlerMap : dict[CombatEntity, PlayerInputHandler] = {
-        p1 : PlayerInputHandler(p1),
-        p2 : PlayerInputHandler(p2)
-    }
-    cc.updateDistance(p1, p2, starting_dist)
+def simpleCombatSimulation(team1 : list[Player], team2 : list[Player], starting_dist : int = 2) -> None:
+    cc : CombatController = CombatController([player for player in team1], [player for player in team2], {player : starting_dist for player in team1})
+    handlerMap : dict[CombatEntity, PlayerInputHandler] = {player : PlayerInputHandler(player) for player in team1 + team2}
 
     while (cc.checkPlayerVictory() is None):
         activePlayer : CombatEntity = cc.advanceToNextPlayer()
@@ -27,9 +23,9 @@ def simpleCombatSimulation(p1 : Player, p2 : Player, starting_dist : int = 1) ->
     print(cc.getCombatOverviewString())
     print("---")
     if cc.checkPlayerVictory():
-        print(f"{p1.name} wins!")
+        print(f"Team 1 ({', '.join([player.name for player in team1])}) wins!")
     else:
-        print(f"{p2.name} wins!")
+        print(f"Team 2 ({', '.join([player.name for player in team2])}) wins!")
 
 class CombatInputHandler(object):
     def __init__(self, entity : CombatEntity):
@@ -59,8 +55,8 @@ class CombatInputHandler(object):
                 self.doAttack(combatController, target, skillData.isPhysical, False)
         return actionResult
     
-    def doReposition(self, combatController : CombatController, target : CombatEntity, distanceChange : int) -> bool:
-        changedDistances = combatController.performReposition(self.entity, target, distanceChange)
+    def doReposition(self, combatController : CombatController, targets : list[CombatEntity], distanceChange : int) -> bool:
+        changedDistances = combatController.performReposition(self.entity, targets, distanceChange)
         if len(changedDistances) == 0:
             return False
         
@@ -127,49 +123,49 @@ class PlayerInputHandler(CombatInputHandler):
 
             elif command == "approach":
                 if len(inpSplit) < 3:
-                    print("Use 'approach [targetIndex] [amount]'.")
+                    print("Use 'approach [targetIndices...] [amount]'.")
                 else:
                     try:
-                        targetIndex = int(inpSplit[1])
-                        if targetIndex <= 0:
+                        targetIndices = [int(inps) for inps in inpSplit[1:-1]]
+                        if any(map(lambda x: x <= 0, targetIndices)):
                             raise IndexError
-                        target = targetList[targetIndex - 1]
+                        targets = [targetList[targetIndex - 1] for targetIndex in targetIndices]
 
-                        amount = int(inpSplit[2])
+                        amount = int(inpSplit[-1])
                         if amount < 0 or amount > MAX_SINGLE_REPOSITION:
                             print("You may change your distance by at most 2 on your turn.")
                             
-                        if self.doReposition(combatController, target, -amount):
+                        if self.doReposition(combatController, targets, -amount):
                             return
                         else:
-                            print("Unable to approach this target further.")
+                            print("Unable to approach these targets by this amount.")
                     except ValueError:
-                        print(f"Invalid target or amount; use 'approach [targetIndex] [amount]'.")
+                        print(f"Invalid target or amount; use 'approach [targetIndices...] [amount]'.")
                     except IndexError:
-                        print(f"Invalid target or amount; use 'approach [targetIndex] [amount]' (there are currently {len(targetList)} targetable enemies).")
+                        print(f"Invalid target or amount; use 'approach [targetIndices...] [amount]' (there are currently {len(targetList)} targetable enemies).")
 
             elif command == "retreat":
                 if len(inpSplit) < 3:
-                    print("Use 'retreat [targetIndex] [amount]'.")
+                    print("Use 'retreat [targetIndices...] [amount]'.")
                 else:
                     try:
-                        targetIndex = int(inpSplit[1])
-                        if targetIndex <= 0:
+                        targetIndices = [int(inps) for inps in inpSplit[1:-1]]
+                        if any(map(lambda x: x <= 0, targetIndices)):
                             raise IndexError
-                        target = targetList[targetIndex - 1]
+                        targets = [targetList[targetIndex - 1] for targetIndex in targetIndices]
 
-                        amount = int(inpSplit[2])
+                        amount = int(inpSplit[-1])
                         if amount < 0 or amount > MAX_SINGLE_REPOSITION:
                             print("You may change your distance by at most 2 on your turn.")
                             
-                        if self.doReposition(combatController, target, amount):
+                        if self.doReposition(combatController, targets, amount):
                             return
                         else:
-                            print("Unable to retreat from this target further.")
+                            print("Unable to retreat from these targets by these amounts.")
                     except ValueError:
-                        print(f"Invalid target or amount; use 'retreat [targetIndex] [amount]'.")
+                        print(f"Invalid target or amount; use 'retreat [targetIndices...] [amount]'.")
                     except IndexError:
-                        print(f"Invalid target or amount; use 'retreat [targetIndex] [amount]' (there are currently {len(targetList)} targetable enemies).")
+                        print(f"Invalid target or amount; use 'retreat [targetIndices...] [amount]' (there are currently {len(targetList)} targetable enemies).")
 
             elif command == "check":
                 if len(inpSplit) == 1:
@@ -245,7 +241,29 @@ if __name__ == '__main__':
     # p2._updateAvailableSkills()
     print()
 
-    simpleCombatSimulation(p1, p2, 2)
+    p3 = Player("haihaya", BasePlayerClassNames.RANGER)
+    p3.playerLevel = 3
+    p3.freeStatPoints = 12
+    p3.assignStatPoints([BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP,
+                         BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP,
+                         BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP])
+    p3.classRanks[BasePlayerClassNames.RANGER] = 3
+    rerollWeapon(p3, testRarity)
+    rerollOtherEquips(p3, testRarity)
+    print()
+
+    p4 = Player("sienna", BasePlayerClassNames.MAGE)
+    p4.playerLevel = 3
+    p4.freeStatPoints = 12
+    p4.assignStatPoints([BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP,
+                         BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP,
+                         BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP])
+    p4.classRanks[BasePlayerClassNames.MAGE] = 3
+    rerollWeapon(p4, testRarity)
+    rerollOtherEquips(p4, testRarity)
+    print()
+
+    simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:
         inp = input("> ")

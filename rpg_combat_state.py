@@ -145,10 +145,14 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
                 self.attackEnchantment.pop(i)
                 return
             
-    def getCurrentAttackAttribute(self) -> AttackAttribute:
+    def getCurrentAttackAttribute(self, isPhysical : bool) -> AttackAttribute:
         if len(self.attackEnchantment) > 0:
             return self.attackEnchantment[0][1]
-        return self.entity.basicAttackAttribute
+        weaponAttribute = self.entity.basicAttackAttribute
+        # Use neutral magic if weapon has a physical attribute
+        if isinstance(weaponAttribute, PhysicalAttackAttribute) and not isPhysical:
+            weaponAttribute = MagicalAttackAttribute.NEUTRAL
+        return weaponAttribute
     
     """
         Accounts for weaknesses and resistances.
@@ -167,7 +171,8 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
 
 
 class CombatController(object):
-    def __init__(self, playerTeam : list[CombatEntity], opponentTeam : list[CombatEntity]) -> None:
+    def __init__(self, playerTeam : list[CombatEntity], opponentTeam : list[CombatEntity],
+                startingPlayerTeamDistances : dict[CombatEntity, int]) -> None:
         self.playerTeam : list[CombatEntity] = playerTeam[:]
         self.opponentTeam : list[CombatEntity] = opponentTeam[:]
 
@@ -175,7 +180,8 @@ class CombatController(object):
         for player in self.playerTeam:
             self.distanceMap[player] = {}
             for opponent in self.opponentTeam:
-                self.distanceMap[player][opponent] = 2 #TODO: some way to modify starting positions
+                startingDistance = startingPlayerTeamDistances.get(player, DEFAULT_STARTING_DISTANCE)
+                self.distanceMap[player][opponent] = startingDistance
 
         self.combatStateMap : dict[CombatEntity, EntityCombatState] = {}
         for team in [self.playerTeam, self.opponentTeam]:
@@ -247,6 +253,8 @@ class CombatController(object):
     def updateDistance(self, entity1 : CombatEntity, entity2 : CombatEntity, newDistance : int) -> int | None:
         if newDistance > MAX_DISTANCE:
             newDistance = MAX_DISTANCE
+        if newDistance < 0:
+            newDistance = 0
 
         teamValidator = self._separateTeamValidator(entity1, entity2)
         if teamValidator is None:
@@ -262,7 +270,7 @@ class CombatController(object):
         distance : int | None = self.checkDistance(attacker, defender)
         distanceMod : float = 1
         if distance is not None:
-            distanceMod = 1.1 - (0.1 * (distance ** 2)) #TODO: may change with archer skill, check combat stats
+            distanceMod = 1.1 - (0.1 * (distance ** self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.ACCURACY_DISTANCE_MOD)))
 
         attackerAcc : float = self.combatStateMap[attacker].getTotalStatValue(BaseStats.ACC)
         defenderAvo : float = self.combatStateMap[defender].getTotalStatValue(BaseStats.AVO)
@@ -290,7 +298,7 @@ class CombatController(object):
         isCrit : bool = self.rng.random() <= critChance
         critFactor : float = critDamage if isCrit else 1
 
-        attackAttribute : AttackAttribute = self.combatStateMap[attacker].getCurrentAttackAttribute()
+        attackAttribute : AttackAttribute = self.combatStateMap[attacker].getCurrentAttackAttribute(isPhysical)
         bonusWeaknessDamage : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.BONUS_WEAKNESS_DAMAGE)
         ignoreResistance : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.IGNORE_RESISTANCE)
         attributeMultiplier : float = self.combatStateMap[defender].getAttributeDamageMultiplier(
@@ -430,23 +438,31 @@ class CombatController(object):
         Returns a map of changed distances to targets, from the user's perspective.
         If the result is empty, the reposition failed.
     """
-    def performReposition(self, user : CombatEntity, target : CombatEntity, distanceChange : int) -> dict[CombatEntity, int]:
+    def performReposition(self, user : CombatEntity, targets : list[CombatEntity], distanceChange : int) -> dict[CombatEntity, int]:
         if distanceChange > MAX_SINGLE_REPOSITION:
             distanceChange = MAX_SINGLE_REPOSITION
         if distanceChange < -MAX_SINGLE_REPOSITION:
             distanceChange = -MAX_SINGLE_REPOSITION
 
-        oldDistance = self.checkDistance(user, target)
-        if oldDistance is None:
+        timerPerDistance = DEFAULT_RETREAT_TIMER_USAGE if distanceChange > 0 else DEFAULT_APPROACH_TIMER_USAGE
+        timerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(distanceChange)
+        if timerCost > MAX_ACTION_TIMER:
             return {}
-        newDistance = self.updateDistance(user, target, oldDistance + distanceChange)
-        if newDistance is None:
-            return {}
-        
-        self.spendActionTimer(user, DEFAULT_REPOSITION_TIMER_USAGE * abs(distanceChange))
+
+        oldDistances = {}
+        for target in targets:
+            oldDistances[target] = self.checkDistance(user, target)
+            if oldDistances[target] is None:
+                return {}
+        newDistances = {}
+        for target in targets:
+            newDistances[target] = self.updateDistance(user, target, oldDistances[target] + distanceChange)
+            assert(newDistances[target] is not None)
+
+        self.spendActionTimer(user, timerCost)
         self._endPlayerTurn(user)
 
-        return {target: newDistance}
+        return newDistances
 
     """-
         Performs an active skill. Indicates if an attack should begin; otherwise, performs end of action/turn cleanup.
