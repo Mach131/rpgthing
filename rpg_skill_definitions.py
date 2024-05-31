@@ -1,8 +1,8 @@
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import PassiveSkillData, AttackSkillData, CounterSkillData, SkillEffect, \
-    EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked
+from rpg_classes_skills import PassiveSkillData, AttackSkillData, ActiveToggleSkillData, CounterSkillData, SkillEffect, \
+    EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange
 
 # Warrior
 
@@ -94,7 +94,6 @@ AttackSkillData("Sweeping Blow", AdvancedPlayerClassNames.MERCENARY, 2, False, 3
             controller.applyMultStatBonuses(target, {BaseStats.DEF: 0.85}) if attackInfo.attackHit else None
     )], 0)])
 
-
 def confrontationFn(controller, user, target, revert):
     if revert: # check if was initially at range 0
         if controller.combatStateMap[user].getTotalStatValue(CombatStats.FLAG_CONFRONT) == 0:
@@ -111,3 +110,26 @@ PassiveSkillData("Confrontation", AdvancedPlayerClassNames.MERCENARY, 3, True,
                     lambda controller, user, target: confrontationFn(controller, user, target, False),
                     lambda controller, user, target, _: confrontationFn(controller, user, target, True)
     )], None)])
+
+def frenzyFn(controller, user, originalStats, finalStats, _):
+    originalMissing = 0
+    newMissing = 0
+    if SpecialStats.CURRENT_HP in originalStats:
+        baseHP = controller.combatStateMap[user].getTotalStatValue(BaseStats.HP)
+        originalMissing = baseHP - originalStats[SpecialStats.CURRENT_HP]
+        newMissing = baseHP - finalStats[SpecialStats.CURRENT_HP]
+    elif BaseStats.HP in originalStats:
+        currentHP = controller.getCurrentHealth(user)
+        originalMissing = originalStats[BaseStats.HP] - currentHP
+        newMissing = finalStats[BaseStats.HP] - currentHP
+    else:
+        return
+    controller.applyFlatStatBonuses(user, {BaseStats.ATK: (newMissing - originalMissing)* 0.1})
+PassiveSkillData("Battle Frenzy", AdvancedPlayerClassNames.MERCENARY, 4, False,
+    "Increases ATK by 10% of your missing HP.",
+    {}, {}, [SkillEffect([EFOnStatsChange(frenzyFn)], None)])
+
+ActiveToggleSkillData("Berserk", AdvancedPlayerClassNames.MERCENARY, 5, False, 10,
+    "[Toggle] Decrease DEF, RES, and AVO by 50%. Increase ATK and SPD by 50%.", MAX_ACTION_TIMER / 10, {},
+    {BaseStats.ATK: 1.5, BaseStats.SPD: 1.5, BaseStats.DEF: 0.5, BaseStats.RES: 0.5, BaseStats.AVO: 0.5}, [],
+    0, 0, True)

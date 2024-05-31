@@ -106,7 +106,7 @@ class SkillData(object):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int,
             isActiveSkill : bool, isFreeSkill : bool, description : str,
             mpCost : int | None, actionTime : float | None, causesAttack : bool, skillEffects : list[SkillEffect],
-            register : bool = True) -> None:
+            expectedTargets : int | None, attackTargetIndex : int, targetOpponents : bool, register : bool = True) -> None:
         self.skillName : str = skillName
         self.playerClass : PlayerClassNames = playerClass
         self.rank : int = rank
@@ -117,6 +117,9 @@ class SkillData(object):
         self.actionTime : float | None = actionTime if isActiveSkill else None
         self.causesAttack : bool = causesAttack
         self.skillEffects : list[SkillEffect] = skillEffects[:]
+        self.expectedTargets : int | None = expectedTargets
+        self.attackTargetIndex : int = attackTargetIndex
+        self.targetOpponents : bool = targetOpponents
 
         if register:
             self.registerSkill()
@@ -136,8 +139,9 @@ class SkillData(object):
 
 class PassiveSkillData(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, description : str, 
-            flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect],  register : bool = True):
-        super().__init__(skillName, playerClass, rank, False, isFreeSkill, description, None, None, False, skillEffects, register)
+            flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect], register : bool = True):
+        super().__init__(skillName, playerClass, rank, False, isFreeSkill, description, None, None, False, skillEffects,
+                         None, 0, True, register)
 
         self.flatStatBonuses = flatStatBonuses.copy()
         self.multStatBonuses = multStatBonuses.copy()
@@ -167,7 +171,8 @@ class PassiveSkillData(SkillData):
 class AttackSkillData(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
             isPhysical : bool, attackStatMultiplier : float, actionTime : float, skillEffects : list[SkillEffect], register : bool = True):
-        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, True, skillEffects, register)
+        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, True, skillEffects,
+                         1, 0, True, register)
 
         self.isPhysical = isPhysical
         self.attackStatMultiplier = attackStatMultiplier
@@ -178,6 +183,17 @@ class AttackSkillData(SkillData):
             # EFAfterNextAttack(lambda _1, _2, _3, _4, result: result.setActionTime(actionTime))
         ], 0)
         self.skillEffects.append(basicAttackSkillEffects)
+
+class ActiveToggleSkillData(SkillData):
+    def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
+            actionTime : float, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect],
+            expectedTargets : int | None, attackTargetIndex : int, targetOpponents : bool, register : bool = True):
+        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False, [],
+                         expectedTargets, attackTargetIndex, targetOpponents, register)
+
+        self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
+        self.multStatBonuses : dict[Stats, float] = multStatBonuses
+        self.skillEffects : list[SkillEffect] = skillEffects
 
 class CounterSkillData(AttackSkillData):
     def __init__(self, isPhysical : bool, attackStatMultiplier : float, skillEffects : list[SkillEffect]):
@@ -195,13 +211,13 @@ class EffectFunction(object):
 
 """An immediate effect upon using an active skill"""
 class EFImmediate(EffectFunction):
-    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, list[CombatEntity], EffectFunctionResult], None]):
         super().__init__(EffectTimings.IMMEDIATE)
-        self.func : Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = func
+        self.func : Callable[[CombatController, CombatEntity, list[CombatEntity], EffectFunctionResult], None] = func
 
-    def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity) -> EffectFunctionResult:
+    def applyEffect(self, controller : CombatController, user : CombatEntity, targets : list[CombatEntity]) -> EffectFunctionResult:
         result = EffectFunctionResult()
-        self.func(controller, user, target, result)
+        self.func(controller, user, targets, result)
         return result
 
 """(Usually) a temporary bonus before performing the next attack."""
@@ -278,6 +294,18 @@ class EFOnDistanceChange(EffectFunction):
             userMoved : bool, initialDistance : int, finalDistance : int) -> EffectFunctionResult:
         result = EffectFunctionResult()
         self.func(controller, user, target, userMoved, initialDistance, finalDistance, result)
+        return result
+
+"""A reaction to HP, MP, or other stats changing."""
+class EFOnStatsChange(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, dict[Stats, float], dict[Stats, float], EffectFunctionResult], None]):
+        super().__init__(EffectTimings.ON_STAT_CHANGE)
+        self.func : Callable[[CombatController, CombatEntity, dict[Stats, float], dict[Stats, float], EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity,
+            previousStats : dict[Stats, float], newStats : dict[Stats, float]) -> EffectFunctionResult:
+        result = EffectFunctionResult()
+        self.func(controller, user, previousStats, newStats, result)
         return result
 
 class EffectFunctionResult(object):

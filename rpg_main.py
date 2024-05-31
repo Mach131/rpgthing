@@ -46,13 +46,19 @@ class CombatInputHandler(object):
             if attackResult is not None:
                 print(f"{attackResult.attacker.name} performs an extra attack against {attackResult.defender.name}!")
 
-    def doSkill(self, combatController : CombatController, target : CombatEntity, skillData : SkillData) -> ActionResultInfo:
-        actionResult : ActionResultInfo = combatController.performActiveSkill(self.entity, target, skillData)
+    def doSkill(self, combatController : CombatController, targets : list[CombatEntity], skillData : SkillData) -> ActionResultInfo:
+        actionResult : ActionResultInfo = combatController.performActiveSkill(self.entity, targets, skillData)
         if actionResult.success == ActionSuccessState.SUCCESS:
-            print (f"{self.entity.name} uses {skillData.skillName}!")
+            if actionResult.toggleChanged:
+                toggleString = "activates" if actionResult.newToggle else "deactivates"
+                print (f"{self.entity.name} {toggleString} {skillData.skillName}!")
+            else:
+                print (f"{self.entity.name} uses {skillData.skillName}!")
+
             if actionResult.startAttack:
                 assert(isinstance(skillData, AttackSkillData))
-                self.doAttack(combatController, target, skillData.isPhysical, False)
+                assert(actionResult.attackTarget is not None)
+                self.doAttack(combatController, actionResult.attackTarget, skillData.isPhysical, False)
         return actionResult
     
     def doReposition(self, combatController : CombatController, targets : list[CombatEntity], distanceChange : int) -> bool:
@@ -100,9 +106,8 @@ class PlayerInputHandler(CombatInputHandler):
                     print(f"Invalid target; use 'attack [index]' (there are currently {len(targetList)} targetable enemies).")
 
             elif command == "skill":
-                # TODO: account for targeting differences eventually
-                if len(inpSplit) < 3:
-                    print("Use 'skill [skillIndex] [targetIndex]'.")
+                if len(inpSplit) < 2:
+                    print("Use 'skill [skillIndex] [targetIndices...]'.")
                 else:
                     try:
                         skillIndex = int(inpSplit[1])
@@ -110,20 +115,24 @@ class PlayerInputHandler(CombatInputHandler):
                             raise IndexError
                         chosenSkill = self.player.availableActiveSkills[skillIndex - 1]
 
-                        targetIndex = int(inpSplit[2])
-                        if targetIndex <= 0:
+                        if not chosenSkill.targetOpponents:
+                            targetList = combatController.getTeammates(self.player)
+                        targetIndices = [int(inps) for inps in inpSplit[2:]]
+                        if any([targetIndex <= 0 for targetIndex in targetIndices]):
                             raise IndexError
-                        target = targetList[targetIndex - 1]
+                        targets = [targetList[targetIndex - 1] for targetIndex in targetIndices]
 
-                        skillResult = self.doSkill(combatController, target, chosenSkill)
+                        skillResult = self.doSkill(combatController, targets, chosenSkill)
                         if skillResult.success == ActionSuccessState.SUCCESS:
                             return
                         elif skillResult.success == ActionSuccessState.FAILURE_MANA:
                             print("You do not have enough MP to use this skill.")
+                        elif skillResult.success == ActionSuccessState.FAILURE_TARGETS:
+                            print("Invalid target(s) for this skill.")
                     except ValueError:
-                        print(f"Invalid target; use 'skill [skillIndex] [targetIndex]'.")
+                        print(f"Invalid target; use 'skill [skillIndex] [targetIndices...]'.")
                     except IndexError:
-                        print(f"Invalid target; use 'skill [skillIndex] [targetIndex]' (there are currently {len(targetList)} targetable enemies).")
+                        print(f"Invalid target; use 'skill [skillIndex] [targetIndices...]' (there are currently {len(targetList)} targets).")
 
             elif command == "approach":
                 if len(inpSplit) < 3:
@@ -179,18 +188,22 @@ class PlayerInputHandler(CombatInputHandler):
                 if len(inpSplit) == 1:
                     self.doCheck(combatController, self.player)
                 else:
-                    # TODO: flesh out, should be able to check allies as well
+                    idxIndex = 1
+                    if inpSplit[1] == "ally":
+                        targetList = combatController.getTeammates(self.player)
+                        idxIndex = 2
+                    
                     try:
-                        index = int(inpSplit[1])
+                        index = int(inpSplit[idxIndex])
                         if index <= 0:
                             raise IndexError
                         target = targetList[index - 1]
 
                         self.doCheck(combatController, target)
                     except ValueError:
-                        print(f"Invalid target; use 'check [index]'.")
+                        print(f"Invalid target; use 'check [index]' or 'check ally [index]'.")
                     except IndexError:
-                        print(f"Invalid target; there are currently {len(targetList)} targetable enemies.")
+                        print(f"Invalid target; there are currently {len(targetList)} targets.")
 
             else:
                 print("Command not recognized; try again.")
@@ -235,7 +248,7 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,])
     p1.classRanks[BasePlayerClassNames.WARRIOR] = 3
     p1.changeClass(AdvancedPlayerClassNames.MERCENARY)
-    [p1.rankUp() for i in range(2)]
+    [p1.rankUp() for i in range(5-1)]
     rerollWeapon(p1, testRarity)
     rerollOtherEquips(p1, testRarity)
     # p1._updateAvailableSkills()

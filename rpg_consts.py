@@ -33,6 +33,10 @@ class CombatStats(Stats):
     ACCURACY_DISTANCE_MOD = auto()
     FLAG_CONFRONT = auto()
 
+class SpecialStats(Stats):
+    CURRENT_HP = auto()
+    CURRENT_MP = auto()
+
 baseCombatStats : dict[CombatStats, float] = {
     CombatStats.CRIT_RATE: 0.1,
     CombatStats.CRIT_DAMAGE: 2.5,
@@ -106,6 +110,7 @@ class EffectTimings(Enum):
     AFTER_ATTACK = auto()
     WHEN_ATTACKED = auto()
     ON_REPOSITION = auto()
+    ON_STAT_CHANGE = auto()
 
 """ Combat """
 MAX_ACTION_TIMER = 100
@@ -135,7 +140,7 @@ ACTION_TIME_DISPLAY_MULTIPLIER = 0.08
 class ActionSuccessState(Enum):
     SUCCESS = auto()
     FAILURE_MANA = auto()
-    FAILURE_RANGE = auto()
+    FAILURE_TARGETS = auto()
 
 """ Equips """
 

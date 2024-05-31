@@ -4,8 +4,9 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import SkillData, AttackSkillData, SkillEffect, \
-    EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, EFOnDistanceChange
+from rpg_classes_skills import SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+    EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
+    EFOnDistanceChange, EFOnStatsChange
 
 if TYPE_CHECKING:
     from rpg_combat_entity import CombatEntity
@@ -27,6 +28,7 @@ class EntityCombatState(object):
         self.actionTimer : float = 0
 
         self.activeSkillEffects: dict[SkillEffect, int] = {}
+        self.activeToggleSkills: set[ActiveToggleSkillData] = set()
 
         self.defendActive : bool = False
 
@@ -42,7 +44,7 @@ class EntityCombatState(object):
         multMod : float = self.multStatMod.get(stat, 1)
         return round((base + flatMod) * multMod)
 
-    def getTotalStatValueFloat(self, stat : CombatStats) -> float:
+    def getTotalStatValueFloat(self, stat : Stats) -> float:
         base : float = self.entity.getStatValueFloat(stat)
         flatMod : float = self.flatStatMod.get(stat, 0)
         multMod : float = self.multStatMod.get(stat, 1)
@@ -190,7 +192,7 @@ class CombatController(object):
             for entity in team:
                 self.combatStateMap[entity] = EntityCombatState(entity)
                 for skill in entity.availablePassiveSkills:
-                    self._activateImmediateEffects(entity, entity, skill)
+                    self._activateImmediateEffects(entity, [], skill)
                     [self.addSkillEffect(entity, skillEffect) for skillEffect in skill.skillEffects]
 
         self.rng : random.Random = random.Random()
@@ -210,6 +212,12 @@ class CombatController(object):
             return list(filter(lambda entity: self.combatStateMap[entity].currentHP > 0, self.opponentTeam[:]))
         else:
             return list(filter(lambda entity: self.combatStateMap[entity].currentHP > 0, self.playerTeam[:]))
+        
+    def getTeammates(self, entity : CombatEntity) -> list[CombatEntity]:
+        if entity in self.playerTeam:
+            return list(filter(lambda entity: self.combatStateMap[entity].currentHP > 0, self.playerTeam[:]))
+        else:
+            return list(filter(lambda entity: self.combatStateMap[entity].currentHP > 0, self.opponentTeam[:]))
 
     def getCombatOverviewString(self) -> str:
         playerTeamOverview : str = "\n".join([f"[{idx+1}] {self.combatStateMap[player].getStateOverviewString()}"
@@ -335,7 +343,15 @@ class CombatController(object):
     def applyDamage(self, attacker : CombatEntity, defender : CombatEntity, damageTaken : int) -> int:
         # If doing anything with attacker, first ensure it's not the same as the defender (e.g. weapon curse)
         originalHP : int = self.combatStateMap[defender].currentHP
-        self.combatStateMap[defender].currentHP = max(0, originalHP - damageTaken)
+        newHP : int = max(0, originalHP - damageTaken)
+        self.combatStateMap[defender].currentHP = newHP
+
+        if originalHP != newHP:
+            # TODO: may need to do something with result
+            for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
+                assert(isinstance(effectFunction, EFOnStatsChange))
+                effectFunction.applyEffect(self, defender, {SpecialStats.CURRENT_HP: originalHP}, {SpecialStats.CURRENT_HP: newHP})
+
         return originalHP - self.combatStateMap[defender].currentHP
 
     """
@@ -351,6 +367,11 @@ class CombatController(object):
         healthGained : int = self.combatStateMap[entity].currentHP - originalHP
         if healthGained > 0:
             print(f"{entity.name} restores {healthGained} health!") # TODO: logging
+            # TODO: may need to do something with result
+            for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
+                assert(isinstance(effectFunction, EFOnStatsChange))
+                effectFunction.applyEffect(self, entity, {SpecialStats.CURRENT_HP: originalHP}, {SpecialStats.CURRENT_HP: originalHP + healthGained})
+                
         return healthGained
 
     """
@@ -358,7 +379,14 @@ class CombatController(object):
     """
     def spendMana(self, entity : CombatEntity, mpCost : int) -> int:
         originalMP : int = self.combatStateMap[entity].currentMP
-        self.combatStateMap[entity].currentMP = max(0, originalMP - mpCost)
+        newMP : int = max(0, originalMP - mpCost)
+        self.combatStateMap[entity].currentMP = newMP
+
+        # TODO: may need to do something with result
+        for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
+            assert(isinstance(effectFunction, EFOnStatsChange))
+            effectFunction.applyEffect(self, entity, {SpecialStats.CURRENT_MP: originalMP}, {SpecialStats.CURRENT_MP: newMP})
+
         return originalMP - self.combatStateMap[entity].currentMP
 
     """
@@ -370,6 +398,10 @@ class CombatController(object):
         manaGained = self.combatStateMap[entity].currentMP - originalMP
         if manaGained > 0:
             print(f"{entity.name} restores {manaGained} mana!") # TODO: logging
+            # TODO: may need to do something with result
+            for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
+                assert(isinstance(effectFunction, EFOnStatsChange))
+                effectFunction.applyEffect(self, entity, {SpecialStats.CURRENT_MP: originalMP}, {SpecialStats.CURRENT_MP: originalMP + manaGained})
         return manaGained
 
     def getCurrentHealth(self, entity : CombatEntity) -> int:
@@ -434,22 +466,40 @@ class CombatController(object):
         Stat changing methods for effect hooks
     """
     def applyFlatStatBonuses(self, entity : CombatEntity, flatStatMap : dict[Stats, float]) -> None:
+        originalStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in flatStatMap}
         self.combatStateMap[entity].applyFlatStatBonuses(flatStatMap)
+        newStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in flatStatMap}
+        self._onStatMapChange(entity, originalStats, newStats)
 
     def applyMultStatBonuses(self, entity : CombatEntity, multStatMap : dict[Stats, float]) -> None:
+        originalStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in multStatMap}
         self.combatStateMap[entity].applyMultStatBonuses(multStatMap)
+        newStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in multStatMap}
+        self._onStatMapChange(entity, originalStats, newStats)
 
     def revertFlatStatBonuses(self, entity : CombatEntity, flatStatMap : dict[Stats, float]) -> None:
+        originalStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in flatStatMap}
         self.combatStateMap[entity].revertFlatStatBonuses(flatStatMap)
+        newStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in flatStatMap}
+        self._onStatMapChange(entity, originalStats, newStats)
 
     def revertMultStatBonuses(self, entity : CombatEntity, multStatMap : dict[Stats, float]) -> None:
+        originalStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in multStatMap}
         self.combatStateMap[entity].revertMultStatBonuses(multStatMap)
+        newStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in multStatMap}
+        self._onStatMapChange(entity, originalStats, newStats)
 
-    def _activateImmediateEffects(self, user : CombatEntity, target : CombatEntity, skill : SkillData):
+    def _onStatMapChange(self, entity : CombatEntity, originalStats : dict[Stats, float], newStats : dict[Stats, float]):
+        # TODO: may need to do something with result
+        for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
+            assert(isinstance(effectFunction, EFOnStatsChange))
+            effectFunction.applyEffect(self, entity, originalStats, newStats)
+
+    def _activateImmediateEffects(self, user : CombatEntity, targets : list[CombatEntity], skill : SkillData):
         immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, skill.getAllEffectFunctions())
         for effectFunction in immediateEffects:
             assert(isinstance(effectFunction, EFImmediate))
-            effectFunction.applyEffect(self, user, target)
+            effectFunction.applyEffect(self, user, targets)
 
     """
         Performs a repositioning action, performing end-of-turn cleanup.
@@ -500,27 +550,57 @@ class CombatController(object):
     """-
         Performs an active skill. Indicates if an attack should begin; otherwise, performs end of action/turn cleanup.
     """
-    def performActiveSkill(self, user : CombatEntity, target : CombatEntity, skill : SkillData) -> ActionResultInfo:
+    def performActiveSkill(self, user : CombatEntity, targets : list[CombatEntity], skill : SkillData) -> ActionResultInfo:
         self._beginPlayerTurn(user)
 
-        if skill.mpCost is not None:
+        validTargets = True
+        expectedTeam = self.opponentTeam if user in self.playerTeam else self.playerTeam
+        if not skill.targetOpponents:
+            expectedTeam = self.playerTeam if user in self.playerTeam else self.opponentTeam
+        if skill.expectedTargets is not None and len(targets) != skill.expectedTargets:
+            validTargets = False
+        if not all([target in expectedTeam for target in targets]):
+            validTargets = False
+        if not validTargets:
+            return ActionResultInfo(ActionSuccessState.FAILURE_TARGETS, False, None, False, False)
+
+        isToggle = isinstance(skill, ActiveToggleSkillData)
+        toggleEnabled = isToggle and skill in self.combatStateMap[user].activeToggleSkills
+
+        if skill.mpCost is not None and not toggleEnabled:
             if self.combatStateMap[user].currentMP < skill.mpCost:
-                return ActionResultInfo(ActionSuccessState.FAILURE_MANA, False)
+                return ActionResultInfo(ActionSuccessState.FAILURE_MANA, False, None, False, False)
             else:
                 self.spendMana(user, skill.mpCost)
 
-        self._activateImmediateEffects(user, target, skill)
+        if not isToggle:
+            self._activateImmediateEffects(user, targets, skill)
+            # add skill effects to active
+            for effect in skill.skillEffects:
+                self.addSkillEffect(user, effect)
+        else:
+            if not toggleEnabled:
+                self.combatStateMap[user].activeToggleSkills.add(skill)
+                self.applyFlatStatBonuses(user, skill.flatStatBonuses)
+                self.applyMultStatBonuses(user, skill.multStatBonuses)
+                for effect in skill.skillEffects:
+                    self.addSkillEffect(user, effect)
+            else:
+                self.combatStateMap[user].activeToggleSkills.remove(skill)
+                self.revertFlatStatBonuses(user, skill.flatStatBonuses)
+                self.revertMultStatBonuses(user, skill.multStatBonuses)
+                for effect in skill.skillEffects:
+                    self.removeSkillEffect(user, effect)
 
-        # add skill effects to active
-        for effect in skill.skillEffects:
-            self.addSkillEffect(user, effect)
-
+        attackTarget : CombatEntity | None = None
         if skill.actionTime is not None:
             self.spendActionTimer(user, skill.actionTime)
         if not skill.causesAttack:
             self._endPlayerTurn(user)
+        else:
+            attackTarget = targets[skill.attackTargetIndex]
 
-        return ActionResultInfo(ActionSuccessState.SUCCESS, skill.causesAttack)
+        return ActionResultInfo(ActionSuccessState.SUCCESS, skill.causesAttack, attackTarget, isToggle, not toggleEnabled)
 
     """
         Performs all steps of an attack, modifying HP, Action Timers, etc. as needed.
@@ -536,7 +616,7 @@ class CombatController(object):
         # process bonus attacks
         while len(attackResultInfo.bonusAttacks) > 0:
             bonusAttacker, bonusTarget, bonusAttackData = attackResultInfo.bonusAttacks.pop(0)
-            self.performActiveSkill(bonusAttacker, bonusTarget, bonusAttackData)
+            self.performActiveSkill(bonusAttacker, [bonusTarget], bonusAttackData)
             bonusAttackResultInfo : AttackResultInfo = self._doSingleAttack(bonusAttacker, bonusTarget, bonusAttackData.isPhysical, False)
             attackResultInfo.addBonusResultInfo(bonusAttackResultInfo)
             self._cleanupEffects(bonusAttacker)
@@ -611,9 +691,13 @@ class CombatController(object):
             self.removeSkillEffect(player, expiredEffect)
 
 class ActionResultInfo(object):
-    def __init__(self, success : ActionSuccessState, startAttack : bool) -> None:
+    def __init__(self, success : ActionSuccessState, startAttack : bool, attackTarget : CombatEntity | None,
+            toggleChanged : bool, newToggle : bool) -> None:
         self.success : ActionSuccessState = success
         self.startAttack : bool = startAttack
+        self.attackTarget : CombatEntity | None = attackTarget
+        self.toggleChanged : bool = toggleChanged
+        self.newToggle : bool = newToggle
 
 class AttackResultInfo(object):
     def __init__(self, attacker : CombatEntity, defender : CombatEntity, inRange : bool,
