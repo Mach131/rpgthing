@@ -248,7 +248,7 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,])
     p1.classRanks[BasePlayerClassNames.WARRIOR] = 3
     p1.changeClass(AdvancedPlayerClassNames.MERCENARY)
-    [p1.rankUp() for i in range(5-1)]
+    [p1.rankUp() for i in range(9-1)]
     rerollWeapon(p1, testRarity)
     rerollOtherEquips(p1, testRarity)
     # p1._updateAvailableSkills()

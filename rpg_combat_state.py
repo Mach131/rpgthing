@@ -313,6 +313,10 @@ class CombatController(object):
         attackerOS : float = self.combatStateMap[attacker].getTotalStatValue(offenseStat)
         defenderDS : float = self.combatStateMap[defender].getTotalStatValue(defenseStat)
 
+        # attack power override
+        if self.combatStateMap[attacker].getTotalStatValue(CombatStats.FIXED_ATTACK_POWER) > 0:
+            attackerOS = self.combatStateMap[attacker].getTotalStatValue(CombatStats.FIXED_ATTACK_POWER)
+
         critChance : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.CRIT_RATE)
         critDamage : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.CRIT_DAMAGE)
         isCrit : bool = self.rng.random() <= critChance
@@ -610,14 +614,17 @@ class CombatController(object):
             self._beginPlayerTurn(attacker)
 
         # initial attack
-        attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, isBasic)
+        attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, isBasic, False)
+        if attackResultInfo.repeatAttack:
+            repeatAttackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, False, True)
+            attackResultInfo.addBonusResultInfo(repeatAttackResultInfo)
         self._cleanupEffects(attacker)
 
         # process bonus attacks
         while len(attackResultInfo.bonusAttacks) > 0:
             bonusAttacker, bonusTarget, bonusAttackData = attackResultInfo.bonusAttacks.pop(0)
             self.performActiveSkill(bonusAttacker, [bonusTarget], bonusAttackData)
-            bonusAttackResultInfo : AttackResultInfo = self._doSingleAttack(bonusAttacker, bonusTarget, bonusAttackData.isPhysical, False)
+            bonusAttackResultInfo : AttackResultInfo = self._doSingleAttack(bonusAttacker, bonusTarget, bonusAttackData.isPhysical, False, True)
             attackResultInfo.addBonusResultInfo(bonusAttackResultInfo)
             self._cleanupEffects(bonusAttacker)
 
@@ -625,28 +632,33 @@ class CombatController(object):
 
         return attackResultInfo
     
-    def _doSingleAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool) -> AttackResultInfo:
-        inRange = True
-
+    """
+        Checks if a target is in range. Returns false for entities on the same team.
+    """
+    def checkInRange(self, attacker : CombatEntity, defender : CombatEntity):
+        distance = self.checkDistance(attacker, defender)
+        if distance is None:
+            return False
+        elif self.combatStateMap[attacker].getTotalStatValue(CombatStats.IGNORE_RANGE_CHECK) == 0:
+            if self.combatStateMap[attacker].getTotalStatValue(CombatStats.RANGE) < distance:
+                return False
+        return True
+    
+    def _doSingleAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool, isBonus : bool) -> AttackResultInfo:
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
             effectFunction.applyEffect(self, attacker, defender)
 
-        distance = self.checkDistance(attacker, defender)
-        if distance is None:
-            inRange = False
-        elif self.combatStateMap[attacker].getTotalStatValue(CombatStats.IGNORE_RANGE_CHECK) == 0:
-            if self.combatStateMap[attacker].getTotalStatValue(CombatStats.RANGE) < distance:
-                inRange = False
+        inRange = self.checkInRange(attacker, defender)
 
-        checkHit : bool = self.rollForHit(attacker, defender)
+        checkHit : bool = self.rollForHit(attacker, defender) if inRange else False
         damageDealt : int = 0
         isCritical : bool = False
         if inRange and checkHit:
             damage, isCritical = self.rollForDamage(attacker, defender, isPhysical)
             damageDealt = self.applyDamage(attacker, defender, damage)
 
-        attackResultInfo = AttackResultInfo(attacker, defender, inRange, checkHit, damageDealt, isCritical)
+        attackResultInfo = AttackResultInfo(attacker, defender, inRange, checkHit, damageDealt, isCritical, isBonus)
 
         actionTimerUsage : float = DEFAULT_ATTACK_TIMER_USAGE
         actionTimeMult : float = 1
@@ -701,15 +713,20 @@ class ActionResultInfo(object):
 
 class AttackResultInfo(object):
     def __init__(self, attacker : CombatEntity, defender : CombatEntity, inRange : bool,
-                 attackHit : bool, damageDealt : int, isCritical : bool) -> None:
+                 attackHit : bool, damageDealt : int, isCritical : bool, isBonus : bool) -> None:
         self.attacker : CombatEntity = attacker
         self.defender : CombatEntity = defender
         self.inRange : bool = inRange
         self.attackHit : bool = attackHit
         self.damageDealt : int = damageDealt
         self.isCritical : bool = isCritical
+        self.isBonus : bool = isBonus
         self.bonusAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = []
         self.bonusResultInfo : AttackResultInfo | None = None
+        self.repeatAttack : bool = False
+
+    def setRepeatAttack(self):
+        self.repeatAttack = True
 
     def addBonusAttack(self, user : CombatEntity, target : CombatEntity, attackData : AttackSkillData):
         self.bonusAttacks.append((user, target, attackData))

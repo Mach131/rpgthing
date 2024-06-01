@@ -184,7 +184,7 @@ class AttackSkillData(SkillData):
         ], 0)
         self.skillEffects.append(basicAttackSkillEffects)
 
-class ActiveToggleSkillData(SkillData):
+class ActiveBuffSkillData(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
             actionTime : float, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect],
             expectedTargets : int | None, attackTargetIndex : int, targetOpponents : bool, register : bool = True):
@@ -194,6 +194,13 @@ class ActiveToggleSkillData(SkillData):
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
         self.skillEffects : list[SkillEffect] = skillEffects
+
+class ActiveToggleSkillData(ActiveBuffSkillData):
+    def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
+            actionTime : float, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect],
+            expectedTargets : int | None, attackTargetIndex : int, targetOpponents : bool, register : bool = True):
+        super().__init__(skillName, playerClass, rank, isFreeSkill, mpCost, description, actionTime, flatStatBonuses,
+                         multStatBonuses, skillEffects, expectedTargets, attackTargetIndex, targetOpponents, register)
 
 class CounterSkillData(AttackSkillData):
     def __init__(self, isPhysical : bool, attackStatMultiplier : float, skillEffects : list[SkillEffect]):

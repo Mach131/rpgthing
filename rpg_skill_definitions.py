@@ -1,8 +1,8 @@
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import PassiveSkillData, AttackSkillData, ActiveToggleSkillData, CounterSkillData, SkillEffect, \
-    EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange
+from rpg_classes_skills import PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
+    SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange
 
 # Warrior
 
@@ -132,4 +132,37 @@ PassiveSkillData("Battle Frenzy", AdvancedPlayerClassNames.MERCENARY, 4, False,
 ActiveToggleSkillData("Berserk", AdvancedPlayerClassNames.MERCENARY, 5, False, 10,
     "[Toggle] Decrease DEF, RES, and AVO by 50%. Increase ATK and SPD by 50%.", MAX_ACTION_TIMER / 10, {},
     {BaseStats.ATK: 1.5, BaseStats.SPD: 1.5, BaseStats.DEF: 0.5, BaseStats.RES: 0.5, BaseStats.AVO: 0.5}, [],
+    0, 0, True)
+
+PassiveSkillData("Determination", AdvancedPlayerClassNames.MERCENARY, 6, True,
+    "Increases ATK by 15%, ACC by 5%, and SPD by 5%.",
+    {}, {BaseStats.ATK: 1.15, BaseStats.ACC: 1.05, BaseStats.SPD: 1.05}, [])
+
+def deadlyDanceFn(controller, user, target, attackInfo, _):
+    if attackInfo.attackHit and not attackInfo.isBonus:
+        otherOpponents = [opp for opp in controller.getTargets(user) if opp is not target]
+        inRangeOpponents = list(filter(lambda opp: controller.checkInRange(user, opp), otherOpponents))
+        if len(inRangeOpponents) > 0:
+            bonusTarget = controller.rng.choice(inRangeOpponents)
+            newPower = attackInfo.damageDealt * 0.3
+            counterData = CounterSkillData(True, 1,
+                                        [SkillEffect([EFBeforeNextAttack({CombatStats.FIXED_ATTACK_POWER: newPower}, {}, None, None)], 0)])
+            attackInfo.addBonusAttack(user, bonusTarget, counterData)
+PassiveSkillData("Deadly Dance", AdvancedPlayerClassNames.MERCENARY, 7, False,
+    "If your first attack of a turn hits, trigger a bonus attack based on 30% of the damage dealt against another enemy in range.",
+    {}, {}, [SkillEffect([EFAfterNextAttack(deadlyDanceFn)], None)])
+
+def undeterredFn(controller, user, _1, attackInfo, _2):
+    if attackInfo.inRange and not attackInfo.attackHit and not attackInfo.isBonus:
+        buffEffect = SkillEffect([EFBeforeNextAttack({},
+                                {BaseStats.ATK: 1.25, BaseStats.MAG: 1.25, BaseStats.ACC: 1.25}, None, None)], 2)
+        controller.addSkillEffect(user, buffEffect)
+PassiveSkillData("Undeterred", AdvancedPlayerClassNames.MERCENARY, 8, True,
+    "When you miss a (non-bonus) attack, increase ATK, MAG, and ACC by 25% for your next attack.",
+    {}, {}, [SkillEffect([EFAfterNextAttack(undeterredFn)], None)])
+
+ActiveBuffSkillData("Heroic Legacy", AdvancedPlayerClassNames.MERCENARY, 9, True, 90,
+    "[Buff] For your next 3 turns, (non-bonus) attacks are repeated as bonus attacks.", MAX_ACTION_TIMER / 10, {}, {},
+    [SkillEffect([EFAfterNextAttack(
+        lambda _1, _2, _3, attackResultInfo, _4: attackResultInfo.setRepeatAttack() if not attackResultInfo.isBonus else None)], 4)],
     0, 0, True)

@@ -32,6 +32,7 @@ class CombatStats(Stats):
     HEALING_EFFECTIVENESS = auto()
     ACCURACY_DISTANCE_MOD = auto()
     FLAG_CONFRONT = auto()
+    FIXED_ATTACK_POWER = auto()
 
 class SpecialStats(Stats):
     CURRENT_HP = auto()
@@ -50,7 +51,8 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.IGNORE_RESISTANCE: 0,
     CombatStats.HEALING_EFFECTIVENESS: 1,
     CombatStats.ACCURACY_DISTANCE_MOD: 2,
-    CombatStats.FLAG_CONFRONT: 0
+    CombatStats.FLAG_CONFRONT: 0,
+    CombatStats.FIXED_ATTACK_POWER: 0
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
