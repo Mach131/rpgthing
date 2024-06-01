@@ -251,7 +251,6 @@ if __name__ == '__main__':
     [p1.rankUp() for i in range(9-1)]
     rerollWeapon(p1, testRarity)
     rerollOtherEquips(p1, testRarity)
-    # p1._updateAvailableSkills()
     print()
 
     p2 = Player("shubi", BasePlayerClassNames.ROGUE)
@@ -263,7 +262,6 @@ if __name__ == '__main__':
     p2.classRanks[BasePlayerClassNames.ROGUE] = 3
     rerollWeapon(p2, testRarity)
     rerollOtherEquips(p2, testRarity)
-    # p2._updateAvailableSkills()
     print()
 
     p3 = Player("haihaya", BasePlayerClassNames.RANGER)
@@ -275,7 +273,7 @@ if __name__ == '__main__':
     p3.classRanks[BasePlayerClassNames.RANGER] = 3
     rerollWeapon(p3, testRarity)
     rerollOtherEquips(p3, testRarity)
-    print()
+    # print()
 
     p4 = Player("sienna", BasePlayerClassNames.MAGE)
     p4.playerLevel = 3
@@ -286,9 +284,22 @@ if __name__ == '__main__':
     p4.classRanks[BasePlayerClassNames.MAGE] = 3
     rerollWeapon(p4, testRarity)
     rerollOtherEquips(p4, testRarity)
+    # print()
+
+    p5 = Player("kenelm", BasePlayerClassNames.WARRIOR)
+    p5.playerLevel = 3
+    p5.freeStatPoints = 12
+    p5.assignStatPoints([BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,
+                         BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,
+                         BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,])
+    p5.classRanks[BasePlayerClassNames.WARRIOR] = 3
+    p5.changeClass(AdvancedPlayerClassNames.KNIGHT)
+    [p5.rankUp() for i in range(3-1)]
+    rerollWeapon(p5, testRarity)
+    rerollOtherEquips(p5, testRarity)
     print()
 
-    simpleCombatSimulation([p1], [p2], 0)
+    simpleCombatSimulation([p1], [p5], 0)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

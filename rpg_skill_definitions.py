@@ -166,3 +166,32 @@ ActiveBuffSkillData("Heroic Legacy", AdvancedPlayerClassNames.MERCENARY, 9, True
     [SkillEffect([EFAfterNextAttack(
         lambda _1, _2, _3, attackResultInfo, _4: attackResultInfo.setRepeatAttack() if not attackResultInfo.isBonus else None)], 4)],
     0, 0, True)
+
+# Mercenary
+
+PassiveSkillData("Knight's Vitality", AdvancedPlayerClassNames.KNIGHT, 1, False,
+    "Increases HP by 20% and DEF by 15%.",
+    {}, {BaseStats.HP: 1.2, BaseStats.DEF: 1.15}, [])
+
+AttackSkillData("Challenge", AdvancedPlayerClassNames.KNIGHT, 2, False, 10,
+    "Attack with 1x ATK, generating 3x the aggro from the target.",
+    True, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFBeforeNextAttack({}, {CombatStats.AGGRO_MULT: 3}, None, None)], 0)])
+
+def chivalryUpdateFn(controller, user, oldStats, newStats, _):
+    if BaseStats.DEF in oldStats:
+        oldDefBonus = round(oldStats[BaseStats.DEF] * 0.4)
+        newDefBonus = round(newStats[BaseStats.DEF] * 0.4)
+        controller.applyFlatStatBonuses(user, {BaseStats.RES: newDefBonus - oldDefBonus})
+PassiveSkillData("Chivalry", AdvancedPlayerClassNames.KNIGHT, 3, True,
+    "Increases RES by 30% of your DEF.",
+    {}, {}, [SkillEffect([
+        EFImmediate(lambda controller, user, _1, _2:
+                    controller.applyFlatStatBonuses(user, {BaseStats.RES: round(controller.combatStateMap[user].getTotalStatValue(BaseStats.DEF) * 0.3)})),
+        EFOnStatsChange(chivalryUpdateFn)
+    ], None)])
+
+PassiveSkillData("Justified", AdvancedPlayerClassNames.KNIGHT, 4, False,
+    "Restore 5% of the damage you deal as HP.",
+    {}, {}, [SkillEffect([EFAfterNextAttack(
+      lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.05)))
+    )], None)])
