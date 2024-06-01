@@ -113,6 +113,7 @@ class EffectTimings(Enum):
     WHEN_ATTACKED = auto()
     ON_REPOSITION = auto()
     ON_STAT_CHANGE = auto()
+    PARRY = auto()
 
 """ Combat """
 MAX_ACTION_TIMER = 100

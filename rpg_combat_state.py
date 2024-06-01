@@ -6,7 +6,7 @@ import math
 from rpg_consts import *
 from rpg_classes_skills import SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
-    EFOnDistanceChange, EFOnStatsChange
+    EFOnDistanceChange, EFOnStatsChange, EFOnParry
 
 if TYPE_CHECKING:
     from rpg_combat_entity import CombatEntity
@@ -31,6 +31,8 @@ class EntityCombatState(object):
         self.activeToggleSkills: set[ActiveToggleSkillData] = set()
 
         self.defendActive : bool = False
+        self.parryType : AttackType | None = None
+        self.activeParrySkillEffect: SkillEffect | None = None
 
     def _adjustCurrentValues(self):
         if self.currentHP > self.getTotalStatValue(BaseStats.HP):
@@ -157,6 +159,24 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         if isinstance(weaponAttribute, PhysicalAttackAttribute) and not isPhysical:
             weaponAttribute = MagicalAttackAttribute.NEUTRAL
         return weaponAttribute
+    
+    def getDefaultAttackType(self) -> AttackType:
+        return self.entity.basicAttackType
+    
+    """
+        Sets an attack type as the parry target for a specific skill effect.
+        Only one parry skill effect can be set at a time.
+    """
+    def setParryType(self, parryType : AttackType, skillEffect : SkillEffect):
+        self.clearParryType()
+        self.parryType = parryType
+        self.activeParrySkillEffect = skillEffect
+
+    def clearParryType(self):
+        if self.activeParrySkillEffect is not None:
+            self.activeSkillEffects.pop(self.activeParrySkillEffect)
+        self.activeParrySkillEffect = None
+        self.parryType = None
     
     """
         Accounts for weaknesses and resistances.
@@ -609,24 +629,27 @@ class CombatController(object):
     """
         Performs all steps of an attack, modifying HP, Action Timers, etc. as needed.
     """
-    def performAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool) -> AttackResultInfo:
+    def performAttack(self, attacker : CombatEntity, defender : CombatEntity,
+                      isPhysical : bool, attackType : AttackType | None, isBasic : bool) -> AttackResultInfo:
         if isBasic:
             self._beginPlayerTurn(attacker)
 
         # initial attack
-        attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, isBasic, False)
+        attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, attackType, isBasic, False)
         if attackResultInfo.repeatAttack:
-            repeatAttackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, False, True)
+            repeatAttackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, attackType, False, True)
             attackResultInfo.addBonusResultInfo(repeatAttackResultInfo)
         self._cleanupEffects(attacker)
 
         # process bonus attacks
         while len(attackResultInfo.bonusAttacks) > 0:
             bonusAttacker, bonusTarget, bonusAttackData = attackResultInfo.bonusAttacks.pop(0)
-            self.performActiveSkill(bonusAttacker, [bonusTarget], bonusAttackData)
-            bonusAttackResultInfo : AttackResultInfo = self._doSingleAttack(bonusAttacker, bonusTarget, bonusAttackData.isPhysical, False, True)
-            attackResultInfo.addBonusResultInfo(bonusAttackResultInfo)
-            self._cleanupEffects(bonusAttacker)
+            if self.getCurrentHealth(bonusAttacker) > 0:
+                self.performActiveSkill(bonusAttacker, [bonusTarget], bonusAttackData)
+                bonusAttackResultInfo : AttackResultInfo = self._doSingleAttack(bonusAttacker, bonusTarget, bonusAttackData.isPhysical,
+                                                                                bonusAttackData.attackType, False, True)
+                attackResultInfo.addBonusResultInfo(bonusAttackResultInfo)
+                self._cleanupEffects(bonusAttacker)
 
         self._endPlayerTurn(attacker)
 
@@ -644,21 +667,40 @@ class CombatController(object):
                 return False
         return True
     
-    def _doSingleAttack(self, attacker : CombatEntity, defender : CombatEntity, isPhysical : bool, isBasic : bool, isBonus : bool) -> AttackResultInfo:
+    def _doSingleAttack(self, attacker : CombatEntity, defender : CombatEntity,
+                        isPhysical : bool, attackType : AttackType | None, isBasic : bool, isBonus : bool) -> AttackResultInfo:
+        if attackType is None:
+            attackType = self.combatStateMap[attacker].getDefaultAttackType()
+        
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
             effectFunction.applyEffect(self, attacker, defender)
 
         inRange = self.checkInRange(attacker, defender)
 
+        parryBonusAttack = None
+        parryDamageMultiplier = 1
+        if inRange and self.combatStateMap[defender].parryType is not None:
+            if attackType == self.combatStateMap[defender].parryType:
+                for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.PARRY):
+                    assert(isinstance(effectFunction, EFOnParry))
+                    effectResult = effectFunction.applyEffect(self, defender, attacker, isPhysical)
+                    parryBonusAttack = effectResult.bonusAttack
+                    if effectResult.damageMultiplier is not None:
+                        parryDamageReduction = effectResult.damageMultiplier
+            self.combatStateMap[defender].clearParryType()
+
         checkHit : bool = self.rollForHit(attacker, defender) if inRange else False
         damageDealt : int = 0
         isCritical : bool = False
         if inRange and checkHit:
             damage, isCritical = self.rollForDamage(attacker, defender, isPhysical)
+            damage *= parryDamageMultiplier
             damageDealt = self.applyDamage(attacker, defender, damage)
 
         attackResultInfo = AttackResultInfo(attacker, defender, inRange, checkHit, damageDealt, isCritical, isBonus)
+        if parryBonusAttack is not None:
+            attackResultInfo.addBonusAttack(*parryBonusAttack)
 
         actionTimerUsage : float = DEFAULT_ATTACK_TIMER_USAGE
         actionTimeMult : float = 1

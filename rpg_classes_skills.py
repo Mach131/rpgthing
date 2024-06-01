@@ -170,11 +170,13 @@ class PassiveSkillData(SkillData):
 
 class AttackSkillData(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
-            isPhysical : bool, attackStatMultiplier : float, actionTime : float, skillEffects : list[SkillEffect], register : bool = True):
+            isPhysical : bool, attackType : AttackType | None, attackStatMultiplier : float, actionTime : float, skillEffects : list[SkillEffect],
+            register : bool = True):
         super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, True, skillEffects,
                          1, 0, True, register)
 
         self.isPhysical = isPhysical
+        self.attackType = attackType
         self.attackStatMultiplier = attackStatMultiplier
 
         attackingStat = BaseStats.ATK if isPhysical else BaseStats.MAG
@@ -188,12 +190,11 @@ class ActiveBuffSkillData(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
             actionTime : float, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect],
             expectedTargets : int | None, attackTargetIndex : int, targetOpponents : bool, register : bool = True):
-        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False, [],
+        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False, skillEffects,
                          expectedTargets, attackTargetIndex, targetOpponents, register)
 
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
-        self.skillEffects : list[SkillEffect] = skillEffects
 
 class ActiveToggleSkillData(ActiveBuffSkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
@@ -203,9 +204,30 @@ class ActiveToggleSkillData(ActiveBuffSkillData):
                          multStatBonuses, skillEffects, expectedTargets, attackTargetIndex, targetOpponents, register)
 
 class CounterSkillData(AttackSkillData):
-    def __init__(self, isPhysical : bool, attackStatMultiplier : float, skillEffects : list[SkillEffect]):
+    def __init__(self, isPhysical : bool, attackType : AttackType | None, attackStatMultiplier : float, skillEffects : list[SkillEffect]):
         super().__init__("", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
-            isPhysical, attackStatMultiplier, 0, skillEffects, False)
+            isPhysical, attackType, attackStatMultiplier, 0, skillEffects, False)
+        
+class PrepareParrySkillData(SkillData):
+    def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
+            actionTime : float, parryType : AttackType, parryEffectFunctions : list[EFOnParry], register : bool = True):
+        fullParryEffect = SkillEffect([ef for ef in parryEffectFunctions], None)
+        fullParryEffect.effectFunctions.append(EFImmediate(lambda controller, user, _1, result: (
+            controller.combatStateMap[user].setParryType(parryType, fullParryEffect)
+        )))
+        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False,
+                         [fullParryEffect], 0, 0, True, register)
+        
+class ActiveSkillDataSelector(SkillData):
+    def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
+            actionTime : float, expectedTargets : int | None, targetOpponents : bool, skillGenerator : Callable[[str], SkillData],
+            register : bool = True):
+        super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False,
+                         [], expectedTargets, 0, targetOpponents, register)
+        self.skillGenerator = skillGenerator
+        
+    def selectSkill(self, selectorInput : str) -> SkillData:
+        return self.skillGenerator(selectorInput)
 
 class SkillEffect(object):
     def __init__(self, effectFunctions : list[EffectFunction], effectDuration : int | None):
@@ -223,7 +245,7 @@ class EFImmediate(EffectFunction):
         self.func : Callable[[CombatController, CombatEntity, list[CombatEntity], EffectFunctionResult], None] = func
 
     def applyEffect(self, controller : CombatController, user : CombatEntity, targets : list[CombatEntity]) -> EffectFunctionResult:
-        result = EffectFunctionResult()
+        result = EffectFunctionResult(self)
         self.func(controller, user, targets, result)
         return result
 
@@ -248,7 +270,7 @@ class EFBeforeNextAttack(EffectFunction):
         revertEffect : SkillEffect = SkillEffect([EFBeforeNextAttack_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
         controller.addSkillEffect(user, revertEffect)
 
-        return EffectFunctionResult()
+        return EffectFunctionResult(self)
 
 class EFBeforeNextAttack_Revert(EffectFunction):
     def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
@@ -262,7 +284,7 @@ class EFBeforeNextAttack_Revert(EffectFunction):
         controller.revertFlatStatBonuses(user, self.flatStatBonuses)
         controller.revertMultStatBonuses(user, self.multStatBonuses)
 
-        result = EffectFunctionResult()
+        result = EffectFunctionResult(self)
         if self.revertFunc is not None:
             self.revertFunc(controller, user, target, result)
         return result
@@ -275,7 +297,7 @@ class EFAfterNextAttack(EffectFunction):
 
     def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity,
             attackResultInfo : AttackResultInfo) -> EffectFunctionResult:
-        result = EffectFunctionResult()
+        result = EffectFunctionResult(self)
         self.func(controller, user, target, attackResultInfo, result)
         return result
 
@@ -287,7 +309,7 @@ class EFWhenAttacked(EffectFunction):
 
     def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity,
             attackResultInfo : AttackResultInfo) -> EffectFunctionResult:
-        result = EffectFunctionResult()
+        result = EffectFunctionResult(self)
         self.func(controller, user, attacker, attackResultInfo, result)
         return result
 
@@ -299,7 +321,7 @@ class EFOnDistanceChange(EffectFunction):
 
     def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity,
             userMoved : bool, initialDistance : int, finalDistance : int) -> EffectFunctionResult:
-        result = EffectFunctionResult()
+        result = EffectFunctionResult(self)
         self.func(controller, user, target, userMoved, initialDistance, finalDistance, result)
         return result
 
@@ -311,20 +333,42 @@ class EFOnStatsChange(EffectFunction):
 
     def applyEffect(self, controller : CombatController, user : CombatEntity,
             previousStats : dict[Stats, float], newStats : dict[Stats, float]) -> EffectFunctionResult:
-        result = EffectFunctionResult()
+        result = EffectFunctionResult(self)
         self.func(controller, user, previousStats, newStats, result)
         return result
 
+"""A reaction to being attacked by a declared attack type."""
+class EFOnParry(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, bool, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.PARRY)
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity, bool, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, attacker: CombatEntity, isPhysical : bool) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, attacker, isPhysical, result)
+        return result
+
 class EffectFunctionResult(object):
-    def __init__(self, actionTime : float | None = None, actionTimeMult : float | None = None):
+    def __init__(self, effectFunction : EffectFunction, actionTime : float | None = None,
+                 actionTimeMult : float | None = None, bonusAttack : tuple[CombatEntity, CombatEntity, AttackSkillData] | None = None,
+                 damageMultiplier : float | None = None):
+        self.effectFunction = effectFunction
         self.actionTime = actionTime
         self.actionTimeMult = actionTimeMult
+        self.bonusAttack = bonusAttack
+        self.damageMultiplier = damageMultiplier
 
     def setActionTime(self, actionTime: float):
         self.actionTime = actionTime
 
     def setActionTimeMult(self, actionTimeMult: float):
         self.actionTimeMult = actionTimeMult
+
+    def setBonusAttack(self, user : CombatEntity, target : CombatEntity, attackData : AttackSkillData):
+        self.bonusAttack = (user, target, attackData)
+
+    def setDamageMultiplier(self, damageMultiplier: float):
+        self.damageMultiplier = damageMultiplier
 
 # load definitions
 from rpg_skill_definitions import *

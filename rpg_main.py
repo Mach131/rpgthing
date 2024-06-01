@@ -3,7 +3,7 @@ import random
 
 from rpg_consts import *
 from rpg_combat_entity import CombatEntity, Player
-from rpg_classes_skills import AttackSkillData, PlayerClassData, SkillData
+from rpg_classes_skills import ActiveSkillDataSelector, AttackSkillData, PlayerClassData, SkillData
 from rpg_combat_state import CombatController, ActionResultInfo, AttackResultInfo
 from rpg_items import * # TODO
 
@@ -31,9 +31,10 @@ class CombatInputHandler(object):
     def __init__(self, entity : CombatEntity):
         self.entity : CombatEntity = entity
 
-    def doAttack(self, combatController : CombatController, target : CombatEntity, isPhysical : bool, isBasic : bool):
+    def doAttack(self, combatController : CombatController, target : CombatEntity,
+                 isPhysical : bool, attackType : AttackType | None, isBasic : bool):
         print (f"{self.entity.name} attacks {target.name}!")
-        attackResult : AttackResultInfo | None = combatController.performAttack(self.entity, target, isPhysical, isBasic)
+        attackResult : AttackResultInfo | None = combatController.performAttack(self.entity, target, isPhysical, attackType, isBasic)
         while attackResult is not None:
             if not attackResult.inRange:
                 print ("Target out of range!\n")
@@ -58,7 +59,7 @@ class CombatInputHandler(object):
             if actionResult.startAttack:
                 assert(isinstance(skillData, AttackSkillData))
                 assert(actionResult.attackTarget is not None)
-                self.doAttack(combatController, actionResult.attackTarget, skillData.isPhysical, False)
+                self.doAttack(combatController, actionResult.attackTarget, skillData.isPhysical, skillData.attackType, False)
         return actionResult
     
     def doReposition(self, combatController : CombatController, targets : list[CombatEntity], distanceChange : int) -> bool:
@@ -98,7 +99,7 @@ class PlayerInputHandler(CombatInputHandler):
                     target = targetList[index - 1]
 
                     isPhysical = self.player.basicAttackType != AttackType.MAGIC
-                    self.doAttack(combatController, target, isPhysical, True)
+                    self.doAttack(combatController, target, isPhysical, None, True)
                     return
                 except ValueError:
                     print(f"Invalid target; use 'attack [index]'.")
@@ -115,9 +116,21 @@ class PlayerInputHandler(CombatInputHandler):
                             raise IndexError
                         chosenSkill = self.player.availableActiveSkills[skillIndex - 1]
 
+                        targetIdx = 2
+                        if isinstance(chosenSkill, ActiveSkillDataSelector):
+                            try:
+                                chosenSkill = chosenSkill.selectSkill(inpSplit[2].upper())
+                                targetIdx = 3
+                            except IndexError:
+                                print("This skill expects additional parameters; check the description.")
+                                continue
+                            except KeyError:
+                                print("Invalid parameter for this skill; check the description.")
+                                continue
+
                         if not chosenSkill.targetOpponents:
                             targetList = combatController.getTeammates(self.player)
-                        targetIndices = [int(inps) for inps in inpSplit[2:]]
+                        targetIndices = [int(inps) for inps in inpSplit[targetIdx:]]
                         if any([targetIndex <= 0 for targetIndex in targetIndices]):
                             raise IndexError
                         targets = [targetList[targetIndex - 1] for targetIndex in targetIndices]
@@ -273,7 +286,7 @@ if __name__ == '__main__':
     p3.classRanks[BasePlayerClassNames.RANGER] = 3
     rerollWeapon(p3, testRarity)
     rerollOtherEquips(p3, testRarity)
-    # print()
+    print()
 
     p4 = Player("sienna", BasePlayerClassNames.MAGE)
     p4.playerLevel = 3
@@ -284,7 +297,7 @@ if __name__ == '__main__':
     p4.classRanks[BasePlayerClassNames.MAGE] = 3
     rerollWeapon(p4, testRarity)
     rerollOtherEquips(p4, testRarity)
-    # print()
+    print()
 
     p5 = Player("kenelm", BasePlayerClassNames.WARRIOR)
     p5.playerLevel = 3
@@ -294,7 +307,7 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,])
     p5.classRanks[BasePlayerClassNames.WARRIOR] = 3
     p5.changeClass(AdvancedPlayerClassNames.KNIGHT)
-    [p5.rankUp() for i in range(3-1)]
+    [p5.rankUp() for i in range(5-1)]
     rerollWeapon(p5, testRarity)
     rerollOtherEquips(p5, testRarity)
     print()

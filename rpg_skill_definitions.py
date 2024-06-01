@@ -2,7 +2,8 @@ import math
 
 from rpg_consts import *
 from rpg_classes_skills import PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
-    SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange
+    ActiveSkillDataSelector, PrepareParrySkillData, \
+    SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, EFOnParry
 
 # Warrior
 
@@ -12,7 +13,7 @@ PassiveSkillData("Warrior's Resolution", BasePlayerClassNames.WARRIOR, 1, False,
 
 AttackSkillData("Great Swing", BasePlayerClassNames.WARRIOR, 2, False, 20,
     "Attack with 1.5x ATK.",
-    True, 1.5, DEFAULT_ATTACK_TIMER_USAGE, [])
+    True, AttackType.MELEE, 1.5, DEFAULT_ATTACK_TIMER_USAGE, [])
 
 PassiveSkillData("Endurance", BasePlayerClassNames.WARRIOR, 3, True,
     "Recovers 2% HP at the end of your turn.",
@@ -33,7 +34,7 @@ def increaseDistanceFn(controller, user, target, _1, _2):
         controller.updateDistance(user, target, currentDistance + 1)
 AttackSkillData("Strafe", BasePlayerClassNames.RANGER, 2, False, 15,
     "Attack with 0.8x ATK, increasing distance to the target by 1.",
-    True, 0.8, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFAfterNextAttack(increaseDistanceFn)], 0)])
+    True, AttackType.RANGED, 0.8, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFAfterNextAttack(increaseDistanceFn)], 0)])
 
 PassiveSkillData("Eagle Eye", BasePlayerClassNames.RANGER, 3, True,
     "Distance has less of a negative impact on your accuracy.",
@@ -50,11 +51,11 @@ PassiveSkillData("Rogue's Instinct", BasePlayerClassNames.ROGUE, 1, False,
 
 AttackSkillData("Swift Strike", BasePlayerClassNames.ROGUE, 2, False, 10,
     "Attack with 0.7x ATK, but a reduced time until next action.",
-    True, 0.7, DEFAULT_ATTACK_TIMER_USAGE / 2, [])
+    True, None, 0.7, DEFAULT_ATTACK_TIMER_USAGE / 2, [])
 
 def illusionFn(controller, user, attacker, attackInfo, _2):
     if attackInfo.inRange and not attackInfo.attackHit:
-        counterData = CounterSkillData(True, 0.7,
+        counterData = CounterSkillData(True, None, 0.7,
                                        [SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)])
         attackInfo.addBonusAttack(user, attacker, counterData)
 PassiveSkillData("Illusion", BasePlayerClassNames.ROGUE, 3, True,
@@ -70,7 +71,8 @@ PassiveSkillData("Mage's Patience", BasePlayerClassNames.MAGE, 1, False,
 
 AttackSkillData("Magic Missile", BasePlayerClassNames.MAGE, 2, False, 15,
     "Attack with 1x MAG from any range.",
-    False, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)])
+    False, AttackType.MAGIC, 1, DEFAULT_ATTACK_TIMER_USAGE,
+    [SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)])
 
 PassiveSkillData("Mana Flow", BasePlayerClassNames.MAGE, 3, True,
     "When attacking, restore MP equal to 5% of the damge you deal (max 30).",
@@ -89,7 +91,7 @@ PassiveSkillData("Mercenary's Strength", AdvancedPlayerClassNames.MERCENARY, 1, 
 
 AttackSkillData("Sweeping Blow", AdvancedPlayerClassNames.MERCENARY, 2, False, 30,
     "Attack with 0.8x ATK, reducing DEF of the target by 15% on hit.",
-    True, 0.8, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFAfterNextAttack(
+    True, AttackType.MELEE, 0.8, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFAfterNextAttack(
         lambda controller, _1, target, attackInfo, _2:
             controller.applyMultStatBonuses(target, {BaseStats.DEF: 0.85}) if attackInfo.attackHit else None
     )], 0)])
@@ -145,7 +147,7 @@ def deadlyDanceFn(controller, user, target, attackInfo, _):
         if len(inRangeOpponents) > 0:
             bonusTarget = controller.rng.choice(inRangeOpponents)
             newPower = attackInfo.damageDealt * 0.3
-            counterData = CounterSkillData(True, 1,
+            counterData = CounterSkillData(True, AttackType.MELEE, 1,
                                         [SkillEffect([EFBeforeNextAttack({CombatStats.FIXED_ATTACK_POWER: newPower}, {}, None, None)], 0)])
             attackInfo.addBonusAttack(user, bonusTarget, counterData)
 PassiveSkillData("Deadly Dance", AdvancedPlayerClassNames.MERCENARY, 7, False,
@@ -175,7 +177,7 @@ PassiveSkillData("Knight's Vitality", AdvancedPlayerClassNames.KNIGHT, 1, False,
 
 AttackSkillData("Challenge", AdvancedPlayerClassNames.KNIGHT, 2, False, 10,
     "Attack with 1x ATK, generating 3x the aggro from the target.",
-    True, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFBeforeNextAttack({}, {CombatStats.AGGRO_MULT: 3}, None, None)], 0)])
+    True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFBeforeNextAttack({}, {CombatStats.AGGRO_MULT: 3}, None, None)], 0)])
 
 def chivalryUpdateFn(controller, user, oldStats, newStats, _):
     if BaseStats.DEF in oldStats:
@@ -195,3 +197,18 @@ PassiveSkillData("Justified", AdvancedPlayerClassNames.KNIGHT, 4, False,
     {}, {}, [SkillEffect([EFAfterNextAttack(
       lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.05)))
     )], None)])
+
+def parryFn(controller, user, attacker, isPhysical, effectResult):
+    effectResult.setDamageMultiplier(0.5)
+    offensiveStat = BaseStats.ATK if isPhysical else BaseStats.MAG
+    parryStrength = controller.combatStateMap[attacker].getTotalStatValue(offensiveStat) * 0.5
+    counterData = CounterSkillData(True, None, 1,
+                                    [SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1, BaseStats.ATK: parryStrength},
+                                                                     {}, None, None)], 0)])
+    effectResult.setBonusAttack(user, attacker, counterData)
+ActiveSkillDataSelector("Parry", AdvancedPlayerClassNames.KNIGHT, 5, False, 25,
+    "Select an attack type. If the next attack on you matches, reduce damage taken by 50% and parry based on 50% of their offensive stat.",
+    MAX_ACTION_TIMER, 0, True,
+        lambda parryType: PrepareParrySkillData("", AdvancedPlayerClassNames.KNIGHT, 5, False, 25, "",
+            MAX_ACTION_TIMER, AttackType[parryType], [EFOnParry(parryFn)], False)
+    )
