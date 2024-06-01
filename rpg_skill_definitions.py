@@ -199,7 +199,7 @@ PassiveSkillData("Justified", AdvancedPlayerClassNames.KNIGHT, 4, False,
     )], None)])
 
 def parryFn(controller, user, attacker, isPhysical, effectResult):
-    effectResult.setDamageMultiplier(0.5)
+    effectResult.setDamageMultiplier(0.35)
     offensiveStat = BaseStats.ATK if isPhysical else BaseStats.MAG
     parryStrength = controller.combatStateMap[attacker].getTotalStatValue(offensiveStat) * 0.5
     counterData = CounterSkillData(True, None, 1,
@@ -207,8 +207,12 @@ def parryFn(controller, user, attacker, isPhysical, effectResult):
                                                                      {}, None, None)], 0)])
     effectResult.setBonusAttack(user, attacker, counterData)
 ActiveSkillDataSelector("Parry", AdvancedPlayerClassNames.KNIGHT, 5, False, 25,
-    "Select an attack type. If the next attack on you matches, reduce damage taken by 50% and parry based on 50% of their offensive stat.",
+    "Select an attack type. If the next attack on you matches, reduce damage taken by 65% and parry based on 50% of their offensive stat.",
     MAX_ACTION_TIMER, 0, True,
-        lambda parryType: PrepareParrySkillData("", AdvancedPlayerClassNames.KNIGHT, 5, False, 25, "",
+        lambda parryType: PrepareParrySkillData(f"Parry ({parryType[0] + parryType[1:].lower()})", AdvancedPlayerClassNames.KNIGHT, 5, False, 25, "",
             MAX_ACTION_TIMER, AttackType[parryType], [EFOnParry(parryFn)], False)
     )
+
+PassiveSkillData("Persistence", AdvancedPlayerClassNames.KNIGHT, 6, True,
+    "Increases DEF by 15% and HP by 10%.",
+    {}, {BaseStats.DEF: 1.15, BaseStats.HP: 1.10}, [])
