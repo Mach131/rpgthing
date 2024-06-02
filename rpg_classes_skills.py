@@ -289,6 +289,47 @@ class EFBeforeNextAttack_Revert(EffectFunction):
             self.revertFunc(controller, user, target, result)
         return result
 
+"""A reaction to being targeted by an attack."""
+class EFBeforeAttacked(EffectFunction):
+    def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
+            applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity], None],
+            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.BEFORE_ATTACKED)
+        self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
+        self.multStatBonuses : dict[Stats, float] = multStatBonuses
+        self.applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity], None] = applyFunc
+        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = revertFunc
+
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity) -> EffectFunctionResult:
+        controller.applyFlatStatBonuses(user, self.flatStatBonuses)
+        controller.applyMultStatBonuses(user, self.multStatBonuses)
+
+        if self.applyFunc is not None:
+            self.applyFunc(controller, user, attacker)
+        revertEffect : SkillEffect = SkillEffect([EFBeforeAttacked_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
+        controller.addSkillEffect(attacker, revertEffect)
+
+        return EffectFunctionResult(self)
+
+# Note: tracked by attacker, so that it gets cleared at the end of the attack
+class EFBeforeAttacked_Revert(EffectFunction):
+    def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
+            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.AFTER_ATTACK)
+        self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
+        self.multStatBonuses : dict[Stats, float] = multStatBonuses
+        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = revertFunc
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity) -> EffectFunctionResult:
+        controller.revertFlatStatBonuses(user, self.flatStatBonuses)
+        controller.revertMultStatBonuses(user, self.multStatBonuses)
+
+        result = EffectFunctionResult(self)
+        if self.revertFunc is not None:
+            self.revertFunc(controller, user, attacker, result)
+        return result
+
 """A reaction to the results of the next attack."""
 class EFAfterNextAttack(EffectFunction):
     def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
@@ -357,6 +398,17 @@ class EFOnParry(EffectFunction):
     def applyEffect(self, controller : CombatController, user : CombatEntity, attacker: CombatEntity, isPhysical : bool) -> EffectFunctionResult:
         result = EffectFunctionResult(self)
         self.func(controller, user, attacker, isPhysical, result)
+        return result
+    
+"""An effect that always occurs at the end of a turn (before duration ticks)."""
+class EFEndTurn(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.END_TURN)
+        self.func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, result)
         return result
 
 class EffectFunctionResult(object):

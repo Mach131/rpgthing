@@ -4,9 +4,10 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked
+from rpg_status_definitions import StatusEffect
 
 if TYPE_CHECKING:
     from rpg_combat_entity import CombatEntity
@@ -33,6 +34,11 @@ class EntityCombatState(object):
         self.defendActive : bool = False
         self.parryType : AttackType | None = None
         self.activeParrySkillEffect: SkillEffect | None = None
+
+        defaultStatusTolerance = BASE_DEFAULT_STATUS_TOLERANCE + (PER_LEVEL_DEFAULT_STATUS_TOLERANCE * self.entity.level)
+        self.maxStatusTolerance : dict[StatusConditionNames, float] = {status : defaultStatusTolerance for status in StatusConditionNames}
+        self.currentStatusTolerance : dict[StatusConditionNames, float] = {status : defaultStatusTolerance for status in StatusConditionNames}
+        self.currentStatusEffects : dict[StatusConditionNames, StatusEffect] = {}
 
     def _adjustCurrentValues(self):
         if self.currentHP > self.getTotalStatValue(BaseStats.HP):
@@ -192,6 +198,44 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         resistanceMultiplier : float = (1 + resistanceModifier) ** -resistanceInstances
 
         return weaknessMultiplier * resistanceMultiplier
+    
+    def getStatusResistChance(self, statusName : StatusConditionNames) -> float:
+        toleranceRatio = self.currentStatusTolerance[statusName] / MAX_RESIST_STATUS_TOLERANCE
+        return toleranceRatio * self.getTotalStatValueFloat(CombatStats.STATUS_RESISTANCE_MULTIPLIER)
+    
+    """
+        Attempts to apply a status effect. Returns true if successful (or if the status was already present, in which case it is amplified).
+    """
+    def applyStatusCondition(self, statusCondition : StatusEffect, randomRoll : float):
+        statusName : StatusConditionNames = statusCondition.statusName
+        if statusName in self.currentStatusEffects:
+            print(f"amplified {statusName.name}!")
+            durationExtension = self.currentStatusEffects[statusName].amplifyStatus(statusCondition, randomRoll)
+            self.activeSkillEffects[self.currentStatusEffects[statusName]] -= durationExtension
+            return True
+        else:
+            statusResistance = self.getStatusResistChance(statusName)
+            print(f"status resist chance: {statusResistance * 100:.1f}%")
+            if randomRoll >= statusResistance:
+                print(f"applied {statusName.name}!")
+                self.currentStatusEffects[statusName] = statusCondition
+                self.activeSkillEffects[statusCondition] = 0
+                return True
+            else:
+                print(f"failed to apply {statusName.name}!")
+                self.currentStatusTolerance[statusName] -= STATUS_TOLERANCE_RESIST_DECREASE
+                if self.currentStatusTolerance[statusName] < 0:
+                    self.currentStatusTolerance[statusName] = 0
+                return False
+        
+    def removeStatusCondition(self, statusName : StatusConditionNames):
+        if statusName not in self.currentStatusEffects:
+            return
+        
+        print(f"{statusName.name} wore off.")
+        self.currentStatusEffects.pop(statusName)
+        self.maxStatusTolerance[statusName] *= STATUS_TOLERANCE_RECOVERY_INCREASE_FACTOR
+        self.currentStatusTolerance[statusName] = self.maxStatusTolerance[statusName]
 
 
 class CombatController(object):
@@ -458,8 +502,15 @@ class CombatController(object):
         Reduce an entity's action timer. Returns updated timer amount.
     """
     def spendActionTimer(self, entity : CombatEntity, amount : float) -> float:
-        self.combatStateMap[entity].actionTimer = max(0, self.combatStateMap[entity].actionTimer - amount)
+        #self.combatStateMap[entity].actionTimer = max(0, self.combatStateMap[entity].actionTimer - amount)
+        self.combatStateMap[entity].actionTimer -= amount
         return self.combatStateMap[entity].actionTimer
+    
+    """
+        Attempts to apply a status effect, or amplify an already-applied status effect.
+    """
+    def applyStatusCondition(self, entity : CombatEntity, statusEffect : StatusEffect) -> bool:
+        return self.combatStateMap[entity].applyStatusCondition(statusEffect, self.rng.random())
 
     """
         Adds a skill effect for an entity.
@@ -473,6 +524,8 @@ class CombatController(object):
     """
     def removeSkillEffect(self, entity : CombatEntity, skillEffect : SkillEffect) -> None:
         self.combatStateMap[entity].activeSkillEffects.pop(skillEffect)
+        if isinstance(skillEffect, StatusEffect):
+            self.combatStateMap[entity].removeStatusCondition(skillEffect.statusName)
 
     """
         Checks to see if all entities have been defeated.
@@ -678,7 +731,8 @@ class CombatController(object):
         for ally in self.getTeammates(defender):
             for effectFunction in self.combatStateMap[ally].getEffectFunctions(EffectTimings.BEFORE_ATTACKED):
                 if ally == defender:
-                    pass #TODO: normal BeforeAttacked events here, when needed
+                    if isinstance(effectFunction, EFBeforeAttacked):
+                        effectFunction.applyEffect(self, defender, attacker)
                 else:
                     if isinstance(effectFunction, EFBeforeAllyAttacked):
                         effectFunction.applyEffect(self, ally, attacker, defender)
@@ -697,7 +751,12 @@ class CombatController(object):
                         parryDamageReduction = effectResult.damageMultiplier
             self.combatStateMap[defender].clearParryType()
 
-        checkHit : bool = self.rollForHit(attacker, defender) if inRange else False
+        checkHit : bool = False
+        if inRange:
+            if self.combatStateMap[defender].getTotalStatValue(CombatStats.GUARANTEE_SELF_HIT) == 1:
+                checkHit = True
+            else:
+                checkHit = self.rollForHit(attacker, defender)
         damageDealt : int = 0
         isCritical : bool = False
         if inRange and checkHit:
@@ -721,6 +780,9 @@ class CombatController(object):
                     actionTimeMult = effectResult.actionTimeMult
             elif isinstance(effectFunction, EFBeforeNextAttack_Revert):
                 effectFunction.applyEffect(self, attacker, defender)
+            elif isinstance(effectFunction, EFBeforeAttacked_Revert):
+                # note that defender is the user here
+                effectFunction.applyEffect(self, defender, attacker)
         for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.AFTER_ATTACKED):
             if isinstance(effectFunction, EFWhenAttacked):
                 effectFunction.applyEffect(self, defender, attacker, attackResultInfo)

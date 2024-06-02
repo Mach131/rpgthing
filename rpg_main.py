@@ -254,7 +254,7 @@ if __name__ == '__main__':
     testRarity = 0
 
     p1 = Player("vulcan", BasePlayerClassNames.WARRIOR)
-    p1.playerLevel = 3
+    p1.level = 3
     p1.freeStatPoints = 12
     p1.assignStatPoints([BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,
@@ -267,7 +267,7 @@ if __name__ == '__main__':
     print()
 
     p2 = Player("shubi", BasePlayerClassNames.ROGUE)
-    p2.playerLevel = 3
+    p2.level = 3
     p2.freeStatPoints = 12
     p2.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP,
                          BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP,
@@ -278,18 +278,20 @@ if __name__ == '__main__':
     print()
 
     p3 = Player("haihaya", BasePlayerClassNames.RANGER)
-    p3.playerLevel = 3
+    p3.level = 3
     p3.freeStatPoints = 12
     p3.assignStatPoints([BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP,
                          BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP,
                          BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP])
     p3.classRanks[BasePlayerClassNames.RANGER] = 3
+    p3.changeClass(AdvancedPlayerClassNames.SNIPER)
+    [p3.rankUp() for i in range(2-1)]
     rerollWeapon(p3, testRarity)
     rerollOtherEquips(p3, testRarity)
     print()
 
     p4 = Player("sienna", BasePlayerClassNames.MAGE)
-    p4.playerLevel = 3
+    p4.level = 3
     p4.freeStatPoints = 12
     p4.assignStatPoints([BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP,
                          BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP,
@@ -300,7 +302,7 @@ if __name__ == '__main__':
     print()
 
     p5 = Player("kenelm", BasePlayerClassNames.WARRIOR)
-    p5.playerLevel = 3
+    p5.level = 3
     p5.freeStatPoints = 12
     p5.assignStatPoints([BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,
                          BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,
@@ -312,7 +314,7 @@ if __name__ == '__main__':
     rerollOtherEquips(p5, testRarity)
     print()
 
-    simpleCombatSimulation([p1], [p5, p3], 0)
+    simpleCombatSimulation([p3, p4], [p2], 2)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

@@ -33,6 +33,8 @@ class CombatStats(Stats):
     ACCURACY_DISTANCE_MOD = auto()
     FLAG_CONFRONT = auto()
     FIXED_ATTACK_POWER = auto()
+    GUARANTEE_SELF_HIT = auto()
+    STATUS_RESISTANCE_MULTIPLIER = auto()
 
 class SpecialStats(Stats):
     CURRENT_HP = auto()
@@ -52,7 +54,9 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.HEALING_EFFECTIVENESS: 1,
     CombatStats.ACCURACY_DISTANCE_MOD: 2,
     CombatStats.FLAG_CONFRONT: 0,
-    CombatStats.FIXED_ATTACK_POWER: 0
+    CombatStats.FIXED_ATTACK_POWER: 0,
+    CombatStats.GUARANTEE_SELF_HIT: 0,
+    CombatStats.STATUS_RESISTANCE_MULTIPLIER: 1
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -115,6 +119,8 @@ class EffectTimings(Enum):
     ON_REPOSITION = auto()
     ON_STAT_CHANGE = auto()
     PARRY = auto()
+    START_TURN = auto()
+    END_TURN = auto()
 
 """ Combat """
 MAX_ACTION_TIMER = 100
@@ -145,6 +151,29 @@ class ActionSuccessState(Enum):
     SUCCESS = auto()
     FAILURE_MANA = auto()
     FAILURE_TARGETS = auto()
+
+""" Status """
+
+class StatusConditionNames(Enum):
+    POISON = auto()
+    BURN = auto()
+    BLIND = auto()
+    STUN = auto()
+    EXHAUSTION = auto()
+    TARGET = auto()
+    MISFORTUNE = auto()
+    RESTRICT = auto()
+    PERPLEXITY = auto()
+    FEAR = auto()
+
+BASE_DEFAULT_STATUS_TOLERANCE = 20
+PER_LEVEL_DEFAULT_STATUS_TOLERANCE = 4
+
+STATUS_TOLERANCE_RESIST_DECREASE = 15
+STATUS_TOLERANCE_RECOVERY_INCREASE_FACTOR = 1.5
+MAX_RESIST_STATUS_TOLERANCE = 100
+
+POISON_STACK_SCALING = 0.75
 
 """ Equips """
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import TYPE_CHECKING
 import math
 
@@ -6,6 +7,7 @@ from rpg_classes_skills import PassiveSkillData, AttackSkillData, ActiveBuffSkil
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked
+from rpg_status_definitions import PoisonStatusEffect, TargetStatusEffect
 
 if TYPE_CHECKING:
     from rpg_classes_skills import EffectFunctionResult
@@ -258,13 +260,26 @@ def atlasFn(controller, user, attacker, defender, _):
             attackResult.addBonusAttack(attacker_, user, CounterSkillData(attackResult.isPhysical, attackResult.attackType, 1,
                     [SkillEffect([EFBeforeNextAttack({
                         CombatStats.IGNORE_RANGE_CHECK: 1,
-                        CombatStats.FIXED_ATTACK_POWER: attackResult.damageDealt * 3/7
+                        CombatStats.FIXED_ATTACK_POWER: attackResult.damageDealt * 3/5
                     }, {}, None, None)], 0)]))
     )
     followupEffect : SkillEffect = SkillEffect([revertEffectFn, redirectEffectFn], 0)
     controller.addSkillEffect(attacker, followupEffect)
 ActiveToggleSkillData("Burden of Atlas", AdvancedPlayerClassNames.KNIGHT, 9, True, 10,
-    "[Toggle] Reduces the damage all allies take by 30%, redirecting it to you as a bonus attack.", MAX_ACTION_TIMER / 10,
+    "[Toggle] Reduces the damage all allies take by 30%, redirecting part of it to you as a bonus attack.", MAX_ACTION_TIMER / 10,
     {}, {}, [SkillEffect([
         EFBeforeAllyAttacked(atlasFn)
     ], None)], 0, 0, True)
+
+# Sniper
+
+PassiveSkillData("Sniper's Aim", AdvancedPlayerClassNames.SNIPER, 1, False,
+    "Increases ACC by 25% and SPD by 10%.",
+    {}, {BaseStats.ACC: 1.25, BaseStats.SPD: 1.10}, [])
+
+AttackSkillData("Target Lock", AdvancedPlayerClassNames.SNIPER, 2, False, 10,
+    "Attack with 1x ATK, attempting to inflict TARGET for 3 turns. (Attacks against a TARGETED opponent always hit.)",
+    True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
+        EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
+                          controller.applyStatusCondition(target, TargetStatusEffect(user, target, 3)) if attackResult.attackHit else None))
+    ], 0)])

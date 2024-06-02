@@ -5,8 +5,9 @@ from rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
 from rpg_items import Item, Equipment, Weapon
 
 class CombatEntity(object):
-    def __init__(self, name : str, passiveSkills : list[SkillData], activeSkills : list[SkillData]) -> None:
+    def __init__(self, name : str, level : int, passiveSkills : list[SkillData], activeSkills : list[SkillData]) -> None:
         self.name = name
+        self.level = level
         self.baseStats : dict[BaseStats, int] = {}
         self.flatStatMod : dict[Stats, float] = {}
         self.multStatMod : dict[Stats, float] = {}
@@ -49,9 +50,8 @@ ACC: {self.baseStats[BaseStats.ACC]}, AVO: {self.baseStats[BaseStats.AVO]}, SPD:
 class Player(CombatEntity):
     """Initializes the Player at level 1"""
     def __init__(self, name : str, playerClass : PlayerClassNames) -> None:
-        super().__init__(name, [], [])
+        super().__init__(name, 1, [], [])
 
-        self.playerLevel : int = 1
         self.playerExp : int = 0
 
         self.freeStatPoints : int = 4
@@ -117,7 +117,7 @@ class Player(CombatEntity):
             if self.freeStatPoints <= 0:
                 break
 
-            if self.statLevels[increasedStat] >= self.playerLevel:
+            if self.statLevels[increasedStat] >= self.level:
                 continue
 
             self.statLevels[increasedStat] += 1
