@@ -27,8 +27,8 @@ class CombatStats(Stats):
     DAMAGE_REDUCTION = auto()
     WEAKNESS_MODIFIER = auto()
     RESISTANCE_MODIFIER = auto()
-    BONUS_WEAKNESS_DAMAGE = auto()
-    IGNORE_RESISTANCE = auto()
+    BONUS_WEAKNESS_DAMAGE_MULT = auto()
+    IGNORE_RESISTANCE_MULT = auto()
     HEALING_EFFECTIVENESS = auto()
     ACCURACY_DISTANCE_MOD = auto()
     FLAG_CONFRONT = auto()
@@ -47,8 +47,8 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.DAMAGE_REDUCTION: 0,
     CombatStats.WEAKNESS_MODIFIER: 0.2,
     CombatStats.RESISTANCE_MODIFIER: 0.2,
-    CombatStats.BONUS_WEAKNESS_DAMAGE: 0,
-    CombatStats.IGNORE_RESISTANCE: 0,
+    CombatStats.BONUS_WEAKNESS_DAMAGE_MULT: 1,
+    CombatStats.IGNORE_RESISTANCE_MULT: 1,
     CombatStats.HEALING_EFFECTIVENESS: 1,
     CombatStats.ACCURACY_DISTANCE_MOD: 2,
     CombatStats.FLAG_CONFRONT: 0,
@@ -110,7 +110,8 @@ class EffectTimings(Enum):
     IMMEDIATE = auto()
     BEFORE_ATTACK = auto()
     AFTER_ATTACK = auto()
-    WHEN_ATTACKED = auto()
+    BEFORE_ATTACKED = auto()
+    AFTER_ATTACKED = auto()
     ON_REPOSITION = auto()
     ON_STAT_CHANGE = auto()
     PARRY = auto()

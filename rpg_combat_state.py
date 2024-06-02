@@ -6,7 +6,7 @@ import math
 from rpg_consts import *
 from rpg_classes_skills import SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
-    EFOnDistanceChange, EFOnStatsChange, EFOnParry
+    EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked
 
 if TYPE_CHECKING:
     from rpg_combat_entity import CombatEntity
@@ -181,13 +181,13 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
     """
         Accounts for weaknesses and resistances.
     """
-    def getAttributeDamageMultiplier(self, attackAttribute : AttackAttribute, bonusWeaknessDamage : float, ignoreResistance : float) -> float:
+    def getAttributeDamageMultiplier(self, attackAttribute : AttackAttribute, bonusWeaknessDamageMult : float, ignoreResistanceMult : float) -> float:
         weaknessInstances : int = self.weaknesses.count(attackAttribute)
-        weaknessModifier : float = self.getTotalStatValueFloat(CombatStats.WEAKNESS_MODIFIER) * (1 + bonusWeaknessDamage)
+        weaknessModifier : float = self.getTotalStatValueFloat(CombatStats.WEAKNESS_MODIFIER) * bonusWeaknessDamageMult
         weaknessMultiplier : float = (1 + weaknessModifier) ** weaknessInstances
 
         resistanceInstances : int = self.resistances.count(attackAttribute)
-        resistanceModifier : float = self.getTotalStatValueFloat(CombatStats.RESISTANCE_MODIFIER) * (1 - ignoreResistance)
+        resistanceModifier : float = self.getTotalStatValueFloat(CombatStats.RESISTANCE_MODIFIER) * ignoreResistanceMult
         if resistanceModifier < 0: resistanceModifier = 0
         resistanceMultiplier : float = (1 + resistanceModifier) ** -resistanceInstances
 
@@ -343,8 +343,8 @@ class CombatController(object):
         critFactor : float = critDamage if isCrit else 1
 
         attackAttribute : AttackAttribute = self.combatStateMap[attacker].getCurrentAttackAttribute(isPhysical)
-        bonusWeaknessDamage : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.BONUS_WEAKNESS_DAMAGE)
-        ignoreResistance : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.IGNORE_RESISTANCE)
+        bonusWeaknessDamage : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.BONUS_WEAKNESS_DAMAGE_MULT)
+        ignoreResistance : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.IGNORE_RESISTANCE_MULT)
         attributeMultiplier : float = self.combatStateMap[defender].getAttributeDamageMultiplier(
             attackAttribute, bonusWeaknessDamage, ignoreResistance)
 
@@ -675,6 +675,13 @@ class CombatController(object):
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
             effectFunction.applyEffect(self, attacker, defender)
+        for ally in self.getTeammates(defender):
+            for effectFunction in self.combatStateMap[ally].getEffectFunctions(EffectTimings.BEFORE_ATTACKED):
+                if ally == defender:
+                    pass #TODO: normal BeforeAttacked events here, when needed
+                else:
+                    if isinstance(effectFunction, EFBeforeAllyAttacked):
+                        effectFunction.applyEffect(self, ally, attacker, defender)
 
         inRange = self.checkInRange(attacker, defender)
 
@@ -698,7 +705,7 @@ class CombatController(object):
             damage *= parryDamageMultiplier
             damageDealt = self.applyDamage(attacker, defender, damage)
 
-        attackResultInfo = AttackResultInfo(attacker, defender, inRange, checkHit, damageDealt, isCritical, isBonus)
+        attackResultInfo = AttackResultInfo(attacker, defender, inRange, checkHit, damageDealt, isCritical, isBonus, isPhysical, attackType)
         if parryBonusAttack is not None:
             attackResultInfo.addBonusAttack(*parryBonusAttack)
 
@@ -714,7 +721,7 @@ class CombatController(object):
                     actionTimeMult = effectResult.actionTimeMult
             elif isinstance(effectFunction, EFBeforeNextAttack_Revert):
                 effectFunction.applyEffect(self, attacker, defender)
-        for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.WHEN_ATTACKED):
+        for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.AFTER_ATTACKED):
             if isinstance(effectFunction, EFWhenAttacked):
                 effectFunction.applyEffect(self, defender, attacker, attackResultInfo)
 
@@ -755,7 +762,8 @@ class ActionResultInfo(object):
 
 class AttackResultInfo(object):
     def __init__(self, attacker : CombatEntity, defender : CombatEntity, inRange : bool,
-                 attackHit : bool, damageDealt : int, isCritical : bool, isBonus : bool) -> None:
+                 attackHit : bool, damageDealt : int, isCritical : bool, isBonus : bool,
+                 isPhysical : bool, attackType : AttackType) -> None:
         self.attacker : CombatEntity = attacker
         self.defender : CombatEntity = defender
         self.inRange : bool = inRange
@@ -766,6 +774,8 @@ class AttackResultInfo(object):
         self.bonusAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = []
         self.bonusResultInfo : AttackResultInfo | None = None
         self.repeatAttack : bool = False
+        self.isPhysical : bool = isPhysical
+        self.attackType : AttackType = attackType
 
     def setRepeatAttack(self):
         self.repeatAttack = True

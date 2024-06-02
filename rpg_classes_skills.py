@@ -304,13 +304,24 @@ class EFAfterNextAttack(EffectFunction):
 """A reaction to the results of being attacked."""
 class EFWhenAttacked(EffectFunction):
     def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
-        super().__init__(EffectTimings.WHEN_ATTACKED)
+        super().__init__(EffectTimings.AFTER_ATTACKED)
         self.func : Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None] = func
 
     def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity,
             attackResultInfo : AttackResultInfo) -> EffectFunctionResult:
         result = EffectFunctionResult(self)
         self.func(controller, user, attacker, attackResultInfo, result)
+        return result
+
+"""A reaction to an ally being targeted by an attack."""
+class EFBeforeAllyAttacked(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.BEFORE_ATTACKED)
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity, CombatEntity, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity, target: CombatEntity) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, attacker, target, result)
         return result
 
 """A reaction to the distance to a target being changed."""

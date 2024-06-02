@@ -1,9 +1,16 @@
+from typing import TYPE_CHECKING
 import math
 
 from rpg_consts import *
 from rpg_classes_skills import PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
     ActiveSkillDataSelector, PrepareParrySkillData, \
-    SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, EFOnParry
+    SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
+        EFOnParry, EFBeforeAllyAttacked
+
+if TYPE_CHECKING:
+    from rpg_classes_skills import EffectFunctionResult
+    from rpg_combat_entity import CombatEntity
+    from rpg_combat_state import CombatController
 
 # Warrior
 
@@ -169,7 +176,7 @@ ActiveBuffSkillData("Heroic Legacy", AdvancedPlayerClassNames.MERCENARY, 9, True
         lambda _1, _2, _3, attackResultInfo, _4: attackResultInfo.setRepeatAttack() if not attackResultInfo.isBonus else None)], 4)],
     0, 0, True)
 
-# Mercenary
+# Knight
 
 PassiveSkillData("Knight's Vitality", AdvancedPlayerClassNames.KNIGHT, 1, False,
     "Increases HP by 20% and DEF by 15%.",
@@ -193,9 +200,9 @@ PassiveSkillData("Chivalry", AdvancedPlayerClassNames.KNIGHT, 3, True,
     ], None)])
 
 PassiveSkillData("Justified", AdvancedPlayerClassNames.KNIGHT, 4, False,
-    "Restore 5% of the damage you deal as HP.",
+    "Restore 10% of the damage you deal as HP.",
     {}, {}, [SkillEffect([EFAfterNextAttack(
-      lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.05)))
+      lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.1)))
     )], None)])
 
 def parryFn(controller, user, attacker, isPhysical, effectResult):
@@ -216,3 +223,48 @@ ActiveSkillDataSelector("Parry", AdvancedPlayerClassNames.KNIGHT, 5, False, 25,
 PassiveSkillData("Persistence", AdvancedPlayerClassNames.KNIGHT, 6, True,
     "Increases DEF by 15% and HP by 10%.",
     {}, {BaseStats.DEF: 1.15, BaseStats.HP: 1.10}, [])
+
+def unifiedSpiritsFn(controller, user, attacker, defender, _):
+    userDistance = controller.checkDistance(user, attacker)
+    allyDistance = controller.checkDistance(defender, attacker)
+    if userDistance is not None and allyDistance is not None and userDistance < allyDistance:
+        defBonus = controller.combatStateMap[user].getTotalStatValue(BaseStats.DEF) * 0.3
+        resBonus = controller.combatStateMap[user].getTotalStatValue(BaseStats.RES) * 0.3
+        flatStatBonuses : dict[Stats, float] = {BaseStats.DEF: defBonus, BaseStats.RES: resBonus}
+        controller.applyFlatStatBonuses(defender, flatStatBonuses)
+        revertEffect : SkillEffect = SkillEffect([EFAfterNextAttack(
+            lambda controller_, attacker_, defender_, _1, _2: controller_.revertFlatStatBonuses(defender, flatStatBonuses)
+        )], 0)
+        controller.addSkillEffect(attacker, revertEffect)
+PassiveSkillData("Unified Spirits", AdvancedPlayerClassNames.KNIGHT, 7, False,
+    "When an ally is attacked, if their distance from the target is greater than yours, they gain 30% of your DEF/RES.",
+    {}, {}, [SkillEffect([
+        EFBeforeAllyAttacked(unifiedSpiritsFn)
+    ], None)])
+
+PassiveSkillData("Protector's Insight", AdvancedPlayerClassNames.KNIGHT, 8, True,
+    "Increases the effect of your resistances and targets' weaknesses, and decreases the effect of your weaknesses and targets' resistances.",
+    {}, {CombatStats.WEAKNESS_MODIFIER: 0.5, CombatStats.RESISTANCE_MODIFIER: 1.5,
+         CombatStats.BONUS_WEAKNESS_DAMAGE_MULT: 1.5, CombatStats.IGNORE_RESISTANCE_MULT: 0.5}, [])
+
+def atlasFn(controller, user, attacker, defender, _):
+    damageReduction : dict[Stats, float] = {CombatStats.DAMAGE_REDUCTION: 0.3}
+    controller.applyFlatStatBonuses(defender, damageReduction)
+    revertEffectFn = EFAfterNextAttack(
+        lambda controller_, attacker_, defender_, _1, _2: controller_.revertFlatStatBonuses(defender, damageReduction)
+    )
+    redirectEffectFn = EFAfterNextAttack(
+        lambda controller_, attacker_, _1, attackResult, _2:
+            attackResult.addBonusAttack(attacker_, user, CounterSkillData(attackResult.isPhysical, attackResult.attackType, 1,
+                    [SkillEffect([EFBeforeNextAttack({
+                        CombatStats.IGNORE_RANGE_CHECK: 1,
+                        CombatStats.FIXED_ATTACK_POWER: attackResult.damageDealt * 3/7
+                    }, {}, None, None)], 0)]))
+    )
+    followupEffect : SkillEffect = SkillEffect([revertEffectFn, redirectEffectFn], 0)
+    controller.addSkillEffect(attacker, followupEffect)
+ActiveToggleSkillData("Burden of Atlas", AdvancedPlayerClassNames.KNIGHT, 9, True, 10,
+    "[Toggle] Reduces the damage all allies take by 30%, redirecting it to you as a bonus attack.", MAX_ACTION_TIMER / 10,
+    {}, {}, [SkillEffect([
+        EFBeforeAllyAttacked(atlasFn)
+    ], None)], 0, 0, True)
