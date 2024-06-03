@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFEndTurn, EFOnDistanceChange, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
+from rpg_classes_skills import EFEndTurn, EFOnDistanceChange, EFOnStatusApplied, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked
@@ -356,12 +356,12 @@ AttackSkillData("Winds of Solitude", AdvancedPlayerClassNames.SNIPER, 9, False, 
         ) if attackResult.attackHit else None)
     ], 0)])
 
+
 # Hunter
 
 PassiveSkillData("Hunter's Willpower", AdvancedPlayerClassNames.HUNTER, 1, False,
     "Increases ACC by 15%, RES by 15%, and DEF by 5%.",
     {}, {BaseStats.ACC: 1.15, BaseStats.RES: 1.15, BaseStats.DEF: 1.05}, [])
-
 
 def lacedStatus(statusString : str, controller : CombatController, user : CombatEntity, target : CombatEntity):
     if statusString.upper() == "POISON":
@@ -406,3 +406,39 @@ def coveredTracksFn(controller : CombatController, user : CombatEntity, target :
 PassiveSkillData("Covered Tracks", AdvancedPlayerClassNames.HUNTER, 4, False,
     "When an opponent approaches you, counter with 0.7x ATK, attempting to inflict EXHAUST (30% strength) for 3 turns.",
     {}, {}, [SkillEffect([EFOnDistanceChange(coveredTracksFn)], None)])
+
+ActiveBuffSkillData("Weakening Trap", AdvancedPlayerClassNames.HUNTER, 5, False, 25,
+    "[Buff] Target any ally. For their next three turns, attacks hitting them lower the attacker's DEF, RES, ACC, and AVO by 7%.",
+    DEFAULT_ATTACK_TIMER_USAGE / 2, {}, {},
+    [SkillEffect([EFImmediate(lambda controller, user, targets, _: controller.addSkillEffect(targets[0], SkillEffect([
+        EFWhenAttacked(lambda controller, user, attacker, attackInfo, _: controller.applyMultStatBonuses(attacker, {
+            BaseStats.DEF: 0.93,
+            BaseStats.RES: 0.93,
+            BaseStats.ACC: 0.93,
+            BaseStats.AVO: 0.93
+        }) if attackInfo.attackHit else None)
+    ], 3)))], 0)],
+    1, 0, False)
+
+PassiveSkillData("Resourcefulness", AdvancedPlayerClassNames.HUNTER, 6, True,
+    "Increases MP by 10%, DEF by 5%, RES by 5%, and ACC by 5%.",
+    {}, {BaseStats.MP: 1.1, BaseStats.DEF: 1.05, BaseStats.RES: 1.05, BaseStats.ACC: 1.05}, [])
+
+PassiveSkillData("Primal Fear", AdvancedPlayerClassNames.HUNTER, 7, False,
+    "When successfully applying a status condition, additionally attempt to inflict FEAR (10% strength) for 3 turns.",
+    {}, {}, [SkillEffect([EFOnStatusApplied(
+        lambda controller, user, target, statusName, _:
+            void(controller.applyStatusCondition(target, FearStatusEffect(user, target, 3, 0.9))) if statusName != StatusConditionNames.FEAR else None
+    )], None)])
+
+PassiveSkillData("Viral Evolution", AdvancedPlayerClassNames.HUNTER, 8, True,
+    "Increases the success rate of applying status conditions by 40%.",
+    {}, {CombatStats.STATUS_APPLICATION_TOLERANCE_MULTIPLIER: 0.6}, [])
+
+AttackSkillData("Enclosing Fangs", AdvancedPlayerClassNames.HUNTER, 9, True, 25,
+    "Attack with 1.2x ATK. On hit, decrease all of the target's current status condition tolerances by 20% of the damage dealt.",
+    True, AttackType.RANGED, 1.2, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
+        EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
+            [controller.combatStateMap[target].reduceTolerance(status, math.ceil(attackResult.damageDealt * 0.15)) for status in StatusConditionNames]
+        ) if attackResult.attackHit else None)
+    ], 0)])

@@ -35,6 +35,7 @@ class CombatStats(Stats):
     FIXED_ATTACK_POWER = auto()
     GUARANTEE_SELF_HIT = auto()
     STATUS_RESISTANCE_MULTIPLIER = auto()
+    STATUS_APPLICATION_TOLERANCE_MULTIPLIER = auto()
     ACTION_GAUGE_USAGE_MULTIPLIER = auto()
     LUCK = auto()
     MANA_COST_MULT = auto()
@@ -61,6 +62,7 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.FIXED_ATTACK_POWER: 0,
     CombatStats.GUARANTEE_SELF_HIT: 0,
     CombatStats.STATUS_RESISTANCE_MULTIPLIER: 1,
+    CombatStats.STATUS_APPLICATION_TOLERANCE_MULTIPLIER: 1,
     CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 1,
     CombatStats.LUCK: 0,
     CombatStats.MANA_COST_MULT: 1,
@@ -126,6 +128,7 @@ class EffectTimings(Enum):
     AFTER_ATTACKED = auto()
     ON_REPOSITION = auto()
     ON_STAT_CHANGE = auto()
+    ON_APPLY_STATUS_SUCCESS = auto()
     PARRY = auto()
     START_TURN = auto()
     END_TURN = auto()

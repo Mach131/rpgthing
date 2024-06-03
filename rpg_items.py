@@ -224,7 +224,7 @@ perplexityEffectTrait = makeStatusEffectTrait(StatusConditionNames.PERPLEXITY, 3
                                           lambda controller, user, target: 1.5,
                                           "{}% chance to attempt to apply PERPLEXITY (50% strength) on hit for {} turns.")
 fearEffectTrait = makeStatusEffectTrait(StatusConditionNames.FEAR, 2, 5,
-                                          lambda controller, user, target: 1.1,
+                                          lambda controller, user, target: 0.9,
                                           "{}% chance to attempt to apply FEAR (10% strength) on hit for {} turns.")
 
 healthDrainTrait = EquipmentTrait(lambda r, c: f"Restore {r+1}% of the damage you deal as HP.",

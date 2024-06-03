@@ -349,12 +349,12 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.MP])
     p6.classRanks[BasePlayerClassNames.RANGER] = 3
     p6.changeClass(AdvancedPlayerClassNames.HUNTER)
-    [p6.rankUp() for i in range(4-1)]
+    [p6.rankUp() for i in range(9-1)]
     rerollWeapon(p6, testRarity)
     rerollOtherEquips(p6, testRarity)
     print()
 
-    simpleCombatSimulation([p6], [p5], 2)
+    simpleCombatSimulation([p6], [p3], 2)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

@@ -4,7 +4,7 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFStartTurn, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnStatusApplied, EFStartTurn, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
 from rpg_status_definitions import StatusEffect
@@ -238,6 +238,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
             return True
         else:
             statusResistance = self.getStatusResistChance(statusName)
+            statusResistance *= controller.combatStateMap[statusCondition.inflicter].getTotalStatValueFloat(CombatStats.STATUS_APPLICATION_TOLERANCE_MULTIPLIER)
             print(f"status resist chance: {statusResistance * 100:.1f}%")
             if randomRoll >= statusResistance:
                 print(f"applied {statusName.name} on {self.entity.name}!")
@@ -251,10 +252,13 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
                 return True
             else:
                 print(f"failed to apply {statusName.name} on {self.entity.name}!")
-                self.currentStatusTolerance[statusName] -= STATUS_TOLERANCE_RESIST_DECREASE
-                if self.currentStatusTolerance[statusName] < 0:
-                    self.currentStatusTolerance[statusName] = 0
+                self.reduceTolerance(statusName, STATUS_TOLERANCE_RESIST_DECREASE)
                 return False
+            
+    def reduceTolerance(self, statusName : StatusConditionNames, amount : int):
+        self.currentStatusTolerance[statusName] -= amount
+        if self.currentStatusTolerance[statusName] < 0:
+            self.currentStatusTolerance[statusName] = 0
         
     def removeStatusCondition(self, statusName : StatusConditionNames):
         if statusName not in self.currentStatusEffects:
@@ -590,7 +594,12 @@ class CombatController(object):
         Attempts to apply a status effect, or amplify an already-applied status effect.
     """
     def applyStatusCondition(self, entity : CombatEntity, statusEffect : StatusEffect) -> bool:
-        return self.combatStateMap[entity].applyStatusCondition(statusEffect, self)
+        statusSuccess =  self.combatStateMap[entity].applyStatusCondition(statusEffect, self)
+        if statusSuccess and statusEffect.inflicter != entity:
+            for effectFunction in self.combatStateMap[statusEffect.inflicter].getEffectFunctions(EffectTimings.ON_APPLY_STATUS_SUCCESS):
+                if isinstance(effectFunction, EFOnStatusApplied):
+                    effectFunction.applyEffect(self, statusEffect.inflicter, entity, statusEffect.statusName)
+        return statusSuccess
 
     """
         Adds a skill effect for an entity.

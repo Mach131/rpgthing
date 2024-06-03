@@ -404,6 +404,18 @@ class EFOnParry(EffectFunction):
         self.func(controller, user, attacker, isPhysical, result)
         return result
     
+"""A reaction to a status the user inflicts is successfully applied or amplified."""
+class EFOnStatusApplied(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, StatusConditionNames, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.ON_APPLY_STATUS_SUCCESS)
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity, StatusConditionNames, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity,
+                    statusName : StatusConditionNames) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, target, statusName, result)
+        return result
+    
 """An effect that always occurs at the beginning of a turn."""
 class EFStartTurn(EffectFunction):
     def __init__(self, func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None]):
