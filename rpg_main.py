@@ -52,6 +52,22 @@ class CombatInputHandler(object):
             if attackResult is not None:
                 print(f"{attackResult.attacker.name} performs an extra attack against {attackResult.defender.name}!")
 
+    def _doReactionAttack(self, combatController : CombatController, user : CombatEntity, target : CombatEntity,
+                          attackData : AttackSkillData, additionalAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]):
+        print (f"{self.entity.name} attacks {target.name}!")
+        attackResult : AttackResultInfo | None = combatController.performReactionAttack(self.entity, user, target, attackData, additionalAttacks)
+        while attackResult is not None:
+            if not attackResult.inRange:
+                print ("Target out of range!\n")
+            elif not attackResult.attackHit:
+                print ("Attack missed!\n")
+            else:
+                print(f"{attackResult.damageDealt} damage{' (Crit)' if attackResult.isCritical else ''}!\n")
+            
+            attackResult = attackResult.bonusResultInfo
+            if attackResult is not None:
+                print(f"{attackResult.attacker.name} performs an extra attack against {attackResult.defender.name}!")
+
     def doSkill(self, combatController : CombatController, targets : list[CombatEntity], skillData : SkillData) -> ActionResultInfo:
         actionResult : ActionResultInfo = combatController.performActiveSkill(self.entity, targets, skillData)
         if actionResult.success == ActionSuccessState.SUCCESS:
@@ -68,12 +84,18 @@ class CombatInputHandler(object):
         return actionResult
     
     def doReposition(self, combatController : CombatController, targets : list[CombatEntity], distanceChange : int) -> bool:
-        changedDistances = combatController.performReposition(self.entity, targets, distanceChange)
-        if len(changedDistances) == 0:
+        repositionResult = combatController.performReposition(self.entity, targets, distanceChange)
+        if not repositionResult.success:
             return False
         
-        for changedTarget in changedDistances:
-            print (f"Distance to {changedTarget.name} is now {changedDistances[changedTarget]}.")
+        for changedTarget in repositionResult.changedDistances:
+            print(f"Distance to {changedTarget.name} is now {repositionResult.changedDistances[changedTarget]}.")
+        if repositionResult.startAttack:
+            assert(repositionResult.attackUser is not None)
+            assert(repositionResult.attackTarget is not None)
+            assert(repositionResult.attackData is not None)
+            self._doReactionAttack(combatController, repositionResult.attackUser, repositionResult.attackTarget,
+                                   repositionResult.attackData, repositionResult.additionalAttacks)
         return True
     
     def doDefend(self, combatController : CombatController) -> None:
@@ -319,7 +341,20 @@ if __name__ == '__main__':
     rerollOtherEquips(p5, testRarity)
     print()
 
-    simpleCombatSimulation([p3], [p5], 2)
+    p6 = Player("azalea", BasePlayerClassNames.RANGER)
+    p6.level = 3
+    p6.freeStatPoints = 12
+    p6.assignStatPoints([BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP,
+                         BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP,
+                         BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.MP])
+    p6.classRanks[BasePlayerClassNames.RANGER] = 3
+    p6.changeClass(AdvancedPlayerClassNames.HUNTER)
+    [p6.rankUp() for i in range(4-1)]
+    rerollWeapon(p6, testRarity)
+    rerollOtherEquips(p6, testRarity)
+    print()
+
+    simpleCombatSimulation([p6], [p5], 2)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

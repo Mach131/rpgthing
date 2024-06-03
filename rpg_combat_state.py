@@ -355,11 +355,12 @@ class CombatController(object):
         return self.distanceMap[player][opponent]
 
     """
-        Given two separate entities on opposing teams, changes and then returns the distance between them.
+        Given two separate entities on opposing teams, changes the distance between them.
         Assumes that entity1 is the one initiating the reposition; it may fail if they are RESTRICTED.
-        Returns None if the given entities are invalid.
+        Returns None if the given entities are invalid; otherwise, returns data for any activated bonus attacks.
     """
-    def updateDistance(self, entity1 : CombatEntity, entity2 : CombatEntity, newDistance : int) -> int | None:
+    def updateDistance(self, entity1 : CombatEntity, entity2 : CombatEntity,
+                       newDistance : int) -> list[tuple[CombatEntity, CombatEntity, AttackSkillData]]:
         if newDistance > MAX_DISTANCE:
             newDistance = MAX_DISTANCE
         if newDistance < 0:
@@ -367,7 +368,7 @@ class CombatController(object):
 
         teamValidator = self._separateTeamValidator(entity1, entity2)
         if teamValidator is None:
-            return None
+            return []
         player, opponent = teamValidator
         oldDistance = self.distanceMap[player][opponent]
 
@@ -375,15 +376,19 @@ class CombatController(object):
             newDistance = oldDistance
         self.distanceMap[player][opponent] = newDistance
 
-        # TODO: may need to do something with result
+        reactionAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = []
         for effectFunction in self.combatStateMap[entity1].getEffectFunctions(EffectTimings.ON_REPOSITION):
             assert(isinstance(effectFunction, EFOnDistanceChange))
-            effectFunction.applyEffect(self, entity1, entity2, True, oldDistance, newDistance)
+            effectResult = effectFunction.applyEffect(self, entity1, entity2, True, oldDistance, newDistance)
+            if effectResult.bonusAttack is not None:
+                reactionAttackData.append(effectResult.bonusAttack)
         for effectFunction in self.combatStateMap[entity2].getEffectFunctions(EffectTimings.ON_REPOSITION):
             assert(isinstance(effectFunction, EFOnDistanceChange))
-            effectFunction.applyEffect(self, entity2, entity1, False, oldDistance, newDistance)
+            effectResult = effectFunction.applyEffect(self, entity2, entity1, False, oldDistance, newDistance)
+            if effectResult.bonusAttack is not None:
+                reactionAttackData.append(effectResult.bonusAttack)
 
-        return self.distanceMap[player][opponent]
+        return reactionAttackData
 
     """
         Gets a random float from 0 to 1, accounting for luck values.
@@ -658,8 +663,9 @@ class CombatController(object):
         Performs a repositioning action, performing end-of-turn cleanup.
         Returns a map of changed distances to targets, from the user's perspective.
         If the result is empty, the reposition failed.
+        May also return attack data for a triggered counterattack, in which case endTurn operations are not yet called.
     """
-    def performReposition(self, user : CombatEntity, targets : list[CombatEntity], distanceChange : int) -> dict[CombatEntity, int]:
+    def performReposition(self, user : CombatEntity, targets : list[CombatEntity], distanceChange : int) -> RepositionResultInfo:
         if distanceChange > MAX_SINGLE_REPOSITION:
             distanceChange = MAX_SINGLE_REPOSITION
         if distanceChange < -MAX_SINGLE_REPOSITION:
@@ -669,18 +675,20 @@ class CombatController(object):
         expectedTimerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(distanceChange)
         expectedTimerCost *= self.combatStateMap[user].getTotalStatValueFloat(CombatStats.REPOSITION_ACTION_TIME_MULT)
         if expectedTimerCost > MAX_ACTION_TIMER:
-            return {}
+            return RepositionResultInfo(False, {}, False, None, None, None, [])
         totalDistanceChange = 0
 
         oldDistances = {}
         for target in targets:
             oldDistances[target] = self.checkDistance(user, target)
             if oldDistances[target] is None:
-                return {}
+                return RepositionResultInfo(False, {}, False, None, None, None, [])
+            
         newDistances = {}
+        bonusAttackDetails = []
         for target in targets:
-            newDistances[target] = self.updateDistance(user, target, oldDistances[target] + distanceChange)
-            assert(newDistances[target] is not None)
+            bonusAttackDetails += self.updateDistance(user, target, oldDistances[target] + distanceChange)
+            newDistances[target] = self.checkDistance(user, target)
             totalDistanceChange += abs(newDistances[target] - oldDistances[target])
 
         realTimerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(totalDistanceChange)
@@ -688,11 +696,16 @@ class CombatController(object):
         if totalDistanceChange > 0:
             self.gainMana(user, REPOSITION_MP_GAIN)
             self.spendActionTimer(user, realTimerCost)
-            self._endPlayerTurn(user)
         else:
             print("Unable to move!")
+            return RepositionResultInfo(False, {}, False, None, None, None, [])
 
-        return newDistances
+        if len(bonusAttackDetails) == 0:
+            self._endPlayerTurn(user)
+            return RepositionResultInfo(True, newDistances, False, None, None, None, [])
+        else:
+            return RepositionResultInfo(True, newDistances, True,
+                                        bonusAttackDetails[0][0], bonusAttackDetails[0][1], bonusAttackDetails[0][2], bonusAttackDetails[1:])
 
     """
         Performs a defend action, performing end-of-turn cleanup.
@@ -753,6 +766,7 @@ class CombatController(object):
         attackTarget : CombatEntity | None = None
         if skill.actionTime is not None:
             self.spendActionTimer(user, skill.actionTime)
+
         if not skill.causesAttack:
             self._endPlayerTurn(user, skipDurationTick)
         else:
@@ -777,6 +791,25 @@ class CombatController(object):
             attackResultInfo.addBonusResultInfo(repeatAttackResultInfo)
         self._cleanupEffects(attacker)
 
+        self._processBonusAttacks(attackResultInfo)
+        self._endPlayerTurn(attacker)
+        return attackResultInfo
+    
+    """
+        For attacks caused as a reaction to actions like repositioning; treats them all as bonus attacks.
+    """
+    def performReactionAttack(self, turnPlayer : CombatEntity, attacker : CombatEntity, defender : CombatEntity, attackSkillData : AttackSkillData,
+                              additionalAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]):
+        self.performActiveSkill(attacker, [defender], attackSkillData)
+        attackResultInfo = self._doSingleAttack(attacker, defender, attackSkillData.isPhysical, attackSkillData.attackType, False, True)
+        [attackResultInfo.addBonusAttack(*additionalAttack) for additionalAttack in additionalAttacks]
+        self._cleanupEffects(attacker)
+
+        self._processBonusAttacks(attackResultInfo)
+        self._endPlayerTurn(turnPlayer)
+        return attackResultInfo
+
+    def _processBonusAttacks(self, attackResultInfo : AttackResultInfo):
         # process bonus attacks
         while len(attackResultInfo.bonusAttacks) > 0:
             bonusAttacker, bonusTarget, bonusAttackData = attackResultInfo.bonusAttacks.pop(0)
@@ -786,10 +819,6 @@ class CombatController(object):
                                                                                 bonusAttackData.attackType, False, True)
                 attackResultInfo.addBonusResultInfo(bonusAttackResultInfo)
                 self._cleanupEffects(bonusAttacker)
-
-        self._endPlayerTurn(attacker)
-
-        return attackResultInfo
     
     """
         Checks if a target is in range. Returns false for entities on the same team.
@@ -932,6 +961,18 @@ class ActionResultInfo(object):
         self.attackTarget : CombatEntity | None = attackTarget
         self.toggleChanged : bool = toggleChanged
         self.newToggle : bool = newToggle
+
+class RepositionResultInfo(object):
+    def __init__(self, success : bool, changedDistances : dict[CombatEntity, int], startAttack : bool,
+                 attackUser : CombatEntity | None, attackTarget : CombatEntity | None, attackData : AttackSkillData | None,
+                 additionalAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]):
+        self.success : bool = success
+        self.changedDistances : dict[CombatEntity, int] = changedDistances
+        self.startAttack : bool = startAttack
+        self.attackUser : CombatEntity | None = attackUser
+        self.attackTarget : CombatEntity | None = attackTarget
+        self.attackData : AttackSkillData | None = attackData
+        self.additionalAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = additionalAttacks
 
 class AttackResultInfo(object):
     def __init__(self, attacker : CombatEntity, defender : CombatEntity, originalDistance : int, inRange : bool,

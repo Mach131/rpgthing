@@ -355,3 +355,54 @@ AttackSkillData("Winds of Solitude", AdvancedPlayerClassNames.SNIPER, 9, False, 
             controller.applyStatusCondition(target, RestrictStatusEffect(user, target, 2)))
         ) if attackResult.attackHit else None)
     ], 0)])
+
+# Hunter
+
+PassiveSkillData("Hunter's Willpower", AdvancedPlayerClassNames.HUNTER, 1, False,
+    "Increases ACC by 15%, RES by 15%, and DEF by 5%.",
+    {}, {BaseStats.ACC: 1.15, BaseStats.RES: 1.15, BaseStats.DEF: 1.05}, [])
+
+
+def lacedStatus(statusString : str, controller : CombatController, user : CombatEntity, target : CombatEntity):
+    if statusString.upper() == "POISON":
+        poisonStrength = math.ceil(controller.combatStateMap[user].getTotalStatValue(BaseStats.ATK) * 0.5)
+        return PoisonStatusEffect(user, target, 6, poisonStrength)
+    elif statusString.upper() == "BLIND":
+        return BlindStatusEffect(user, target, 4)
+    elif statusString.upper() == "STUN":
+        return StunStatusEffect(user, target, 2)
+    else:
+        raise KeyError
+ActiveSkillDataSelector("Laced Ammunition", AdvancedPlayerClassNames.HUNTER, 2, False, 20,
+    "Select POISON (50% Strength, 6 Turns), BLIND (4 Turns), or STUN (2 Turns). Attack with 0.8x ATK, attempting to inflict the selected status condition.",
+    DEFAULT_ATTACK_TIMER_USAGE, 1, True,
+    lambda statusString: AttackSkillData(f"Laced Ammunition ({statusString[0] + statusString[1:].lower()})",
+                                         AdvancedPlayerClassNames.HUNTER, 2, False, 20, "",
+    True, AttackType.RANGED, 0.7, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
+        EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
+                        controller.applyStatusCondition(target, lacedStatus(statusString, controller, user, target)) if attackResult.attackHit else None))
+    ], 0)], False))
+
+PassiveSkillData("Camouflage", AdvancedPlayerClassNames.HUNTER, 3, True,
+    "Decrease aggro generated from attacks by 20% per distance from your target.",
+    {}, {}, [SkillEffect([
+        EFBeforeNextAttack({}, {},
+                           lambda controller, user, target:
+                                controller.applyMultStatBonuses(user, {CombatStats.AGGRO_MULT: 1 - (controller.checkDistanceStrict(user, target) * 0.2)}),
+                           lambda controller, user, target, attackResult, _:
+                                controller.revertMultStatBonuses(user, {CombatStats.AGGRO_MULT: 1 - (attackResult.originalDistance * 0.2)})
+    )], None)])
+
+def coveredTracksFn(controller : CombatController, user : CombatEntity, target : CombatEntity, userMoved : bool,
+                    oldDistance : int, newDistance : int, effectResult : EffectFunctionResult):
+    if not userMoved and newDistance < oldDistance:
+        counterData = CounterSkillData(True, None, 0.7,
+                                       [SkillEffect([
+                                           EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None),
+                                           EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
+                        controller.applyStatusCondition(target, ExhaustionStatusEffect(user, target, 3, 1.3)) if attackResult.attackHit else None))
+                                        ], 0)])
+        effectResult.setBonusAttack(user, target, counterData)
+PassiveSkillData("Covered Tracks", AdvancedPlayerClassNames.HUNTER, 4, False,
+    "When an opponent approaches you, counter with 0.7x ATK, attempting to inflict EXHAUST (30% strength) for 3 turns.",
+    {}, {}, [SkillEffect([EFOnDistanceChange(coveredTracksFn)], None)])
