@@ -43,6 +43,7 @@ class PoisonStatusEffect(StatusEffect):
 
     def _poisonTick(self, controller : CombatController, target : CombatEntity, result : EffectFunctionResult):
         controller.applyDamage(self.inflicter, target, self.poisonStrength)
+        print(f"{target.name} takes {self.poisonStrength} damage from POISON!")
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, PoisonStatusEffect):
@@ -57,6 +58,7 @@ class BurnStatusEffect(StatusEffect):
 
     def _burnTick(self, controller : CombatController, target : CombatEntity, result : EffectFunctionResult):
         controller.applyDamage(self.inflicter, target, self.burnStrength)
+        print(f"{target.name} takes {self.burnStrength} damage from BURN!")
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, BurnStatusEffect):
@@ -120,7 +122,8 @@ class ExhaustionStatusEffect(StatusEffect):
         controller.applyMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: self.currentAppliedMultiplier})
 
     def _revertExhaustionPenalty(self, controller : CombatController, user : CombatEntity, _) -> None:
-        controller.revertMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: self.currentAppliedMultiplier})
+        if self.currentAppliedMultiplier != 1:
+            controller.revertMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: self.currentAppliedMultiplier})
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, ExhaustionStatusEffect):
@@ -175,7 +178,8 @@ class PerplexityStatusEffect(StatusEffect):
         controller.applyMultStatBonuses(user, {CombatStats.MANA_COST_MULT: self.currentAppliedMultiplier})
 
     def _revertPerplexityPenalty(self, controller : CombatController, user : CombatEntity, _) -> None:
-        controller.revertMultStatBonuses(user, {CombatStats.MANA_COST_MULT: self.currentAppliedMultiplier})
+        if self.currentAppliedMultiplier != 1:
+            controller.revertMultStatBonuses(user, {CombatStats.MANA_COST_MULT: self.currentAppliedMultiplier})
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, PerplexityStatusEffect):
@@ -201,3 +205,16 @@ class FearStatusEffect(StatusEffect):
                 if randRoll < amplifyExtensionChance(newStatus.effectDuration):
                     return 1
         return 0
+    
+STATUS_CLASS_MAP = {
+    StatusConditionNames.BLIND: BlindStatusEffect,
+    StatusConditionNames.BURN: BurnStatusEffect,
+    StatusConditionNames.EXHAUSTION: ExhaustionStatusEffect,
+    StatusConditionNames.FEAR: FearStatusEffect,
+    StatusConditionNames.MISFORTUNE: MisfortuneStatusEffect,
+    StatusConditionNames.PERPLEXITY: PerplexityStatusEffect,
+    StatusConditionNames.POISON: PoisonStatusEffect,
+    StatusConditionNames.RESTRICT: RestrictStatusEffect,
+    StatusConditionNames.STUN: StunStatusEffect,
+    StatusConditionNames.TARGET: TargetStatusEffect
+}

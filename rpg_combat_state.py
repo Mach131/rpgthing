@@ -210,7 +210,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         randomRoll = controller._randomRoll(statusCondition.inflicter, self.entity)
         statusName : StatusConditionNames = statusCondition.statusName
         if statusName in self.currentStatusEffects:
-            print(f"amplified {statusName.name}!")
+            print(f"amplified {statusName.name} on {self.entity.name}!")
             durationExtension = self.currentStatusEffects[statusName].amplifyStatus(controller, self.entity, statusCondition, randomRoll)
             if durationExtension > 0:
                 print(f"duration successfully extended!")
@@ -220,7 +220,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
             statusResistance = self.getStatusResistChance(statusName)
             print(f"status resist chance: {statusResistance * 100:.1f}%")
             if randomRoll >= statusResistance:
-                print(f"applied {statusName.name}!")
+                print(f"applied {statusName.name} on {self.entity.name}!")
                 self.currentStatusEffects[statusName] = statusCondition
 
                 immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, statusCondition.effectFunctions)
@@ -230,7 +230,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
                 self.activeSkillEffects[statusCondition] = 0
                 return True
             else:
-                print(f"failed to apply {statusName.name}!")
+                print(f"failed to apply {statusName.name} on {self.entity.name}!")
                 self.currentStatusTolerance[statusName] -= STATUS_TOLERANCE_RESIST_DECREASE
                 if self.currentStatusTolerance[statusName] < 0:
                     self.currentStatusTolerance[statusName] = 0
