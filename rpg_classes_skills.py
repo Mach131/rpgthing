@@ -400,6 +400,17 @@ class EFOnParry(EffectFunction):
         self.func(controller, user, attacker, isPhysical, result)
         return result
     
+"""An effect that always occurs at the beginning of a turn."""
+class EFStartTurn(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.START_TURN)
+        self.func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, result)
+        return result
+    
 """An effect that always occurs at the end of a turn (before duration ticks)."""
 class EFEndTurn(EffectFunction):
     def __init__(self, func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None]):

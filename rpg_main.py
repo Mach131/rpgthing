@@ -12,13 +12,18 @@ def simpleCombatSimulation(team1 : list[Player], team2 : list[Player], starting_
     handlerMap : dict[CombatEntity, PlayerInputHandler] = {player : PlayerInputHandler(player) for player in team1 + team2}
 
     while (cc.checkPlayerVictory() is None):
-        activePlayer : CombatEntity = cc.advanceToNextPlayer()
-        activePlayerHandler : PlayerInputHandler = handlerMap[activePlayer]
-
         print(cc.getCombatOverviewString())
         print("---")
-        print(f"{activePlayer.name}'s turn!")
-        activePlayerHandler.takeTurn(cc)
+
+        activePlayer : CombatEntity = cc.advanceToNextPlayer()
+        if cc.isStunned(activePlayer):
+            print(f"{activePlayer.name} is stunned!")
+            cc.stunSkipTurn(activePlayer)
+        else:
+            activePlayerHandler : PlayerInputHandler = handlerMap[activePlayer]
+            print(f"{activePlayer.name}'s turn!")
+            cc.beginPlayerTurn(activePlayer)
+            activePlayerHandler.takeTurn(cc)
 
     print(cc.getCombatOverviewString())
     print("---")
@@ -230,7 +235,7 @@ class PlayerInputHandler(CombatInputHandler):
         if target == self.player and len(self.player.availableActiveSkills) > 0:
             print("Your Skills:")
             for idx, skill in enumerate(self.player.availableActiveSkills):
-                print(f"[{idx+1}] {skill.skillName} ({skill.mpCost} MP): {skill.description}")
+                print(f"[{idx+1}] {skill.skillName} ({combatController.getSkillManaCost(target, skill)} MP): {skill.description}")
         else:
             nextActionTime = combatController.getTimeToFullAction(target) * ACTION_TIME_DISPLAY_MULTIPLIER
             print(f"Time to next action: {nextActionTime:.3f}")
@@ -314,7 +319,7 @@ if __name__ == '__main__':
     rerollOtherEquips(p5, testRarity)
     print()
 
-    simpleCombatSimulation([p3, p4], [p2], 2)
+    simpleCombatSimulation([p3], [p5], 2)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

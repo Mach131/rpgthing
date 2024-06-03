@@ -4,9 +4,9 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFStartTurn, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
-    EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked
+    EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
 from rpg_status_definitions import StatusEffect
 
 if TYPE_CHECKING:
@@ -206,11 +206,14 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
     """
         Attempts to apply a status effect. Returns true if successful (or if the status was already present, in which case it is amplified).
     """
-    def applyStatusCondition(self, statusCondition : StatusEffect, randomRoll : float):
+    def applyStatusCondition(self, statusCondition : StatusEffect, controller : CombatController):
+        randomRoll = controller._randomRoll(statusCondition.inflicter, self.entity)
         statusName : StatusConditionNames = statusCondition.statusName
         if statusName in self.currentStatusEffects:
             print(f"amplified {statusName.name}!")
-            durationExtension = self.currentStatusEffects[statusName].amplifyStatus(statusCondition, randomRoll)
+            durationExtension = self.currentStatusEffects[statusName].amplifyStatus(controller, self.entity, statusCondition, randomRoll)
+            if durationExtension > 0:
+                print(f"duration successfully extended!")
             self.activeSkillEffects[self.currentStatusEffects[statusName]] -= durationExtension
             return True
         else:
@@ -219,6 +222,11 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
             if randomRoll >= statusResistance:
                 print(f"applied {statusName.name}!")
                 self.currentStatusEffects[statusName] = statusCondition
+
+                immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, statusCondition.effectFunctions)
+                for effectFunction in immediateEffects:
+                    assert(isinstance(effectFunction, EFImmediate))
+                    effectFunction.applyEffect(controller, self.entity, [])
                 self.activeSkillEffects[statusCondition] = 0
                 return True
             else:
@@ -322,6 +330,7 @@ class CombatController(object):
 
     """
         Given two separate entities on opposing teams, changes and then returns the distance between them.
+        Assumes that entity1 is the one initiating the reposition; it may fail if they are RESTRICTED.
         Returns None if the given entities are invalid.
     """
     def updateDistance(self, entity1 : CombatEntity, entity2 : CombatEntity, newDistance : int) -> int | None:
@@ -335,6 +344,9 @@ class CombatController(object):
             return None
         player, opponent = teamValidator
         oldDistance = self.distanceMap[player][opponent]
+
+        if StatusConditionNames.RESTRICT in self.combatStateMap[entity1].currentStatusEffects:
+            newDistance = oldDistance
         self.distanceMap[player][opponent] = newDistance
 
         # TODO: may need to do something with result
@@ -343,9 +355,42 @@ class CombatController(object):
             effectFunction.applyEffect(self, entity1, entity2, True, oldDistance, newDistance)
         for effectFunction in self.combatStateMap[entity2].getEffectFunctions(EffectTimings.ON_REPOSITION):
             assert(isinstance(effectFunction, EFOnDistanceChange))
-            effectFunction.applyEffect(self, entity1, entity2, False, oldDistance, newDistance)
+            effectFunction.applyEffect(self, entity2, entity1, False, oldDistance, newDistance)
 
         return self.distanceMap[player][opponent]
+
+    """
+        Gets a random float from 0 to 1, accounting for luck values.
+        The Positive player's luck favors higher rolls, and the Negative player's favors low rolls.
+    """
+    def _randomRoll(self, positiveEntity : CombatEntity | None, negativeEntity : CombatEntity | None) -> float:
+        totalLuck = 0
+        if positiveEntity is not None:
+            totalLuck += self.combatStateMap[positiveEntity].getTotalStatValue(CombatStats.LUCK)
+        if negativeEntity is not None:
+            totalLuck -= self.combatStateMap[negativeEntity].getTotalStatValue(CombatStats.LUCK)
+
+        rolls = [self.rng.random() for i in range(1 + abs(totalLuck))]
+        if totalLuck > 0:
+            return max(rolls)
+        else:
+            return min(rolls)
+    
+    """
+        The above, but for a uniform distribution.
+    """
+    def _randomRollUniform(self, a : float, b : float, positiveEntity : CombatEntity | None, negativeEntity : CombatEntity | None) -> float:
+        totalLuck = 0
+        if positiveEntity is not None:
+            totalLuck += self.combatStateMap[positiveEntity].getTotalStatValue(CombatStats.LUCK)
+        if negativeEntity is not None:
+            totalLuck -= self.combatStateMap[negativeEntity].getTotalStatValue(CombatStats.LUCK)
+
+        rolls = [self.rng.uniform(a, b) for i in range(1 + abs(totalLuck))]
+        if totalLuck > 0:
+            return max(rolls)
+        else:
+            return min(rolls)
 
     """
         Checks if an attacker hits a defender. Distance modifier treated as 1x if they're on the same team (for debugging).
@@ -354,6 +399,9 @@ class CombatController(object):
         distance : int | None = self.checkDistance(attacker, defender)
         distanceMod : float = 1
         if distance is not None:
+            distance += self.combatStateMap[attacker].getTotalStatValue(CombatStats.ACC_EFFECTIVE_DISTANCE_MOD)
+            if (distance < 0): distance = 0
+            if (distance > MAX_DISTANCE): distance = MAX_DISTANCE
             distanceMod = 1.1 - (0.1 * (distance ** self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.ACCURACY_DISTANCE_MOD)))
 
         attackerAcc : float = self.combatStateMap[attacker].getTotalStatValue(BaseStats.ACC)
@@ -365,7 +413,7 @@ class CombatController(object):
         hitChance : float = distanceMultiplier / (1 + math.exp(-ACCURACY_FORMULA_C * domainScaleTerm))
         print(f"hit chance: {hitChance*100:.3f}%")
 
-        return self.rng.random() <= hitChance
+        return self._randomRoll(defender, attacker) <= hitChance
 
     """
         Checks for the damage inflicted by the attacker on the defender.
@@ -383,7 +431,7 @@ class CombatController(object):
 
         critChance : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.CRIT_RATE)
         critDamage : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.CRIT_DAMAGE)
-        isCrit : bool = self.rng.random() <= critChance
+        isCrit : bool = self._randomRoll(defender, attacker) <= critChance
         critFactor : float = critDamage if isCrit else 1
 
         attackAttribute : AttackAttribute = self.combatStateMap[attacker].getCurrentAttackAttribute(isPhysical)
@@ -401,7 +449,7 @@ class CombatController(object):
 
         statRatio : float = attackerOS/defenderDS
         damageFactor : float = 1 - math.exp((statRatio ** DAMAGE_FORMULA_C) * math.log(1 - DAMAGE_FORMULA_K))
-        variationFactor : float = self.rng.uniform(0.9, 1.1)
+        variationFactor : float = self._randomRollUniform(0.9, 1.1, attacker, defender)
         return (math.ceil(attackerOS * damageFactor * variationFactor * critFactor * attributeMultiplier
                           * (1 - damageReduction) * defenseReduction), isCrit)
 
@@ -502,6 +550,7 @@ class CombatController(object):
         Reduce an entity's action timer. Returns updated timer amount.
     """
     def spendActionTimer(self, entity : CombatEntity, amount : float) -> float:
+        amount *= self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER)
         #self.combatStateMap[entity].actionTimer = max(0, self.combatStateMap[entity].actionTimer - amount)
         self.combatStateMap[entity].actionTimer -= amount
         return self.combatStateMap[entity].actionTimer
@@ -510,7 +559,7 @@ class CombatController(object):
         Attempts to apply a status effect, or amplify an already-applied status effect.
     """
     def applyStatusCondition(self, entity : CombatEntity, statusEffect : StatusEffect) -> bool:
-        return self.combatStateMap[entity].applyStatusCondition(statusEffect, self.rng.random())
+        return self.combatStateMap[entity].applyStatusCondition(statusEffect, self)
 
     """
         Adds a skill effect for an entity.
@@ -525,6 +574,7 @@ class CombatController(object):
     def removeSkillEffect(self, entity : CombatEntity, skillEffect : SkillEffect) -> None:
         self.combatStateMap[entity].activeSkillEffects.pop(skillEffect)
         if isinstance(skillEffect, StatusEffect):
+            skillEffect.onRemove(self, entity)
             self.combatStateMap[entity].removeStatusCondition(skillEffect.statusName)
 
     """
@@ -584,17 +634,16 @@ class CombatController(object):
         If the result is empty, the reposition failed.
     """
     def performReposition(self, user : CombatEntity, targets : list[CombatEntity], distanceChange : int) -> dict[CombatEntity, int]:
-        self._beginPlayerTurn(user)
-
         if distanceChange > MAX_SINGLE_REPOSITION:
             distanceChange = MAX_SINGLE_REPOSITION
         if distanceChange < -MAX_SINGLE_REPOSITION:
             distanceChange = -MAX_SINGLE_REPOSITION
 
         timerPerDistance = DEFAULT_RETREAT_TIMER_USAGE if distanceChange > 0 else DEFAULT_APPROACH_TIMER_USAGE
-        timerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(distanceChange)
-        if timerCost > MAX_ACTION_TIMER:
+        expectedTimerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(distanceChange)
+        if expectedTimerCost > MAX_ACTION_TIMER:
             return {}
+        totalDistanceChange = 0
 
         oldDistances = {}
         for target in targets:
@@ -605,10 +654,15 @@ class CombatController(object):
         for target in targets:
             newDistances[target] = self.updateDistance(user, target, oldDistances[target] + distanceChange)
             assert(newDistances[target] is not None)
+            totalDistanceChange += abs(newDistances[target] - oldDistances[target])
 
-        self.gainMana(user, REPOSITION_MP_GAIN)
-        self.spendActionTimer(user, timerCost)
-        self._endPlayerTurn(user)
+        realTimerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(totalDistanceChange)
+        if totalDistanceChange > 0:
+            self.gainMana(user, REPOSITION_MP_GAIN)
+            self.spendActionTimer(user, realTimerCost)
+            self._endPlayerTurn(user)
+        else:
+            print("Unable to move!")
 
         return newDistances
 
@@ -616,8 +670,6 @@ class CombatController(object):
         Performs a defend action, performing end-of-turn cleanup.
     """
     def performDefend(self, user : CombatEntity) -> None:
-        self._beginPlayerTurn(user)
-
         self.combatStateMap[user].defendActive = True
 
         self.gainMana(user, DEFEND_MP_GAIN)
@@ -628,8 +680,6 @@ class CombatController(object):
         Performs an active skill. Indicates if an attack should begin; otherwise, performs end of action/turn cleanup.
     """
     def performActiveSkill(self, user : CombatEntity, targets : list[CombatEntity], skill : SkillData) -> ActionResultInfo:
-        self._beginPlayerTurn(user)
-
         validTargets = True
         expectedTeam = self.opponentTeam if user in self.playerTeam else self.playerTeam
         if not skill.targetOpponents:
@@ -644,12 +694,14 @@ class CombatController(object):
         isToggle = isinstance(skill, ActiveToggleSkillData)
         toggleEnabled = isToggle and skill in self.combatStateMap[user].activeToggleSkills
 
-        if skill.mpCost is not None and not toggleEnabled:
-            if self.combatStateMap[user].currentMP < skill.mpCost:
+        mpCost = self.getSkillManaCost(user, skill)
+        if mpCost is not None and not toggleEnabled:
+            if self.combatStateMap[user].currentMP < mpCost:
                 return ActionResultInfo(ActionSuccessState.FAILURE_MANA, False, None, False, False)
             else:
-                self.spendMana(user, skill.mpCost)
+                self.spendMana(user, mpCost)
 
+        skipDurationTick = False
         if not isToggle:
             self._activateImmediateEffects(user, targets, skill)
             # add skill effects to active
@@ -668,25 +720,28 @@ class CombatController(object):
                 self.revertMultStatBonuses(user, skill.multStatBonuses)
                 for effect in skill.skillEffects:
                     self.removeSkillEffect(user, effect)
+                skipDurationTick = True
 
         attackTarget : CombatEntity | None = None
         if skill.actionTime is not None:
             self.spendActionTimer(user, skill.actionTime)
         if not skill.causesAttack:
-            self._endPlayerTurn(user)
+            self._endPlayerTurn(user, skipDurationTick)
         else:
             attackTarget = targets[skill.attackTargetIndex]
 
         return ActionResultInfo(ActionSuccessState.SUCCESS, skill.causesAttack, attackTarget, isToggle, not toggleEnabled)
+    
+    def getSkillManaCost(self, entity : CombatEntity, skill : SkillData) -> int | None:
+        if skill.mpCost is None:
+            return None
+        return round(skill.mpCost * self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_COST_MULT))
 
     """
         Performs all steps of an attack, modifying HP, Action Timers, etc. as needed.
     """
     def performAttack(self, attacker : CombatEntity, defender : CombatEntity,
                       isPhysical : bool, attackType : AttackType | None, isBasic : bool) -> AttackResultInfo:
-        if isBasic:
-            self._beginPlayerTurn(attacker)
-
         # initial attack
         attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, attackType, isBasic, False)
         if attackResultInfo.repeatAttack:
@@ -802,16 +857,42 @@ class CombatController(object):
 
     """
         Cleanup for beginning of turn. At the moment, just disables defend.
+        Should be called when it's a player's turn, unless they are stunned.
     """
-    def _beginPlayerTurn(self, player) -> None:
+    def beginPlayerTurn(self, player) -> None:
         self.combatStateMap[player].defendActive = False
+        for effectFunction in self.combatStateMap[player].getEffectFunctions(EffectTimings.START_TURN):
+            if isinstance(effectFunction, EFStartTurn):
+                effectFunction.applyEffect(self, player)
+
+    def isStunned(self, player) -> bool:
+        return StatusConditionNames.STUN in self.combatStateMap[player].currentStatusEffects
+    
+    """
+        Skips a player's turn when they are stunned, updating state accordingly.
+        Call this instead of beginPlayerTurn if stunned.
+        Returns true if their turn was skipped (i.e. if they were actually stunned)
+    """
+    def stunSkipTurn(self, player) -> bool:
+        if not self.isStunned(player):
+            return False
+        
+        self.beginPlayerTurn(player)
+        self.spendActionTimer(player, MAX_ACTION_TIMER)
+        self._endPlayerTurn(player)
+        return True
 
     """
         Cleanup for end of turn. At the moment, just decreases effect durations.
     """
-    def _endPlayerTurn(self, player) -> None:
-        for expiredEffect in self.combatStateMap[player].durationTick():
-            self.removeSkillEffect(player, expiredEffect)
+    def _endPlayerTurn(self, player, skipDurationTick : bool = False) -> None:
+        for effectFunction in self.combatStateMap[player].getEffectFunctions(EffectTimings.END_TURN):
+            if isinstance(effectFunction, EFEndTurn):
+                effectFunction.applyEffect(self, player)
+
+        if not skipDurationTick:
+            for expiredEffect in self.combatStateMap[player].durationTick():
+                self.removeSkillEffect(player, expiredEffect)
 
 class ActionResultInfo(object):
     def __init__(self, success : ActionSuccessState, startAttack : bool, attackTarget : CombatEntity | None,

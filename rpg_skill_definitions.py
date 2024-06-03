@@ -7,7 +7,8 @@ from rpg_classes_skills import PassiveSkillData, AttackSkillData, ActiveBuffSkil
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked
-from rpg_status_definitions import PoisonStatusEffect, TargetStatusEffect
+from rpg_status_definitions import BlindStatusEffect, ExhaustionStatusEffect, FearStatusEffect, MisfortuneStatusEffect, PerplexityStatusEffect, \
+    PoisonStatusEffect, RestrictStatusEffect, StunStatusEffect, TargetStatusEffect
 
 if TYPE_CHECKING:
     from rpg_classes_skills import EffectFunctionResult
@@ -281,5 +282,5 @@ AttackSkillData("Target Lock", AdvancedPlayerClassNames.SNIPER, 2, False, 10,
     "Attack with 1x ATK, attempting to inflict TARGET for 3 turns. (Attacks against a TARGETED opponent always hit.)",
     True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
-                          controller.applyStatusCondition(target, TargetStatusEffect(user, target, 3)) if attackResult.attackHit else None))
+                        controller.applyStatusCondition(target, TargetStatusEffect(user, target, 3)) if attackResult.attackHit else None))
     ], 0)])
