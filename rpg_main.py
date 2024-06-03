@@ -290,7 +290,7 @@ if __name__ == '__main__':
                          BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP])
     p3.classRanks[BasePlayerClassNames.RANGER] = 3
     p3.changeClass(AdvancedPlayerClassNames.SNIPER)
-    [p3.rankUp() for i in range(2-1)]
+    [p3.rankUp() for i in range(9-1)]
     rerollWeapon(p3, testRarity)
     rerollOtherEquips(p3, testRarity)
     print()

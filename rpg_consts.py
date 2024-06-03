@@ -32,13 +32,13 @@ class CombatStats(Stats):
     HEALING_EFFECTIVENESS = auto()
     ACCURACY_DISTANCE_MOD = auto()
     ACC_EFFECTIVE_DISTANCE_MOD = auto()
-    FLAG_CONFRONT = auto()
     FIXED_ATTACK_POWER = auto()
     GUARANTEE_SELF_HIT = auto()
     STATUS_RESISTANCE_MULTIPLIER = auto()
     ACTION_GAUGE_USAGE_MULTIPLIER = auto()
     LUCK = auto()
     MANA_COST_MULT = auto()
+    REPOSITION_ACTION_TIME_MULT = auto()
 
 class SpecialStats(Stats):
     CURRENT_HP = auto()
@@ -58,13 +58,13 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.HEALING_EFFECTIVENESS: 1,
     CombatStats.ACCURACY_DISTANCE_MOD: 2,
     CombatStats.ACC_EFFECTIVE_DISTANCE_MOD: 0,
-    CombatStats.FLAG_CONFRONT: 0,
     CombatStats.FIXED_ATTACK_POWER: 0,
     CombatStats.GUARANTEE_SELF_HIT: 0,
     CombatStats.STATUS_RESISTANCE_MULTIPLIER: 1,
     CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 1,
     CombatStats.LUCK: 0,
-    CombatStats.MANA_COST_MULT: 1
+    CombatStats.MANA_COST_MULT: 1,
+    CombatStats.REPOSITION_ACTION_TIME_MULT: 1
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -129,6 +129,15 @@ class EffectTimings(Enum):
     PARRY = auto()
     START_TURN = auto()
     END_TURN = auto()
+
+class EffectStacks(Enum):
+    STEADY_HAND = auto()
+    SUPPRESSIVE_FIRE = auto()
+
+EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
+    EffectStacks.STEADY_HAND: "Steady Hand",
+    EffectStacks.SUPPRESSIVE_FIRE: "Suppressive Fire"
+}
 
 """ Combat """
 MAX_ACTION_TIMER = 100

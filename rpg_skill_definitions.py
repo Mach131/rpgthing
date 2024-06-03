@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
+from rpg_classes_skills import EFEndTurn, EFOnDistanceChange, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked
@@ -106,21 +106,21 @@ AttackSkillData("Sweeping Blow", AdvancedPlayerClassNames.MERCENARY, 2, False, 3
             controller.applyMultStatBonuses(target, {BaseStats.DEF: 0.85}) if attackInfo.attackHit else None
     )], 0)])
 
-def confrontationFn(controller, user, target, revert):
+def confrontationFn(controller, user, target, revert, attackResultInfo = None):
+    amount = 1.1
     if revert: # check if was initially at range 0
-        if controller.combatStateMap[user].getTotalStatValue(CombatStats.FLAG_CONFRONT) == 0:
+        if attackResultInfo is not None and attackResultInfo.originalDistance > 0:
             return
+        controller.revertMultStatBonuses(user, {BaseStats.ATK: amount, BaseStats.ACC: amount})
     else: # check if currently at range 0
         if controller.checkDistance(user, target) > 0:
             return
-    amount = 1.1 if not revert else 1/1.1
-    controller.applyMultStatBonuses(user, {BaseStats.ATK: amount, BaseStats.ACC: amount})
-    controller.applyFlatStatBonuses(user, {CombatStats.FLAG_CONFRONT: 1 if not revert else -1})
+        controller.applyMultStatBonuses(user, {BaseStats.ATK: amount, BaseStats.ACC: amount})
 PassiveSkillData("Confrontation", AdvancedPlayerClassNames.MERCENARY, 3, True,
     "When attacking at distance 0, increase ATK and ACC by 10%.",
     {}, {}, [SkillEffect([EFBeforeNextAttack({}, {},
                     lambda controller, user, target: confrontationFn(controller, user, target, False),
-                    lambda controller, user, target, _: confrontationFn(controller, user, target, True)
+                    lambda controller, user, target, attackResultInfo, _2: confrontationFn(controller, user, target, True, attackResultInfo)
     )], None)])
 
 def frenzyFn(controller, user, originalStats, finalStats, _):
@@ -283,4 +283,75 @@ AttackSkillData("Target Lock", AdvancedPlayerClassNames.SNIPER, 2, False, 10,
     True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
                         controller.applyStatusCondition(target, TargetStatusEffect(user, target, 3)) if attackResult.attackHit else None))
+    ], 0)])
+
+PassiveSkillData("Steady Hand", AdvancedPlayerClassNames.SNIPER, 3, True,
+    "Gain 6% ATK at the end of every turn, up to a maximum of 60%. This bonus resets if your distance to any opponent changes.",
+    {}, {}, [SkillEffect([
+        EFImmediate(lambda controller, user, _1, _2: void((
+            controller.combatStateMap[user].setStack(EffectStacks.STEADY_HAND, 0),
+        ))),
+        EFEndTurn(lambda controller, user, _: void((
+            controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.06)}),
+            controller.combatStateMap[user].addStack(EffectStacks.STEADY_HAND, 10),
+            controller.applyMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.06)})
+        ))),
+        EFOnDistanceChange(lambda controller, user, _1, _2, oldDist, newDist, _3: void((
+            controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.06)}),
+            controller.combatStateMap[user].setStack(EffectStacks.STEADY_HAND, 0)
+        )) if oldDist != newDist else None)
+    ], None)])
+
+
+PassiveSkillData("Suppressive Fire", AdvancedPlayerClassNames.SNIPER, 4, False,
+    "Apply a debuff stack when hitting an opponent, up to 10 stacks. Each stack reduces SPD and AVO by 6%.",
+    {}, {}, [SkillEffect([
+        EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
+            controller.revertMultStatBonuses(target, {
+                BaseStats.SPD: 1 - (controller.combatStateMap[target].getStack(EffectStacks.SUPPRESSIVE_FIRE) * 0.06),
+                BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.SUPPRESSIVE_FIRE) * 0.06)
+            }),
+            controller.combatStateMap[target].addStack(EffectStacks.SUPPRESSIVE_FIRE, 10),
+            controller.applyMultStatBonuses(target, {
+                BaseStats.SPD: 1 - (controller.combatStateMap[target].getStack(EffectStacks.SUPPRESSIVE_FIRE) * 0.06),
+                BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.SUPPRESSIVE_FIRE) * 0.06)
+            })
+        )) if attackResult.attackHit else None)
+    ], None)])
+
+AttackSkillData("Perfect Shot", AdvancedPlayerClassNames.SNIPER, 5, False, 30,
+    "Attack with 1x ATK, plus 0.4x ATK per distance from the target.",
+    True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
+        EFBeforeNextAttack({}, {},
+                           lambda controller, user, target:
+                                controller.applyMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.checkDistanceStrict(user, target) * 0.4)}),
+                           lambda controller, user, target, attackResult, _:
+                                controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (attackResult.originalDistance * 0.4)})
+    )], 0)])
+
+PassiveSkillData("Precision", AdvancedPlayerClassNames.SNIPER, 6, True,
+    "Increases ACC by 15% and SPD by 10%.",
+    {}, {BaseStats.ACC: 1.15, BaseStats.SPD: 1.10}, [])
+
+PassiveSkillData("Clarity", AdvancedPlayerClassNames.SNIPER, 7, False,
+    "Increases Critical Hit rate by 10% per distance from your target.",
+    {}, {}, [SkillEffect([
+        EFBeforeNextAttack({}, {},
+                           lambda controller, user, target:
+                                controller.applyFlatStatBonuses(user, {CombatStats.CRIT_RATE: controller.checkDistanceStrict(user, target) * 0.1}),
+                           lambda controller, user, target, attackResult, _:
+                                controller.revertFlatStatBonuses(user, {CombatStats.CRIT_RATE: attackResult.originalDistance * 0.1})
+    )], None)])
+
+PassiveSkillData("Nimble Feet", AdvancedPlayerClassNames.SNIPER, 8, True,
+    "Decreases the time until your next action when repositioning.",
+    {}, {CombatStats.REPOSITION_ACTION_TIME_MULT: 0.7}, [])
+
+AttackSkillData("Winds of Solitude", AdvancedPlayerClassNames.SNIPER, 9, False, 25,
+    "Attack with 1x ATK; on hit, increase distance to the target by 1 and attempt to inflict RESTRICT for 2 turns. (RESTRICTED opponents cannot reposition.)",
+    True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
+        EFAfterNextAttack(lambda controller, user, target, attackResult, _: void((
+            increaseDistanceFn(controller, user, target, attackResult, _),
+            controller.applyStatusCondition(target, RestrictStatusEffect(user, target, 2)))
+        ) if attackResult.attackHit else None)
     ], 0)])

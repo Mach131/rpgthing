@@ -30,6 +30,7 @@ class EntityCombatState(object):
 
         self.activeSkillEffects: dict[SkillEffect, int] = {}
         self.activeToggleSkills: set[ActiveToggleSkillData] = set()
+        self.effectStacks : dict[EffectStacks, int] = {}
 
         self.defendActive : bool = False
         self.parryType : AttackType | None = None
@@ -39,6 +40,15 @@ class EntityCombatState(object):
         self.maxStatusTolerance : dict[StatusConditionNames, float] = {status : defaultStatusTolerance for status in StatusConditionNames}
         self.currentStatusTolerance : dict[StatusConditionNames, float] = {status : defaultStatusTolerance for status in StatusConditionNames}
         self.currentStatusEffects : dict[StatusConditionNames, StatusEffect] = {}
+        
+    def addStack(self, stack : EffectStacks, maxStacks : int):
+        self.effectStacks[stack] = min(self.effectStacks.get(stack, 0) + 1, maxStacks)
+        
+    def setStack(self, stack : EffectStacks, val : int):
+        self.effectStacks[stack] = val
+
+    def getStack(self, stack : EffectStacks) -> int:
+        return self.effectStacks.get(stack, 0)
 
     def _adjustCurrentValues(self):
         if self.currentHP > self.getTotalStatValue(BaseStats.HP):
@@ -63,10 +73,14 @@ class EntityCombatState(object):
 
     def getFullStatusString(self) -> str:
         statString = {stat: self.getFullStatusStatString(stat) for stat in BaseStats}
+        stackString = ""
+        stackStringList = [f"{EFFECT_STACK_NAMES[stack]} x{self.getStack(stack)}" for stack in self.effectStacks if self.getStack(stack) > 0]
+        if len(stackStringList) > 0:
+            stackString = f"\nStacks: {', '.join(stackStringList)}"
         return f"""{self.getStateOverviewString()}
 ATK: {statString[BaseStats.ATK]}, DEF: {statString[BaseStats.DEF]}, MAG: {statString[BaseStats.MAG]}, RES: {statString[BaseStats.RES]}
 ACC: {statString[BaseStats.ACC]}, AVO: {statString[BaseStats.AVO]}, SPD: {statString[BaseStats.SPD]}
-Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFullStatusPercentStatString(CombatStats.CRIT_RATE)}, Crit Damage: {self.getFullStatusPercentStatString(CombatStats.CRIT_DAMAGE)}"""
+Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFullStatusPercentStatString(CombatStats.CRIT_RATE)}, Crit Damage: {self.getFullStatusPercentStatString(CombatStats.CRIT_DAMAGE)}{stackString}"""
 
     def getFullStatusStatString(self, stat : Stats) -> str:
         baseStatValue = self.entity.getStatValue(stat)
@@ -105,11 +119,17 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
 
     def revertFlatStatBonuses(self, flatStatMap : dict[Stats, float]) -> None:
         for stat in flatStatMap:
+            if stat not in self.flatStatMod:
+                assert(flatStatMap[stat] == 0)
+                self.flatStatMod[stat] = 0
             self.flatStatMod[stat] -= flatStatMap[stat]
         self._adjustCurrentValues()
 
     def revertMultStatBonuses(self, multStatMap : dict[Stats, float]) -> None:
         for stat in multStatMap:
+            if stat not in self.multStatMod:
+                assert(multStatMap[stat] == 1)
+                self.multStatMod[stat] = 1
             self.multStatMod[stat] /= multStatMap[stat]
         self._adjustCurrentValues()
 
@@ -325,6 +345,12 @@ class CombatController(object):
         teamValidator = self._separateTeamValidator(entity1, entity2)
         if teamValidator is None:
             return None
+        player, opponent = teamValidator
+        return self.distanceMap[player][opponent]
+    
+    def checkDistanceStrict(self, entity1 : CombatEntity, entity2 : CombatEntity) -> int:
+        teamValidator = self._separateTeamValidator(entity1, entity2)
+        assert(teamValidator is not None)
         player, opponent = teamValidator
         return self.distanceMap[player][opponent]
 
@@ -641,6 +667,7 @@ class CombatController(object):
 
         timerPerDistance = DEFAULT_RETREAT_TIMER_USAGE if distanceChange > 0 else DEFAULT_APPROACH_TIMER_USAGE
         expectedTimerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(distanceChange)
+        expectedTimerCost *= self.combatStateMap[user].getTotalStatValueFloat(CombatStats.REPOSITION_ACTION_TIME_MULT)
         if expectedTimerCost > MAX_ACTION_TIMER:
             return {}
         totalDistanceChange = 0
@@ -657,6 +684,7 @@ class CombatController(object):
             totalDistanceChange += abs(newDistances[target] - oldDistances[target])
 
         realTimerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(totalDistanceChange)
+        realTimerCost *= self.combatStateMap[user].getTotalStatValueFloat(CombatStats.REPOSITION_ACTION_TIME_MULT)
         if totalDistanceChange > 0:
             self.gainMana(user, REPOSITION_MP_GAIN)
             self.spendActionTimer(user, realTimerCost)
@@ -792,6 +820,7 @@ class CombatController(object):
                     if isinstance(effectFunction, EFBeforeAllyAttacked):
                         effectFunction.applyEffect(self, ally, attacker, defender)
 
+        originalDistance = self.checkDistanceStrict(attacker, defender)
         inRange = self.checkInRange(attacker, defender)
 
         parryBonusAttack = None
@@ -819,7 +848,8 @@ class CombatController(object):
             damage *= parryDamageMultiplier
             damageDealt = self.applyDamage(attacker, defender, damage)
 
-        attackResultInfo = AttackResultInfo(attacker, defender, inRange, checkHit, damageDealt, isCritical, isBonus, isPhysical, attackType)
+        attackResultInfo = AttackResultInfo(attacker, defender, originalDistance, inRange, checkHit, damageDealt,
+                                            isCritical, isBonus, isPhysical, attackType)
         if parryBonusAttack is not None:
             attackResultInfo.addBonusAttack(*parryBonusAttack)
 
@@ -834,7 +864,7 @@ class CombatController(object):
                 if effectResult.actionTimeMult is not None:
                     actionTimeMult = effectResult.actionTimeMult
             elif isinstance(effectFunction, EFBeforeNextAttack_Revert):
-                effectFunction.applyEffect(self, attacker, defender)
+                effectFunction.applyEffect(self, attacker, defender, attackResultInfo)
             elif isinstance(effectFunction, EFBeforeAttacked_Revert):
                 # note that defender is the user here
                 effectFunction.applyEffect(self, defender, attacker)
@@ -904,11 +934,12 @@ class ActionResultInfo(object):
         self.newToggle : bool = newToggle
 
 class AttackResultInfo(object):
-    def __init__(self, attacker : CombatEntity, defender : CombatEntity, inRange : bool,
+    def __init__(self, attacker : CombatEntity, defender : CombatEntity, originalDistance : int, inRange : bool,
                  attackHit : bool, damageDealt : int, isCritical : bool, isBonus : bool,
                  isPhysical : bool, attackType : AttackType) -> None:
         self.attacker : CombatEntity = attacker
         self.defender : CombatEntity = defender
+        self.originalDistance : int = originalDistance
         self.inRange : bool = inRange
         self.attackHit : bool = attackHit
         self.damageDealt : int = damageDealt

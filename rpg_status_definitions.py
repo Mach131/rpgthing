@@ -89,7 +89,7 @@ class BlindStatusEffect(StatusEffect):
         self.currentAppliedMultiplier = BLIND_STACK_ACC_MULT ** self.blindStacks
         controller.applyMultStatBonuses(user, {BaseStats.ACC: self.currentAppliedMultiplier})
 
-    def _revertBlindAccPenalty(self, controller : CombatController, user : CombatEntity, target : CombatEntity, _) -> None:
+    def _revertBlindAccPenalty(self, controller : CombatController, user : CombatEntity, target : CombatEntity, _1, _2) -> None:
         controller.revertMultStatBonuses(user, {BaseStats.ACC: self.currentAppliedMultiplier})
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:

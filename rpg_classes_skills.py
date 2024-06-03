@@ -253,12 +253,12 @@ class EFImmediate(EffectFunction):
 class EFBeforeNextAttack(EffectFunction):
     def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
             applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity], None],
-            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
         super().__init__(EffectTimings.BEFORE_ATTACK)
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
         self.applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity], None] = applyFunc
-        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = revertFunc
+        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None] = revertFunc
 
 
     def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity) -> EffectFunctionResult:
@@ -274,19 +274,20 @@ class EFBeforeNextAttack(EffectFunction):
 
 class EFBeforeNextAttack_Revert(EffectFunction):
     def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
-            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
         super().__init__(EffectTimings.AFTER_ATTACK)
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
-        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = revertFunc
+        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None] = revertFunc
 
-    def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity) -> EffectFunctionResult:
+    def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity,
+                    attackResultInfo: AttackResultInfo) -> EffectFunctionResult:
         controller.revertFlatStatBonuses(user, self.flatStatBonuses)
         controller.revertMultStatBonuses(user, self.multStatBonuses)
 
         result = EffectFunctionResult(self)
         if self.revertFunc is not None:
-            self.revertFunc(controller, user, target, result)
+            self.revertFunc(controller, user, target, attackResultInfo, result)
         return result
 
 """A reaction to being targeted by an attack."""
