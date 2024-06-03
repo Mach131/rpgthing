@@ -54,7 +54,7 @@ class CombatInputHandler(object):
 
     def _doReactionAttack(self, combatController : CombatController, user : CombatEntity, target : CombatEntity,
                           attackData : AttackSkillData, additionalAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]):
-        print (f"{self.entity.name} attacks {target.name}!")
+        print (f"{user.name} attacks {target.name}!")
         attackResult : AttackResultInfo | None = combatController.performReactionAttack(self.entity, user, target, attackData, additionalAttacks)
         while attackResult is not None:
             if not attackResult.inRange:
@@ -152,7 +152,7 @@ class PlayerInputHandler(CombatInputHandler):
                                 print("This skill expects additional parameters; check the description.")
                                 continue
                             except KeyError:
-                                print("Invalid parameter for this skill; check the description.")
+                                print(f"Invalid parameter for this skill, options are: {', '.join(chosenSkill.options)}.")
                                 continue
 
                         if not chosenSkill.targetOpponents:

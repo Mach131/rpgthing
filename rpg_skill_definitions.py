@@ -220,7 +220,7 @@ ActiveSkillDataSelector("Parry", AdvancedPlayerClassNames.KNIGHT, 5, False, 25,
     "Select an attack type. If the next attack on you matches, reduce damage taken by 65% and parry based on 50% of their offensive stat.",
     MAX_ACTION_TIMER, 0, True,
         lambda parryType: PrepareParrySkillData(f"Parry ({parryType[0] + parryType[1:].lower()})", AdvancedPlayerClassNames.KNIGHT, 5, False, 25, "",
-            MAX_ACTION_TIMER, AttackType[parryType], [EFOnParry(parryFn)], False)
+            MAX_ACTION_TIMER, AttackType[parryType], [EFOnParry(parryFn)], False), [attackType.name for attackType in AttackType]
     )
 
 PassiveSkillData("Persistence", AdvancedPlayerClassNames.KNIGHT, 6, True,
@@ -381,7 +381,7 @@ ActiveSkillDataSelector("Laced Ammunition", AdvancedPlayerClassNames.HUNTER, 2, 
     True, AttackType.RANGED, 0.7, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
                         controller.applyStatusCondition(target, lacedStatus(statusString, controller, user, target)) if attackResult.attackHit else None))
-    ], 0)], False))
+    ], 0)], False), ["POISON", "BLIND", "STUN"])
 
 PassiveSkillData("Camouflage", AdvancedPlayerClassNames.HUNTER, 3, True,
     "Decrease aggro generated from attacks by 20% per distance from your target.",
