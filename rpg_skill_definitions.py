@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFEndTurn, EFOnDistanceChange, EFOnStatusApplied, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
+from rpg_classes_skills import EFEndTurn, EFOnAdvanceTurn, EFOnDistanceChange, EFOnStatusApplied, EFStartTurn, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked
@@ -38,10 +38,11 @@ PassiveSkillData("Ranger's Focus", BasePlayerClassNames.RANGER, 1, False,
     "Increases ACC by 25, RES by 10, and SPD by 5.",
     {BaseStats.ACC: 25, BaseStats.RES: 10, BaseStats.SPD: 5}, {}, [])
 
-def increaseDistanceFn(controller, user, target, _1, _2):
+def increaseDistanceFn(controller, user, target, _1, result : EffectFunctionResult):
     currentDistance = controller.checkDistance(user, target)
     if currentDistance is not None:
-        controller.updateDistance(user, target, currentDistance + 1)
+        reactionAttackData = controller.updateDistance(user, target, currentDistance + 1)
+        [result.setBonusAttack(*reactionAttack) for reactionAttack in reactionAttackData]
 AttackSkillData("Strafe", BasePlayerClassNames.RANGER, 2, False, 15,
     "Attack with 0.8x ATK, increasing distance to the target by 1.",
     True, AttackType.RANGED, 0.8, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFAfterNextAttack(increaseDistanceFn)], 0)])
@@ -302,7 +303,6 @@ PassiveSkillData("Steady Hand", AdvancedPlayerClassNames.SNIPER, 3, True,
         )) if oldDist != newDist else None)
     ], None)])
 
-
 PassiveSkillData("Suppressive Fire", AdvancedPlayerClassNames.SNIPER, 4, False,
     "Apply a debuff stack when hitting an opponent, up to 10 stacks. Each stack reduces SPD and AVO by 6%.",
     {}, {}, [SkillEffect([
@@ -442,3 +442,172 @@ AttackSkillData("Enclosing Fangs", AdvancedPlayerClassNames.HUNTER, 9, True, 25,
             [controller.combatStateMap[target].reduceTolerance(status, math.ceil(attackResult.damageDealt * 0.15)) for status in StatusConditionNames]
         ) if attackResult.attackHit else None)
     ], 0)])
+
+
+# Assassin
+
+PassiveSkillData("Assassin's Swiftness", AdvancedPlayerClassNames.ASSASSIN, 1, False,
+    "Increases SPD by 20% and ATK by 5%.",
+    {}, {BaseStats.SPD: 1.2, BaseStats.ATK: 1.05}, [])
+
+def shadowingMovementFn(controller : CombatController, user : CombatEntity, targets : list[CombatEntity], result : EffectFunctionResult):
+    target = targets[0]
+    currentDistance = controller.checkDistance(user, target)
+    if currentDistance is not None:
+        controller.combatStateMap[user].setStack(EffectStacks.SHADOWING, currentDistance)
+        reactionAttackData = controller.updateDistance(user, target, 0)
+        [result.setBonusAttack(*reactionAttack) for reactionAttack in reactionAttackData]
+ActiveBuffSkillData("Shadowing", AdvancedPlayerClassNames.ASSASSIN, 2, False, 10,
+    "Reposition to be distance 0 from your target. Until your next turn ends, gain 15% ATK per distance you moved.", DEFAULT_APPROACH_TIMER_USAGE, {}, {},
+    [SkillEffect([
+        EFImmediate(shadowingMovementFn),
+        EFBeforeNextAttack({}, {}, 
+                           lambda controller, user, _: controller.applyMultStatBonuses(user,
+                                {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SHADOWING) * 0.15)}),
+                           lambda controller, user, _1, _2, _3: controller.revertMultStatBonuses(user,
+                                {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SHADOWING) * 0.15)})
+                                )], 2)],
+    1, 0, True)
+
+PassiveSkillData("Vital Strike", AdvancedPlayerClassNames.ASSASSIN, 3, True,
+    "Increases Critical Hit rate by 5% and Critical Hit damage by 50%.",
+    {CombatStats.CRIT_RATE: 0.05, CombatStats.CRIT_DAMAGE: 0.5}, {}, [])
+
+PassiveSkillData("Eyes of the Dark", AdvancedPlayerClassNames.ASSASSIN, 4, False,
+    "Apply a debuff stack when hitting an opponent, up to 10 stacks. Each stack reduces AVO by 3% and DEF/RES by 2%.",
+    {}, {}, [SkillEffect([
+        EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
+            controller.revertMultStatBonuses(target, {
+                BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.03),
+                BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02),
+                BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02)
+            }),
+            controller.combatStateMap[target].addStack(EffectStacks.EYES_OF_THE_DARK, 10),
+            controller.applyMultStatBonuses(target, {
+                BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.03),
+                BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02),
+                BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02)
+            })
+        )) if attackResult.attackHit else None)
+    ], None)])
+
+
+ambushSkillEffects : dict[str, SkillEffect] = {
+    "INTERROGATE": SkillEffect([
+        EFBeforeNextAttack({}, {BaseStats.ATK: 0.5}, None, None),
+        EFAfterNextAttack(lambda controller, user, target, attackResult, _: void((
+                controller.applyMultStatBonuses(user, {
+                    BaseStats.ATK: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.04),
+                    BaseStats.SPD: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.04),
+                    BaseStats.ACC: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.08)
+                }),
+                controller.revertMultStatBonuses(target, {
+                    BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.03),
+                    BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02),
+                    BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02)
+                }),
+                controller.combatStateMap[target].setStack(EffectStacks.EYES_OF_THE_DARK, 0)
+            )) if attackResult.attackHit else None)
+    ], 0),
+    "DISABLE": SkillEffect([
+        EFBeforeNextAttack({}, {BaseStats.ATK: 0.8}, None, None),
+        EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
+                controller.applyMultStatBonuses(target, {
+                    BaseStats.ATK: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
+                    BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
+                    BaseStats.MAG: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
+                    BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035)
+                }),
+                controller.revertMultStatBonuses(target, {
+                    BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.03),
+                    BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02),
+                    BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02)
+                }),
+                controller.combatStateMap[target].setStack(EffectStacks.EYES_OF_THE_DARK, 0)
+            )) if attackResult.attackHit else None)
+    ], 0),
+    "EXECUTE": SkillEffect([
+        EFBeforeNextAttack({}, {},
+            lambda controller, user, target:  void((
+                controller.applyFlatStatBonuses(user, {
+                    CombatStats.CRIT_RATE: controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.1
+                }),
+                controller.applyMultStatBonuses(user, {
+                    BaseStats.ATK: 0.7 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.1)
+                }),
+                controller.combatStateMap[user].setStack(EffectStacks.EOTD_CONSUMED, controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK))
+            )),
+            lambda controller, user, target, attackResult, _2: void((
+                controller.revertFlatStatBonuses(user, {
+                    CombatStats.CRIT_RATE: controller.combatStateMap[user].getStack(EffectStacks.EOTD_CONSUMED) * 0.1
+                }),
+                controller.revertMultStatBonuses(user, {
+                    BaseStats.ATK: 0.7 + (controller.combatStateMap[user].getStack(EffectStacks.EOTD_CONSUMED) * 0.1)
+                }),
+                controller.revertMultStatBonuses(target, {
+                    BaseStats.AVO: 1 - (controller.combatStateMap[user].getStack(EffectStacks.EOTD_CONSUMED) * 0.03),
+                    BaseStats.DEF: 1 - (controller.combatStateMap[user].getStack(EffectStacks.EOTD_CONSUMED) * 0.02),
+                    BaseStats.RES: 1 - (controller.combatStateMap[user].getStack(EffectStacks.EOTD_CONSUMED) * 0.02)
+                }) if attackResult.attackHit else None,
+                controller.combatStateMap[user].setStack(EffectStacks.EOTD_CONSUMED, 0),
+                controller.combatStateMap[target].setStack(EffectStacks.EYES_OF_THE_DARK, 0) if attackResult.attackHit else None
+            )))
+    ], 0)
+}
+ActiveSkillDataSelector("Ambush", AdvancedPlayerClassNames.ASSASSIN, 5, False, 40,
+    "Select an effect and attack a target, removing all Eyes of the Dark stacks on hit. | " +
+    "INTERROGATE: Attack with 0.5x ATK. Per stack removed, +4% ATK/SPD and +8% ACC. | " +
+    "DISABLE: Attack with 0.8x ATK. Per stack removed, opponent ATK/DEF/MAG/RES - 3.5%. | " +
+    "EXECUTE: Attack with 0.7x ATK, +0.1x per stack removed. Additional 10% Critical Hit rate per stack removed.",
+    DEFAULT_ATTACK_TIMER_USAGE, 1, True,
+    lambda ambushString: AttackSkillData(f"Ambush ({ambushString[0] + ambushString[1:].lower()})",
+                                         AdvancedPlayerClassNames.ASSASSIN, 5, False, 40, "",
+    True, None, 0.7, DEFAULT_ATTACK_TIMER_USAGE, [ambushSkillEffects[ambushString]], False), ["INTERROGATE", "DISABLE", "EXECUTE"])
+
+PassiveSkillData("Relentlessness", AdvancedPlayerClassNames.ASSASSIN, 6, True,
+    "Increases SPD by 15%, ATK by 5%, and ACC by 5%.",
+    {}, {BaseStats.SPD: 1.15, BaseStats.ATK: 1.05, BaseStats.ACC: 1.05}, [])
+
+PassiveSkillData("Opportunism", AdvancedPlayerClassNames.ASSASSIN, 7, False,
+    "Your attacks always calculate damage against the opponent's lower defensive stat (DEF or RES).",
+    {CombatStats.OPPORTUNISM: 1}, {}, [])
+
+PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, True,
+    "After each attack, +20% ATK/MAG. Resets when it is no longer your turn.",
+    {}, {}, [SkillEffect([
+        EFAfterNextAttack(
+            lambda controller, user, target, _1, _2: void((
+                controller.revertMultStatBonuses(user, {
+                    BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2),
+                    BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2)
+                }),
+                controller.combatStateMap[user].addStack(EffectStacks.UNRELENTING_ASSAULT, None),
+                controller.applyMultStatBonuses(user, {
+                    BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2),
+                    BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2)
+                })
+            ))
+        ),
+        EFOnAdvanceTurn(
+            lambda controller, user, _1, nextPlayer, _2: void((
+                controller.revertMultStatBonuses(user, {
+                    BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2),
+                    BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2)
+                }),
+                controller.combatStateMap[user].setStack(EffectStacks.UNRELENTING_ASSAULT, 0)
+            )) if nextPlayer != user and controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 0 else None
+        )
+    ], None)])
+
+ActiveBuffSkillData("Instantaneous Eternity", AdvancedPlayerClassNames.ASSASSIN, 9, True, 90,
+    "Take three turns in a row. (You cannot gain any MP during the first two.)", 0, {}, {}, [SkillEffect([
+        EFImmediate(
+            lambda controller, user, _1, _2: controller.applyFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1})
+        ),
+        EFStartTurn(
+            lambda controller, user, _: controller.applyFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1})
+        ),
+        EFEndTurn(
+            lambda controller, user, _: controller.revertFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1})
+        )
+    ], 3)], 0, 0, True)

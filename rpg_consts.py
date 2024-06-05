@@ -39,7 +39,10 @@ class CombatStats(Stats):
     ACTION_GAUGE_USAGE_MULTIPLIER = auto()
     LUCK = auto()
     MANA_COST_MULT = auto()
+    MANA_GAIN_MULT = auto()
     REPOSITION_ACTION_TIME_MULT = auto()
+    OPPORTUNISM = auto()
+    INSTANTANEOUS_ETERNITY = auto()
 
 class SpecialStats(Stats):
     CURRENT_HP = auto()
@@ -66,7 +69,10 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 1,
     CombatStats.LUCK: 0,
     CombatStats.MANA_COST_MULT: 1,
-    CombatStats.REPOSITION_ACTION_TIME_MULT: 1
+    CombatStats.MANA_GAIN_MULT: 1,
+    CombatStats.REPOSITION_ACTION_TIME_MULT: 1,
+    CombatStats.OPPORTUNISM: 0,
+    CombatStats.INSTANTANEOUS_ETERNITY: 0
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -132,14 +138,20 @@ class EffectTimings(Enum):
     PARRY = auto()
     START_TURN = auto()
     END_TURN = auto()
+    ADVANCE_TURN = auto()
 
 class EffectStacks(Enum):
     STEADY_HAND = auto()
     SUPPRESSIVE_FIRE = auto()
+    SHADOWING = auto()
+    EYES_OF_THE_DARK = auto()
+    EOTD_CONSUMED = auto()
+    UNRELENTING_ASSAULT = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
-    EffectStacks.SUPPRESSIVE_FIRE: "Suppressive Fire"
+    EffectStacks.SUPPRESSIVE_FIRE: "Suppressive Fire",
+    EffectStacks.EYES_OF_THE_DARK: "Eyes of the Dark"
 }
 
 """ Combat """
@@ -157,7 +169,7 @@ DEFEND_DAMAGE_MULTIPLIER = 0.75
 
 BASIC_ATTACK_MP_GAIN = 4
 REPOSITION_MP_GAIN = 2
-DEFEND_MP_GAIN = 3
+DEFEND_MP_GAIN = 4
 DEFEND_HIT_MP_GAIN = 2
 
 DAMAGE_FORMULA_K = 0.5 # ratio when attack = defense

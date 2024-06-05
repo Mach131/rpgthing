@@ -437,15 +437,27 @@ class EFEndTurn(EffectFunction):
         result = EffectFunctionResult(self)
         self.func(controller, user, result)
         return result
+    
+"""An effect that occurs when determining the next player to move, between End and Start turn effects."""
+class EFOnAdvanceTurn(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.ADVANCE_TURN)
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity, CombatEntity, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity,
+            previousTurnPlayer : CombatEntity, nextTurnPlayer : CombatEntity) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, previousTurnPlayer, nextTurnPlayer, result)
+        return result
 
 class EffectFunctionResult(object):
     def __init__(self, effectFunction : EffectFunction, actionTime : float | None = None,
-                 actionTimeMult : float | None = None, bonusAttack : tuple[CombatEntity, CombatEntity, AttackSkillData] | None = None,
+                 actionTimeMult : float | None = None, bonusAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] | None = None,
                  damageMultiplier : float | None = None):
         self.effectFunction = effectFunction
         self.actionTime = actionTime
         self.actionTimeMult = actionTimeMult
-        self.bonusAttack = bonusAttack
+        self.bonusAttacks = bonusAttacks
         self.damageMultiplier = damageMultiplier
 
     def setActionTime(self, actionTime: float):
@@ -455,7 +467,9 @@ class EffectFunctionResult(object):
         self.actionTimeMult = actionTimeMult
 
     def setBonusAttack(self, user : CombatEntity, target : CombatEntity, attackData : AttackSkillData):
-        self.bonusAttack = (user, target, attackData)
+        if self.bonusAttacks is None:
+            self.bonusAttacks = []
+        self.bonusAttacks.append((user, target, attackData))
 
     def setDamageMultiplier(self, damageMultiplier: float):
         self.damageMultiplier = damageMultiplier

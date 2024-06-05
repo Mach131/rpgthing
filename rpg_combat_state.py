@@ -4,7 +4,7 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnStatusApplied, EFStartTurn, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnStatusApplied, EFStartTurn, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
 from rpg_status_definitions import StatusEffect
@@ -41,8 +41,11 @@ class EntityCombatState(object):
         self.currentStatusTolerance : dict[StatusConditionNames, float] = {status : defaultStatusTolerance for status in StatusConditionNames}
         self.currentStatusEffects : dict[StatusConditionNames, StatusEffect] = {}
         
-    def addStack(self, stack : EffectStacks, maxStacks : int):
-        self.effectStacks[stack] = min(self.effectStacks.get(stack, 0) + 1, maxStacks)
+    def addStack(self, stack : EffectStacks, maxStacks : int | None):
+        if maxStacks is not None:
+            self.effectStacks[stack] = min(self.effectStacks.get(stack, 0) + 1, maxStacks)
+        else:
+            self.effectStacks[stack] = self.effectStacks.get(stack, 0) + 1
         
     def setStack(self, stack : EffectStacks, val : int):
         self.effectStacks[stack] = val
@@ -74,7 +77,8 @@ class EntityCombatState(object):
     def getFullStatusString(self) -> str:
         statString = {stat: self.getFullStatusStatString(stat) for stat in BaseStats}
         stackString = ""
-        stackStringList = [f"{EFFECT_STACK_NAMES[stack]} x{self.getStack(stack)}" for stack in self.effectStacks if self.getStack(stack) > 0]
+        stackStringList = [f"{EFFECT_STACK_NAMES[stack]} x{self.getStack(stack)}" for stack in self.effectStacks
+                                if self.getStack(stack) > 0 and stack in EFFECT_STACK_NAMES]
         if len(stackStringList) > 0:
             stackString = f"\nStacks: {', '.join(stackStringList)}"
         return f"""{self.getStateOverviewString()}
@@ -291,6 +295,7 @@ class CombatController(object):
                     self._activateImmediateEffects(entity, [], skill)
                     [self.addSkillEffect(entity, skillEffect) for skillEffect in skill.skillEffects]
 
+        self.previousTurnEntity : CombatEntity | None = None
         self.rng : random.Random = random.Random()
 
     # Internal function; figures out which of two given entities expected to belong to separate teams is which
@@ -339,6 +344,10 @@ class CombatController(object):
         nextEntity : CombatEntity = min(livingEntities, key = lambda entity: actionTimeMap[entity])
         for entity in livingEntities:
             self.combatStateMap[entity].increaseActionTimer(actionTimeMap[nextEntity])
+            if self.previousTurnEntity is not None:
+                for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ADVANCE_TURN):
+                    assert(isinstance(effectFunction, EFOnAdvanceTurn))
+                    effectFunction.applyEffect(self, entity, self.previousTurnEntity, nextEntity)
         return nextEntity
 
     """
@@ -384,13 +393,13 @@ class CombatController(object):
         for effectFunction in self.combatStateMap[entity1].getEffectFunctions(EffectTimings.ON_REPOSITION):
             assert(isinstance(effectFunction, EFOnDistanceChange))
             effectResult = effectFunction.applyEffect(self, entity1, entity2, True, oldDistance, newDistance)
-            if effectResult.bonusAttack is not None:
-                reactionAttackData.append(effectResult.bonusAttack)
+            if effectResult.bonusAttacks is not None:
+                reactionAttackData += effectResult.bonusAttacks
         for effectFunction in self.combatStateMap[entity2].getEffectFunctions(EffectTimings.ON_REPOSITION):
             assert(isinstance(effectFunction, EFOnDistanceChange))
             effectResult = effectFunction.applyEffect(self, entity2, entity1, False, oldDistance, newDistance)
-            if effectResult.bonusAttack is not None:
-                reactionAttackData.append(effectResult.bonusAttack)
+            if effectResult.bonusAttacks is not None:
+                reactionAttackData += effectResult.bonusAttacks
 
         return reactionAttackData
 
@@ -459,6 +468,11 @@ class CombatController(object):
         defenseStat : BaseStats = BaseStats.DEF if isPhysical else BaseStats.RES
         attackerOS : float = self.combatStateMap[attacker].getTotalStatValue(offenseStat)
         defenderDS : float = self.combatStateMap[defender].getTotalStatValue(defenseStat)
+
+        # Targeting lower defensive stat
+        if self.combatStateMap[attacker].getTotalStatValue(CombatStats.OPPORTUNISM) == 1:
+            defenderDS = min(self.combatStateMap[defender].getTotalStatValue(BaseStats.DEF),
+                             self.combatStateMap[defender].getTotalStatValue(BaseStats.RES))
 
         # attack power override
         if self.combatStateMap[attacker].getTotalStatValue(CombatStats.FIXED_ATTACK_POWER) > 0:
@@ -545,6 +559,12 @@ class CombatController(object):
     """
     def gainMana(self, entity : CombatEntity, mpGain : int) -> int:
         originalMP : int = self.combatStateMap[entity].currentMP
+
+        manaGainMult = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_GAIN_MULT)
+        if self.combatStateMap[entity].getTotalStatValue(CombatStats.INSTANTANEOUS_ETERNITY) == 1:
+            manaGainMult = 0
+        mpGain = round(mpGain * manaGainMult)
+
         self.combatStateMap[entity].currentMP = min(self.getMaxMana(entity), originalMP + mpGain)
         manaGained = self.combatStateMap[entity].currentMP - originalMP
         if manaGained > 0:
@@ -586,6 +606,9 @@ class CombatController(object):
     """
     def spendActionTimer(self, entity : CombatEntity, amount : float) -> float:
         amount *= self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER)
+        if self.combatStateMap[entity].getTotalStatValue(CombatStats.INSTANTANEOUS_ETERNITY) == 1:
+            amount = 0
+
         #self.combatStateMap[entity].actionTimer = max(0, self.combatStateMap[entity].actionTimer - amount)
         self.combatStateMap[entity].actionTimer -= amount
         return self.combatStateMap[entity].actionTimer
@@ -662,11 +685,19 @@ class CombatController(object):
             assert(isinstance(effectFunction, EFOnStatsChange))
             effectFunction.applyEffect(self, entity, originalStats, newStats)
 
-    def _activateImmediateEffects(self, user : CombatEntity, targets : list[CombatEntity], skill : SkillData):
+    """
+        Returns any activated reaction attacks.
+    """
+    def _activateImmediateEffects(self, user : CombatEntity, targets : list[CombatEntity],
+                                  skill : SkillData) -> list[tuple[CombatEntity, CombatEntity, AttackSkillData]]:
+        reactionAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = []
         immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, skill.getAllEffectFunctions())
         for effectFunction in immediateEffects:
             assert(isinstance(effectFunction, EFImmediate))
-            effectFunction.applyEffect(self, user, targets)
+            effectResult = effectFunction.applyEffect(self, user, targets)
+            if effectResult.bonusAttacks is not None:
+                reactionAttackData += effectResult.bonusAttacks
+        return reactionAttackData
 
     """
         Performs a repositioning action, performing end-of-turn cleanup.
@@ -739,7 +770,7 @@ class CombatController(object):
         if not all([target in expectedTeam for target in targets]):
             validTargets = False
         if not validTargets:
-            return ActionResultInfo(ActionSuccessState.FAILURE_TARGETS, False, None, False, False)
+            return ActionResultInfo(ActionSuccessState.FAILURE_TARGETS, False, None, False, False, [])
 
         isToggle = isinstance(skill, ActiveToggleSkillData)
         toggleEnabled = isToggle and skill in self.combatStateMap[user].activeToggleSkills
@@ -747,13 +778,14 @@ class CombatController(object):
         mpCost = self.getSkillManaCost(user, skill)
         if mpCost is not None and not toggleEnabled:
             if self.combatStateMap[user].currentMP < mpCost:
-                return ActionResultInfo(ActionSuccessState.FAILURE_MANA, False, None, False, False)
+                return ActionResultInfo(ActionSuccessState.FAILURE_MANA, False, None, False, False, [])
             else:
                 self.spendMana(user, mpCost)
 
         skipDurationTick = False
+        reactionAttackData = []
         if not isToggle:
-            self._activateImmediateEffects(user, targets, skill)
+            reactionAttackData = self._activateImmediateEffects(user, targets, skill)
             # add skill effects to active
             for effect in skill.skillEffects:
                 self.addSkillEffect(user, effect)
@@ -776,12 +808,12 @@ class CombatController(object):
         if skill.actionTime is not None:
             self.spendActionTimer(user, skill.actionTime)
 
-        if not skill.causesAttack:
+        if not skill.causesAttack and len(reactionAttackData) == 0:
             self._endPlayerTurn(user, skipDurationTick)
-        else:
+        elif skill.causesAttack:
             attackTarget = targets[skill.attackTargetIndex]
 
-        return ActionResultInfo(ActionSuccessState.SUCCESS, skill.causesAttack, attackTarget, isToggle, not toggleEnabled)
+        return ActionResultInfo(ActionSuccessState.SUCCESS, skill.causesAttack, attackTarget, isToggle, not toggleEnabled, reactionAttackData)
     
     def getSkillManaCost(self, entity : CombatEntity, skill : SkillData) -> int | None:
         if skill.mpCost is None:
@@ -792,7 +824,8 @@ class CombatController(object):
         Performs all steps of an attack, modifying HP, Action Timers, etc. as needed.
     """
     def performAttack(self, attacker : CombatEntity, defender : CombatEntity,
-                      isPhysical : bool, attackType : AttackType | None, isBasic : bool) -> AttackResultInfo:
+                      isPhysical : bool, attackType : AttackType | None, isBasic : bool,
+                      bonusAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]) -> AttackResultInfo:
         # initial attack
         attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, attackType, isBasic, False)
         if attackResultInfo.repeatAttack:
@@ -800,6 +833,7 @@ class CombatController(object):
             attackResultInfo.addBonusResultInfo(repeatAttackResultInfo)
         self._cleanupEffects(attacker)
 
+        [attackResultInfo.addBonusAttack(*bonusAttack) for bonusAttack in bonusAttackData]
         self._processBonusAttacks(attackResultInfo)
         self._endPlayerTurn(attacker)
         return attackResultInfo
@@ -861,16 +895,16 @@ class CombatController(object):
         originalDistance = self.checkDistanceStrict(attacker, defender)
         inRange = self.checkInRange(attacker, defender)
 
-        parryBonusAttack = None
+        parryBonusAttacks = None
         parryDamageMultiplier = 1
         if inRange and self.combatStateMap[defender].parryType is not None:
             if attackType == self.combatStateMap[defender].parryType:
                 for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.PARRY):
                     assert(isinstance(effectFunction, EFOnParry))
                     effectResult = effectFunction.applyEffect(self, defender, attacker, isPhysical)
-                    parryBonusAttack = effectResult.bonusAttack
+                    parryBonusAttacks = effectResult.bonusAttacks
                     if effectResult.damageMultiplier is not None:
-                        parryDamageReduction = effectResult.damageMultiplier
+                        parryDamageMultiplier = effectResult.damageMultiplier
             self.combatStateMap[defender].clearParryType()
 
         checkHit : bool = False
@@ -883,13 +917,13 @@ class CombatController(object):
         isCritical : bool = False
         if inRange and checkHit:
             damage, isCritical = self.rollForDamage(attacker, defender, isPhysical)
-            damage *= parryDamageMultiplier
+            damage = math.ceil(damage * parryDamageMultiplier)
             damageDealt = self.applyDamage(attacker, defender, damage)
 
         attackResultInfo = AttackResultInfo(attacker, defender, originalDistance, inRange, checkHit, damageDealt,
                                             isCritical, isBonus, isPhysical, attackType)
-        if parryBonusAttack is not None:
-            attackResultInfo.addBonusAttack(*parryBonusAttack)
+        if parryBonusAttacks is not None:
+            [attackResultInfo.addBonusAttack(*parryAttack) for parryAttack in parryBonusAttacks]
 
         actionTimerUsage : float = DEFAULT_ATTACK_TIMER_USAGE
         actionTimeMult : float = 1
@@ -951,7 +985,7 @@ class CombatController(object):
         return True
 
     """
-        Cleanup for end of turn. At the moment, just decreases effect durations.
+        Cleanup for end of turn. At the moment, mostly just decreases effect durations.
     """
     def _endPlayerTurn(self, player, skipDurationTick : bool = False) -> None:
         for effectFunction in self.combatStateMap[player].getEffectFunctions(EffectTimings.END_TURN):
@@ -962,14 +996,18 @@ class CombatController(object):
             for expiredEffect in self.combatStateMap[player].durationTick():
                 self.removeSkillEffect(player, expiredEffect)
 
+        self.previousTurnEntity = player
+
 class ActionResultInfo(object):
     def __init__(self, success : ActionSuccessState, startAttack : bool, attackTarget : CombatEntity | None,
-            toggleChanged : bool, newToggle : bool) -> None:
+                 toggleChanged : bool, newToggle : bool,
+                 reactionAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]) -> None:
         self.success : ActionSuccessState = success
         self.startAttack : bool = startAttack
         self.attackTarget : CombatEntity | None = attackTarget
         self.toggleChanged : bool = toggleChanged
         self.newToggle : bool = newToggle
+        self.reactionAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = reactionAttackData
 
 class RepositionResultInfo(object):
     def __init__(self, success : bool, changedDistances : dict[CombatEntity, int], startAttack : bool,

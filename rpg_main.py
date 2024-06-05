@@ -37,9 +37,11 @@ class CombatInputHandler(object):
         self.entity : CombatEntity = entity
 
     def doAttack(self, combatController : CombatController, target : CombatEntity,
-                 isPhysical : bool, attackType : AttackType | None, isBasic : bool):
+                 isPhysical : bool, attackType : AttackType | None, isBasic : bool,
+                 bonusAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]):
         print (f"{self.entity.name} attacks {target.name}!")
-        attackResult : AttackResultInfo | None = combatController.performAttack(self.entity, target, isPhysical, attackType, isBasic)
+        attackResult : AttackResultInfo | None = combatController.performAttack(self.entity, target, isPhysical,
+                                                                                attackType, isBasic, bonusAttackData)
         while attackResult is not None:
             if not attackResult.inRange:
                 print ("Target out of range!\n")
@@ -80,7 +82,12 @@ class CombatInputHandler(object):
             if actionResult.startAttack:
                 assert(isinstance(skillData, AttackSkillData))
                 assert(actionResult.attackTarget is not None)
-                self.doAttack(combatController, actionResult.attackTarget, skillData.isPhysical, skillData.attackType, False)
+                self.doAttack(combatController, actionResult.attackTarget, skillData.isPhysical,
+                              skillData.attackType, False, actionResult.reactionAttackData)
+            elif len(actionResult.reactionAttackData) > 0:
+                reactionData = actionResult.reactionAttackData[0]
+                reactionFollowups = actionResult.reactionAttackData[1:]
+                self._doReactionAttack(combatController, reactionData[0], reactionData[1], reactionData[2], reactionFollowups)
         return actionResult
     
     def doReposition(self, combatController : CombatController, targets : list[CombatEntity], distanceChange : int) -> bool:
@@ -126,7 +133,7 @@ class PlayerInputHandler(CombatInputHandler):
                     target = targetList[index - 1]
 
                     isPhysical = self.player.basicAttackType != AttackType.MAGIC
-                    self.doAttack(combatController, target, isPhysical, None, True)
+                    self.doAttack(combatController, target, isPhysical, None, True, [])
                     return
                 except ValueError:
                     print(f"Invalid target; use 'attack [index]'.")
@@ -296,10 +303,12 @@ if __name__ == '__main__':
     p2 = Player("shubi", BasePlayerClassNames.ROGUE)
     p2.level = 3
     p2.freeStatPoints = 12
-    p2.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP,
-                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP,
+    p2.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
+                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
                          BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
     p2.classRanks[BasePlayerClassNames.ROGUE] = 3
+    p2.changeClass(AdvancedPlayerClassNames.ASSASSIN)
+    [p2.rankUp() for i in range(9-1)]
     rerollWeapon(p2, testRarity)
     rerollOtherEquips(p2, testRarity)
     print()
@@ -354,7 +363,7 @@ if __name__ == '__main__':
     rerollOtherEquips(p6, testRarity)
     print()
 
-    simpleCombatSimulation([p6], [p3], 2)
+    simpleCombatSimulation([p2], [p5], 2)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:
