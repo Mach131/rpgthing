@@ -2,6 +2,7 @@ from enum import Enum, auto
 
 def void(x):
     return None
+EPSILON = 0.0001
 
 """ Stats """
 class Stats(Enum):

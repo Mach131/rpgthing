@@ -453,12 +453,13 @@ class EFOnAdvanceTurn(EffectFunction):
 class EffectFunctionResult(object):
     def __init__(self, effectFunction : EffectFunction, actionTime : float | None = None,
                  actionTimeMult : float | None = None, bonusAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] | None = None,
-                 damageMultiplier : float | None = None):
+                 damageMultiplier : float | None = None, guaranteeDodge : bool | None = None):
         self.effectFunction = effectFunction
         self.actionTime = actionTime
         self.actionTimeMult = actionTimeMult
         self.bonusAttacks = bonusAttacks
         self.damageMultiplier = damageMultiplier
+        self.guaranteeDodge = guaranteeDodge
 
     def setActionTime(self, actionTime: float):
         self.actionTime = actionTime
@@ -473,6 +474,9 @@ class EffectFunctionResult(object):
 
     def setDamageMultiplier(self, damageMultiplier: float):
         self.damageMultiplier = damageMultiplier
+
+    def setGuaranteeDodge(self, guaranteeDodge : bool):
+        self.guaranteeDodge = guaranteeDodge
 
 # load definitions
 from rpg_skill_definitions import *

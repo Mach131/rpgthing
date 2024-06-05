@@ -611,3 +611,106 @@ ActiveBuffSkillData("Instantaneous Eternity", AdvancedPlayerClassNames.ASSASSIN,
             lambda controller, user, _: controller.revertFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1})
         )
     ], 3)], 0, 0, True)
+
+
+# Acrobot
+
+PassiveSkillData("Acrobat's Flexibility", AdvancedPlayerClassNames.ACROBAT, 1, False,
+    "Increases AVO by 25% and SPD by 10%.",
+    {}, {BaseStats.AVO: 1.25, BaseStats.SPD: 1.1}, [])
+
+AttackSkillData("Bedazzle", AdvancedPlayerClassNames.ACROBAT, 2, False, 15,
+    "Attack with 1x ATK, attempting to inflict BLIND for 3 turns. (BLINDED opponents calculate accuracy as if their distance is 1 greater.)",
+    True, None, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([
+        EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
+                        controller.applyStatusCondition(target, BlindStatusEffect(user, target, 3)) if attackResult.attackHit else None))
+    ], 0)])
+
+PassiveSkillData("Mockery", AdvancedPlayerClassNames.ACROBAT, 3, True,
+    "All attacks generate 30% more aggro.",
+    {}, {CombatStats.AGGRO_MULT: 1.3}, [])
+
+PassiveSkillData("Ride the Wake", AdvancedPlayerClassNames.ACROBAT, 4, False,
+    "When dodging an enemy in range, gain 10% ATK/ACC.",
+    {}, {}, [SkillEffect([EFWhenAttacked(lambda controller, user, _1, attackResult, _2:
+                                controller.applyMultStatBonuses(user, {
+                                    BaseStats.ATK: 1.1,
+                                    BaseStats.ACC: 1.1
+                                }) if attackResult.inRange else None
+    )], None)])
+
+def sidestepFn(controller : CombatController, user : CombatEntity, _2, _3, effectResult : EffectFunctionResult):
+    controller.increaseActionTimer(user, 0.75)
+    effectResult.setGuaranteeDodge(True)
+ActiveSkillDataSelector("Sidestep", AdvancedPlayerClassNames.ACROBAT, 5, False, 25,
+    "Select an attack type. If the next attack on you matches, evade it and reduce the time to your next action.",
+    MAX_ACTION_TIMER, 0, True,
+        lambda parryType: PrepareParrySkillData(f"Sidestep ({parryType[0] + parryType[1:].lower()})", AdvancedPlayerClassNames.ACROBAT, 5, False, 25, "",
+            MAX_ACTION_TIMER, AttackType[parryType], [EFOnParry(sidestepFn)], False), [attackType.name for attackType in AttackType]
+    )
+
+PassiveSkillData("Adaptation", AdvancedPlayerClassNames.ACROBAT, 6, True,
+    "Increases AVO by 15%, MP by 5%, and SPD by 5%.",
+    {}, {BaseStats.AVO: 1.15, BaseStats.MP: 1.05, BaseStats.SPD: 1.05}, [])
+
+PassiveSkillData("Graceful Weaving", AdvancedPlayerClassNames.ACROBAT, 7, False,
+    "Increases Range by 1. Your distance is treated as being reduced by 1 when you calculate accuracy.",
+    {CombatStats.RANGE: 1, CombatStats.ACC_EFFECTIVE_DISTANCE_MOD: -1}, {}, [])
+
+def confidenceFn(controller : CombatController, user : CombatEntity, originalStats : dict[Stats, float], finalStats : dict[Stats, float], _):
+    originalFull = False
+    newFull = False
+    if SpecialStats.CURRENT_HP in originalStats:
+        baseHP = controller.combatStateMap[user].getTotalStatValue(BaseStats.HP)
+        originalFull = baseHP == originalStats[SpecialStats.CURRENT_HP]
+        newFull = baseHP == finalStats[SpecialStats.CURRENT_HP]
+    elif BaseStats.HP in originalStats:
+        currentHP = controller.getCurrentHealth(user)
+        originalFull = originalStats[BaseStats.HP] == currentHP
+        newFull = finalStats[BaseStats.HP] == currentHP
+    else:
+        return
+    
+    if newFull and not originalFull:
+        controller.applyMultStatBonuses(user, {
+                BaseStats.ATK: 1.25,
+                BaseStats.MAG: 1.25,
+                BaseStats.SPD: 1.25,
+                BaseStats.ACC: 1.25,
+                BaseStats.AVO: 1.25
+        })
+    elif originalFull and not newFull:
+        controller.revertMultStatBonuses(user, {
+                BaseStats.ATK: 1.25,
+                BaseStats.MAG: 1.25,
+                BaseStats.SPD: 1.25,
+                BaseStats.ACC: 1.25,
+                BaseStats.AVO: 1.25
+        })
+PassiveSkillData("Earned Confidence", AdvancedPlayerClassNames.ACROBAT, 8, True,
+    "At full health, +25% ATK/MAG/SPD/ACC/AVO.",
+    {}, {}, [SkillEffect([
+        EFImmediate(lambda controller, user, _1, _2:controller.applyMultStatBonuses(user, {
+                BaseStats.ATK: 1.25,
+                BaseStats.MAG: 1.25,
+                BaseStats.SPD: 1.25,
+                BaseStats.ACC: 1.25,
+                BaseStats.AVO: 1.25
+            }) if controller.combatStateMap[user].getTotalStatValue(BaseStats.HP) == controller.getCurrentHealth(user) else None
+        ),
+        EFOnStatsChange(confidenceFn)
+    ], None)])
+
+ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9, True, 15,
+    "Decrease DEF/RES by 25%. Increase AVO by 25% and SPD by 10%. This can be used up to 3 times simultaneously for greater effect.",
+    MAX_ACTION_TIMER / 10, 0, True,
+    lambda amount: ActiveBuffSkillData(f"Insidious Killer x{amount}",
+                                         AdvancedPlayerClassNames.ACROBAT, 9, True, 15 * int(amount), "",
+    0, {}, {}, [SkillEffect([
+        EFImmediate(lambda controller, user, _1, _2: controller.applyMultStatBonuses(user, {
+            BaseStats.DEF: 1 - (0.25 * int(amount)),
+            BaseStats.RES: 1 - (0.25 * int(amount)),
+            BaseStats.AVO: 1 + (0.25 * int(amount)),
+            BaseStats.SPD: 1 + (0.1 * int(amount)),
+        }))
+    ], None)], 0, 0, True, False), ["1", "2", "3"])

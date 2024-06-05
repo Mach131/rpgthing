@@ -614,6 +614,16 @@ class CombatController(object):
         return self.combatStateMap[entity].actionTimer
     
     """
+        Restores some fraction of an entity's action timer; cannot make it exactly full.
+        Returns updated timer amount.
+    """
+    def increaseActionTimer(self, entity : CombatEntity, fraction : float) -> float:
+        self.combatStateMap[entity].actionTimer += round(MAX_ACTION_TIMER * fraction)
+        if self.combatStateMap[entity].actionTimer >= MAX_ACTION_TIMER:
+            self.combatStateMap[entity].actionTimer = MAX_ACTION_TIMER - EPSILON
+        return self.combatStateMap[entity].actionTimer
+    
+    """
         Attempts to apply a status effect, or amplify an already-applied status effect.
     """
     def applyStatusCondition(self, entity : CombatEntity, statusEffect : StatusEffect) -> bool:
@@ -897,6 +907,7 @@ class CombatController(object):
 
         parryBonusAttacks = None
         parryDamageMultiplier = 1
+        guaranteeDodge = False
         if inRange and self.combatStateMap[defender].parryType is not None:
             if attackType == self.combatStateMap[defender].parryType:
                 for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.PARRY):
@@ -905,10 +916,12 @@ class CombatController(object):
                     parryBonusAttacks = effectResult.bonusAttacks
                     if effectResult.damageMultiplier is not None:
                         parryDamageMultiplier = effectResult.damageMultiplier
+                    if effectResult.guaranteeDodge is not None:
+                        guaranteeDodge = effectResult.guaranteeDodge
             self.combatStateMap[defender].clearParryType()
 
         checkHit : bool = False
-        if inRange:
+        if inRange and not guaranteeDodge:
             if self.combatStateMap[defender].getTotalStatValue(CombatStats.GUARANTEE_SELF_HIT) == 1:
                 checkHit = True
             else:

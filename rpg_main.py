@@ -363,7 +363,20 @@ if __name__ == '__main__':
     rerollOtherEquips(p6, testRarity)
     print()
 
-    simpleCombatSimulation([p2], [p5], 2)
+    p7 = Player("mimosa", BasePlayerClassNames.ROGUE)
+    p7.level = 3
+    p7.freeStatPoints = 12
+    p7.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
+                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
+                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
+    p7.classRanks[BasePlayerClassNames.ROGUE] = 3
+    p7.changeClass(AdvancedPlayerClassNames.ACROBAT)
+    [p7.rankUp() for i in range(9-1)]
+    rerollWeapon(p7, testRarity)
+    rerollOtherEquips(p7, testRarity)
+    print()
+
+    simpleCombatSimulation([p7], [p5], 2)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:
