@@ -204,9 +204,9 @@ PassiveSkillData("Chivalry", AdvancedPlayerClassNames.KNIGHT, 3, True,
     ], None)])
 
 PassiveSkillData("Justified", AdvancedPlayerClassNames.KNIGHT, 4, False,
-    "Restore 10% of the damage you deal as HP.",
+    "Restore 20% of the damage you deal as HP.",
     {}, {}, [SkillEffect([EFAfterNextAttack(
-      lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.1)))
+      lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.2)))
     )], None)])
 
 def parryFn(controller, user, attacker, isPhysical, effectResult):
@@ -702,7 +702,7 @@ PassiveSkillData("Earned Confidence", AdvancedPlayerClassNames.ACROBAT, 8, True,
     ], None)])
 
 ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9, True, 15,
-    "Decrease DEF/RES by 25%. Increase AVO by 25% and SPD by 10%. This can be used up to 3 times simultaneously for greater effect.",
+    "Decrease DEF/RES by 25%. Increase AVO by 20% and SPD by 10%. This can be used up to 3 times simultaneously for greater effect.",
     MAX_ACTION_TIMER / 10, 0, True,
     lambda amount: ActiveBuffSkillData(f"Insidious Killer x{amount}",
                                          AdvancedPlayerClassNames.ACROBAT, 9, True, 15 * int(amount), "",
@@ -710,7 +710,7 @@ ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9,
         EFImmediate(lambda controller, user, _1, _2: controller.applyMultStatBonuses(user, {
             BaseStats.DEF: 1 - (0.25 * int(amount)),
             BaseStats.RES: 1 - (0.25 * int(amount)),
-            BaseStats.AVO: 1 + (0.25 * int(amount)),
+            BaseStats.AVO: 1 + (0.2 * int(amount)),
             BaseStats.SPD: 1 + (0.1 * int(amount)),
         }))
     ], None)], 0, 0, True, False), ["1", "2", "3"])
