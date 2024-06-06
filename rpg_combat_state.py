@@ -4,7 +4,7 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
 from rpg_status_definitions import StatusEffect
@@ -155,7 +155,6 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         Also automatically removes inactive enchatments.
     """
     def durationTick(self) -> set[SkillEffect]:
-        result = set()
         for effect in self.activeSkillEffects:
             self.activeSkillEffects[effect] += 1
         
@@ -297,7 +296,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         if statusName not in self.currentStatusEffects:
             return
         
-        print(f"{statusName.name} wore off.")
+        print(f"{self.entity.name}'s {statusName.name} wore off.")
         self.currentStatusEffects.pop(statusName)
         self.maxStatusTolerance[statusName] *= STATUS_TOLERANCE_RECOVERY_INCREASE_FACTOR
         self.currentStatusTolerance[statusName] = self.maxStatusTolerance[statusName]
@@ -1007,6 +1006,30 @@ class CombatController(object):
         return attackResultInfo
     
     """
+        Calculates and performs a combat healing skill, performing bonus effects.
+    """
+    def doHealSkill(self, healer : CombatEntity, target : CombatEntity, healStrength : float):
+        healerMag = self.combatStateMap[healer].getTotalStatValue(BaseStats.MAG)
+        healerRes = self.combatStateMap[healer].getTotalStatValue(BaseStats.RES)
+
+        critChance : float = self.combatStateMap[healer].getTotalStatValueFloat(CombatStats.CRIT_RATE)
+        critDamage : float = self.combatStateMap[healer].getTotalStatValueFloat(CombatStats.CRIT_DAMAGE)
+        isCritical : bool = self._randomRoll(None, healer) <= critChance
+        critFactor : float = critDamage if isCritical else 1
+
+        rawHealValue = healStrength * math.sqrt(healerMag * healerRes)
+        variationFactor : float = self._randomRollUniform(0.9, 1.1, healer, None)
+        baseHealAmount = math.ceil(rawHealValue * variationFactor * critFactor)
+    
+        if isCritical:
+            print("Critical Heal!")
+        totalHealAmount = self.gainHealth(target, baseHealAmount)
+
+        for effectFunction in self.combatStateMap[healer].getEffectFunctions(EffectTimings.ON_HEAL_SKILL):
+            if isinstance(effectFunction, EFOnHealSkill):
+                effectFunction.applyEffect(self, healer, target, totalHealAmount)
+    
+    """
         Cleanup after an attack. At the moment, just removes single-attack skills.
     """
     def _cleanupEffects(self, player) -> None:
@@ -1046,7 +1069,7 @@ class CombatController(object):
     def _endPlayerTurn(self, player, skipDurationTick : bool = False) -> None:
         for effectFunction in self.combatStateMap[player].getEffectFunctions(EffectTimings.END_TURN):
             if isinstance(effectFunction, EFEndTurn):
-                effectFunction.applyEffect(self, player)
+                effectFunction.applyEffect(self, player, skipDurationTick)
 
         if not skipDurationTick:
             for expiredEffect in self.combatStateMap[player].durationTick():

@@ -435,6 +435,17 @@ class EFOnStatusApplied(EffectFunction):
         self.func(controller, user, target, statusName, result)
         return result
     
+"""A reaction to skill-based healing (e.g. by a Saint)."""
+class EFOnHealSkill(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, int, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.ON_HEAL_SKILL)
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity, int, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity, healAmount : int) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, target, healAmount, result)
+        return result
+    
 """An effect that always occurs at the beginning of a turn."""
 class EFStartTurn(EffectFunction):
     def __init__(self, func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None]):
@@ -448,13 +459,13 @@ class EFStartTurn(EffectFunction):
     
 """An effect that always occurs at the end of a turn (before duration ticks)."""
 class EFEndTurn(EffectFunction):
-    def __init__(self, func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None]):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, bool, EffectFunctionResult], None]):
         super().__init__(EffectTimings.END_TURN)
-        self.func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None] = func
+        self.func : Callable[[CombatController, CombatEntity, bool, EffectFunctionResult], None] = func
 
-    def applyEffect(self, controller : CombatController, user : CombatEntity) -> EffectFunctionResult:
+    def applyEffect(self, controller : CombatController, user : CombatEntity, skipDurationTick : bool) -> EffectFunctionResult:
         result = EffectFunctionResult(self)
-        self.func(controller, user, result)
+        self.func(controller, user, skipDurationTick, result)
         return result
     
 """An effect that occurs when determining the next player to move, between End and Start turn effects."""

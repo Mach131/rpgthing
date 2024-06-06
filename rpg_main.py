@@ -77,7 +77,7 @@ class CombatInputHandler(object):
                 toggleString = "activates" if actionResult.newToggle else "deactivates"
                 print (f"{self.entity.name} {toggleString} {skillData.skillName}!")
             else:
-                print (f"{self.entity.name} uses {skillData.skillName}!")
+                print (f"{self.entity.name} uses {skillData.skillName} on {', '.join([target.name for target in targets])}!")
 
             if actionResult.startAttack:
                 assert(isinstance(skillData, AttackSkillData))
@@ -378,7 +378,20 @@ if __name__ == '__main__':
     rerollOtherEquips(p7, testRarity)
     print()
 
-    simpleCombatSimulation([p4], [p5], 2)
+    p8 = Player("avalie", BasePlayerClassNames.MAGE)
+    p8.level = 3
+    p8.freeStatPoints = 12
+    p8.assignStatPoints([BaseStats.MAG, BaseStats.MP, BaseStats.RES, BaseStats.HP,
+                         BaseStats.MAG, BaseStats.MP, BaseStats.RES, BaseStats.HP,
+                         BaseStats.MAG, BaseStats.MP, BaseStats.RES, BaseStats.HP])
+    p8.classRanks[BasePlayerClassNames.MAGE] = 3
+    p8.changeClass(AdvancedPlayerClassNames.SAINT)
+    [p8.rankUp() for i in range(9-1)]
+    rerollWeapon(p8, testRarity)
+    rerollOtherEquips(p8, testRarity)
+    print()
+
+    simpleCombatSimulation([p8], [p5], 0)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

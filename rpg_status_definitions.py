@@ -41,9 +41,10 @@ class PoisonStatusEffect(StatusEffect):
         self.poisonEffectFunction : EffectFunction = EFEndTurn(self._poisonTick)
         super().__init__(StatusConditionNames.POISON, inflicter, duration, [self.poisonEffectFunction])
 
-    def _poisonTick(self, controller : CombatController, target : CombatEntity, result : EffectFunctionResult):
-        controller.applyDamage(self.inflicter, target, self.poisonStrength)
-        print(f"{target.name} takes {self.poisonStrength} damage from POISON!")
+    def _poisonTick(self, controller : CombatController, target : CombatEntity, skipDurationTick : bool, result : EffectFunctionResult):
+        if not skipDurationTick:
+            controller.applyDamage(self.inflicter, target, self.poisonStrength)
+            print(f"{target.name} takes {self.poisonStrength} damage from POISON!")
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, PoisonStatusEffect):
@@ -56,9 +57,10 @@ class BurnStatusEffect(StatusEffect):
         burnEffectFunction : EffectFunction = EFEndTurn(self._burnTick)
         super().__init__(StatusConditionNames.BURN, inflicter, duration, [burnEffectFunction])
 
-    def _burnTick(self, controller : CombatController, target : CombatEntity, result : EffectFunctionResult):
-        controller.applyDamage(self.inflicter, target, self.burnStrength)
-        print(f"{target.name} takes {self.burnStrength} damage from BURN!")
+    def _burnTick(self, controller : CombatController, target : CombatEntity, skipDurationTick : bool, result : EffectFunctionResult):
+        if not skipDurationTick:
+            controller.applyDamage(self.inflicter, target, self.burnStrength)
+            print(f"{target.name} takes {self.burnStrength} damage from BURN!")
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, BurnStatusEffect):
@@ -121,7 +123,7 @@ class ExhaustionStatusEffect(StatusEffect):
         self.currentAppliedMultiplier = self.multiplier
         controller.applyMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: self.currentAppliedMultiplier})
 
-    def _revertExhaustionPenalty(self, controller : CombatController, user : CombatEntity, _) -> None:
+    def _revertExhaustionPenalty(self, controller : CombatController, user : CombatEntity, _1, _2) -> None:
         if self.currentAppliedMultiplier != 1:
             controller.revertMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: self.currentAppliedMultiplier})
 
@@ -177,7 +179,7 @@ class PerplexityStatusEffect(StatusEffect):
         self.currentAppliedMultiplier = self.multiplier
         controller.applyMultStatBonuses(user, {CombatStats.MANA_COST_MULT: self.currentAppliedMultiplier})
 
-    def _revertPerplexityPenalty(self, controller : CombatController, user : CombatEntity, _) -> None:
+    def _revertPerplexityPenalty(self, controller : CombatController, user : CombatEntity, _1, _2) -> None:
         if self.currentAppliedMultiplier != 1:
             controller.revertMultStatBonuses(user, {CombatStats.MANA_COST_MULT: self.currentAppliedMultiplier})
 

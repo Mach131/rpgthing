@@ -138,6 +138,7 @@ class EffectTimings(Enum):
     ON_REPOSITION = auto()
     ON_STAT_CHANGE = auto()
     ON_APPLY_STATUS_SUCCESS = auto()
+    ON_HEAL_SKILL = auto()
     PARRY = auto()
     START_TURN = auto()
     END_TURN = auto()

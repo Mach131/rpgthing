@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFEndTurn, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDistanceChange, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
+from rpg_classes_skills import EFEndTurn, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDistanceChange, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked
 from rpg_status_definitions import BlindStatusEffect, BurnStatusEffect, ExhaustionStatusEffect, FearStatusEffect, MisfortuneStatusEffect, PerplexityStatusEffect, \
-    PoisonStatusEffect, RestrictStatusEffect, StunStatusEffect, TargetStatusEffect
+    PoisonStatusEffect, RestrictStatusEffect, StatusEffect, StunStatusEffect, TargetStatusEffect
 
 if TYPE_CHECKING:
     from rpg_classes_skills import EffectFunctionResult
@@ -292,11 +292,11 @@ PassiveSkillData("Steady Hand", AdvancedPlayerClassNames.SNIPER, 3, True,
         EFImmediate(lambda controller, user, _1, _2: void((
             controller.combatStateMap[user].setStack(EffectStacks.STEADY_HAND, 0),
         ))),
-        EFEndTurn(lambda controller, user, _: void((
+        EFEndTurn(lambda controller, user, skipDurationTick, _2: void((
             controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)}),
             controller.combatStateMap[user].addStack(EffectStacks.STEADY_HAND, 10),
             controller.applyMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)})
-        ))),
+        )) if not skipDurationTick else None),
         EFOnDistanceChange(lambda controller, user, _1, userMoved, oldDist, newDist, _3: void((
             controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)}),
             controller.combatStateMap[user].setStack(EffectStacks.STEADY_HAND, 0)
@@ -608,7 +608,7 @@ ActiveBuffSkillData("Instantaneous Eternity", AdvancedPlayerClassNames.ASSASSIN,
             lambda controller, user, _: controller.applyFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1})
         ),
         EFEndTurn(
-            lambda controller, user, _: controller.revertFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1})
+            lambda controller, user, _1, _2: controller.revertFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1})
         )
     ], 3)], 0, 0, True)
 
@@ -861,3 +861,99 @@ ActiveToggleSkillData("Enigmatic Mind", AdvancedPlayerClassNames.WIZARD, 9, True
             }, None, None)
         ], 0))
     )], None)], 0, 0, True)
+
+
+# Saint
+
+PassiveSkillData("Saint's Grace", AdvancedPlayerClassNames.SAINT, 1, False,
+    "Increases MP by 20% and RES by 15%.",
+    {}, {BaseStats.MP: 1.2, BaseStats.RES: 1.15}, [])
+
+ActiveBuffSkillData("Restoration", AdvancedPlayerClassNames.SAINT, 2, False, 30,
+    "Heal one ally, based on your MAG and RES (3x strength).", MAX_ACTION_TIMER, {}, {}, [SkillEffect([
+        EFImmediate(
+            lambda controller, user, target, _2: controller.doHealSkill(user, target[0], 3)
+        )
+    ], 0)], 1, 0, False)
+
+PassiveSkillData("Resilience", AdvancedPlayerClassNames.SAINT, 3, True,
+    "Increases status condition resistance by 50%.",
+    {}, {CombatStats.STATUS_RESISTANCE_MULTIPLIER: 1.5}, [])
+
+PassiveSkillData("Aura of Peace", AdvancedPlayerClassNames.SAINT, 4, False,
+    "When using Restoration, all other allies are healed by 25% of the health restored.",
+    {}, {}, [SkillEffect([
+        EFOnHealSkill(
+            lambda controller, user, target, amount, _: void([
+                controller.gainHealth(teammate, math.ceil(amount * 0.25)) for teammate in controller.getTeammates(user) if teammate != target
+            ])
+        )
+    ], None)])
+
+spiritBlessingEnchantments = {
+    "LIGHT": EnchantmentSkillEffect(MagicalAttackAttribute.LIGHT, {}, {
+        BaseStats.DEF: 1.1,
+        BaseStats.RES: 1.1,
+        BaseStats.AVO: 1.1
+    }, [
+        EFAfterNextAttack(lambda controller, user, _1, attackResult, _2:
+            void(controller.gainHealth(user, math.ceil(controller.getMaxHealth(user) * 0.05))) if attackResult.attackHit else None)
+    ], 6),
+    "DARK": EnchantmentSkillEffect(MagicalAttackAttribute.DARK, {}, {
+        BaseStats.ATK: 1.1,
+        BaseStats.MAG: 1.1,
+        BaseStats.ACC: 1.1
+    }, [
+        EFAfterNextAttack(lambda controller, user, _1, attackResult, _2:
+            void(controller.gainMana(user, math.ceil(controller.getMaxMana(user) * 0.05))) if attackResult.attackHit else None)
+    ], 6),
+}
+ActiveSkillDataSelector("Spirits's Blessing", AdvancedPlayerClassNames.SAINT, 5, False, 30,
+    "Select an attribute and a target ally; for 6 turns, their attacks will be Enchanted with that attribute. (Only the latest enchantment's effects are applied to a player.) | " +
+    "LIGHT: Increases DEF, RES, and AVO by 10%. On hit, restores 5% of the ally's max HP. | " +
+    "DARK: Increases ATK, MAG, and ACC by 10%. On hit, restores 5% of the ally's max MP.", MAX_ACTION_TIMER / 5, 1, False,
+    lambda attribute: ActiveBuffSkillData(f"Spirit's Blessing ({attribute[0] + attribute[1:].lower()})",
+                    AdvancedPlayerClassNames.SAINT, 5, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [
+                        SkillEffect([EFImmediate(lambda controller, _1, targets, _2: controller.addSkillEffect(
+                            targets[0], spiritBlessingEnchantments[attribute]
+                        ))], 0)], 1, 0, False, False), ["LIGHT", "DARK"])
+
+PassiveSkillData("Faith", AdvancedPlayerClassNames.SAINT, 6, True,
+    "Increases RES by 10%, MAG by 10%, and MP by 5%.",
+    {}, {BaseStats.RES: 1.1, BaseStats.MAG: 1.1, BaseStats.MP: 1.05}, [])
+
+def prayerFn(controller : CombatController, user : CombatEntity, skipDurationTick : bool, _):
+    if skipDurationTick:
+        return
+    for ally in controller.getTeammates(user):
+        for effect in controller.combatStateMap[ally].activeSkillEffects:
+            if isinstance(effect, StatusEffect):
+                controller.combatStateMap[ally].activeSkillEffects[effect] += 1
+        controller._cleanupEffects(ally)
+PassiveSkillData("Prayer", AdvancedPlayerClassNames.SAINT, 7, False,
+    "At the end of your turns, the durations of all allies' status conditions are reduced by one turn.",
+    {}, {}, [SkillEffect([EFEndTurn(prayerFn)], None)])
+
+PassiveSkillData("Divine Punishment", AdvancedPlayerClassNames.SAINT, 8, True,
+    "When attacking an enemy, they lose MP equal to 10% of the damage dealt (max 60).",
+    {}, {}, [SkillEffect([EFAfterNextAttack(
+        lambda controller, _1, target, attackInfo, _2:
+            void(controller.spendMana(target, min(round(attackInfo.damageDealt * 0.1), 60))) if attackInfo.attackHit else None
+    )], None)])
+
+AttackSkillData("Sealing Ritual", AdvancedPlayerClassNames.SAINT, 9, True, 60,
+    "Attack with 1x MAG from any range, attempting to inflict STUN for 2 turns. If successful, reduces the target's DEF, RES, and AVO by 20%.",
+    False, AttackType.MAGIC, 1, DEFAULT_ATTACK_TIMER_USAGE,
+    [SkillEffect([
+        EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None),
+        EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
+            controller.applyStatusCondition(target, StunStatusEffect(user, target, 2)) if attackResult.attackHit else None)),
+        EFOnStatusApplied(
+            lambda controller, _1, target, statusName, _2:
+                void(controller.applyMultStatBonuses(target, {
+                    BaseStats.DEF: 0.8,
+                    BaseStats.RES: 0.8,
+                    BaseStats.AVO: 0.8
+                })
+                if statusName == StatusConditionNames.STUN else None))
+    ], 0)])
