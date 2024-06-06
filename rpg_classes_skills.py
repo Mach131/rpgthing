@@ -237,12 +237,31 @@ class SkillEffect(object):
         self.effectFunctions : list[EffectFunction] = effectFunctions[:]
         self.effectDuration : int | None = effectDuration
 
+class EnchantmentSkillEffect(SkillEffect):
+    def __init__(self, enchantmentAttribute : AttackAttribute, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
+                 effectFunctions : list[EffectFunction], effectDuration : int | None):
+        super().__init__(effectFunctions, effectDuration)
+        self.enchantmentAttribute : AttackAttribute = enchantmentAttribute
+        self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
+        self.multStatBonuses : dict[Stats, float] = multStatBonuses
+
 class EffectFunction(object):
     def __init__(self, effectTiming : EffectTimings):
         self.effectTiming : EffectTimings = effectTiming
 
 """An immediate effect upon using an active skill"""
 class EFImmediate(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, list[CombatEntity], EffectFunctionResult], None]):
+        super().__init__(EffectTimings.IMMEDIATE)
+        self.func : Callable[[CombatController, CombatEntity, list[CombatEntity], EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, targets : list[CombatEntity]) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, targets, result)
+        return result
+    
+"""An immediate effect upon using an attacking skill."""
+class EFOnAttackSkill(EffectFunction):
     def __init__(self, func : Callable[[CombatController, CombatEntity, list[CombatEntity], EffectFunctionResult], None]):
         super().__init__(EffectTimings.IMMEDIATE)
         self.func : Callable[[CombatController, CombatEntity, list[CombatEntity], EffectFunctionResult], None] = func

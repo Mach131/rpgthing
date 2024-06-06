@@ -4,7 +4,7 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnStatusApplied, EFStartTurn, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
 from rpg_status_definitions import StatusEffect
@@ -22,7 +22,6 @@ class EntityCombatState(object):
         self.flatStatMod : dict[Stats, float] = {}
         self.multStatMod : dict[Stats, float] = {}
 
-        self.attackEnchantment : list[tuple[SkillEffect, AttackAttribute]] = []
         self.weaknesses : list[AttackAttribute] = []
         self.resistances : list[AttackAttribute] = []
 
@@ -31,6 +30,8 @@ class EntityCombatState(object):
         self.activeSkillEffects: dict[SkillEffect, int] = {}
         self.activeToggleSkills: set[ActiveToggleSkillData] = set()
         self.effectStacks : dict[EffectStacks, int] = {}
+        self.activeEnchantments : list[EnchantmentSkillEffect] = []
+        self.inactiveEnchantmentDurations : dict[EnchantmentSkillEffect, int] = {}
 
         self.defendActive : bool = False
         self.parryType : AttackType | None = None
@@ -151,11 +152,19 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
 
     """
         Increments the amount of time skills have been active. Returns the set of expiring effects.
+        Also automatically removes inactive enchatments.
     """
     def durationTick(self) -> set[SkillEffect]:
         result = set()
         for effect in self.activeSkillEffects:
             self.activeSkillEffects[effect] += 1
+        
+        removeEnchantments = []
+        for enchantment in self.inactiveEnchantmentDurations:
+            self.inactiveEnchantmentDurations[enchantment] += 1
+            if enchantment.effectDuration is not None and self.inactiveEnchantmentDurations[enchantment] >= enchantment.effectDuration:
+                removeEnchantments.append(enchantment)
+        [self.removeEnchantmentEffect(enchantment) for enchantment in removeEnchantments]
         return self.durationCheck()
 
     def getEffectFunctions(self, effectTiming : EffectTimings) -> list:
@@ -166,24 +175,44 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
     
     """
         Updates the current weapon attribute (previous enchantments are remembered, but not expressed.)
+        Assumes that the enchantment skill effect has been added normally already.
     """
-    def addChangedAttackAttribute(self, skillEffect : SkillEffect, attribute : AttackAttribute) -> None:
-        if any(map(lambda effectData: effectData[0] == skillEffect, self.attackEnchantment)):
-            return
-        self.attackEnchantment.insert(0, (skillEffect, attribute))
+    def addEnchantmentEffect(self, enchantmentEffect : EnchantmentSkillEffect) -> None:
+        if len(self.activeEnchantments) > 0:
+            # Disable previously active enchantment
+            previousEnchantment = self.activeEnchantments[-1]
+            self.inactiveEnchantmentDurations[previousEnchantment] = self.activeSkillEffects.pop(previousEnchantment)
+            self.revertFlatStatBonuses(previousEnchantment.flatStatBonuses)
+            self.revertMultStatBonuses(previousEnchantment.multStatBonuses)
+            
+        self.activeEnchantments.append(enchantmentEffect)
+        self.applyFlatStatBonuses(enchantmentEffect.flatStatBonuses)
+        self.applyMultStatBonuses(enchantmentEffect.multStatBonuses)
 
     """
         Removes an enchantment associated with the given skill.
+        Assumes that the enchantment skill effect has been removed normally already.
     """
-    def removeChangedAttackAttribute(self, skillEffect : SkillEffect) -> None:
-        for i in range(len(self.attackEnchantment)):
-            if self.attackEnchantment[i][0] == skillEffect:
-                self.attackEnchantment.pop(i)
-                return
+    def removeEnchantmentEffect(self, enchantmentEffect : EnchantmentSkillEffect) -> None:
+        wasActiveEnchantment = enchantmentEffect == self.activeEnchantments[-1]
+        self.activeEnchantments.remove(enchantmentEffect)
+        self.inactiveEnchantmentDurations.pop(enchantmentEffect, None)
+        print(f"{self.entity.name}'s {enchantmentEffect.enchantmentAttribute.name} enchantment wore off.")
+
+        if wasActiveEnchantment:
+            self.revertFlatStatBonuses(enchantmentEffect.flatStatBonuses)
+            self.revertMultStatBonuses(enchantmentEffect.multStatBonuses)
+            if len(self.activeEnchantments) > 0:
+                # Reactivate next enchantment on stack
+                newEnchantment = self.activeEnchantments[-1]
+                self.activeSkillEffects[newEnchantment] = self.inactiveEnchantmentDurations.pop(newEnchantment)
+                self.applyFlatStatBonuses(newEnchantment.flatStatBonuses)
+                self.applyMultStatBonuses(newEnchantment.multStatBonuses)
+                print(f"(The {newEnchantment.enchantmentAttribute.name} enchantment is now active.)")
             
     def getCurrentAttackAttribute(self, isPhysical : bool) -> AttackAttribute:
-        if len(self.attackEnchantment) > 0:
-            return self.attackEnchantment[0][1]
+        if len(self.activeEnchantments) > 0:
+            return self.activeEnchantments[-1].enchantmentAttribute
         weaponAttribute = self.entity.basicAttackAttribute
         # Use neutral magic if weapon has a physical attribute
         if isinstance(weaponAttribute, PhysicalAttackAttribute) and not isPhysical:
@@ -250,8 +279,8 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
 
                 immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, statusCondition.effectFunctions)
                 for effectFunction in immediateEffects:
-                    assert(isinstance(effectFunction, EFImmediate))
-                    effectFunction.applyEffect(controller, self.entity, [])
+                    if isinstance(effectFunction, EFImmediate):
+                        effectFunction.applyEffect(controller, self.entity, [])
                 self.activeSkillEffects[statusCondition] = 0
                 return True
             else:
@@ -640,6 +669,8 @@ class CombatController(object):
     def addSkillEffect(self, entity : CombatEntity, skillEffect : SkillEffect) -> None:
         if skillEffect not in self.combatStateMap[entity].activeSkillEffects:
             self.combatStateMap[entity].activeSkillEffects[skillEffect] = 0
+            if isinstance(skillEffect, EnchantmentSkillEffect):
+                self.combatStateMap[entity].addEnchantmentEffect(skillEffect)
 
     """
         Removes a skill effect from an entity.
@@ -649,6 +680,8 @@ class CombatController(object):
         if isinstance(skillEffect, StatusEffect):
             skillEffect.onRemove(self, entity)
             self.combatStateMap[entity].removeStatusCondition(skillEffect.statusName)
+        if isinstance(skillEffect, EnchantmentSkillEffect):
+            self.combatStateMap[entity].removeEnchantmentEffect(skillEffect)
 
     """
         Checks to see if all entities have been defeated.
@@ -703,10 +736,17 @@ class CombatController(object):
         reactionAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = []
         immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, skill.getAllEffectFunctions())
         for effectFunction in immediateEffects:
-            assert(isinstance(effectFunction, EFImmediate))
-            effectResult = effectFunction.applyEffect(self, user, targets)
-            if effectResult.bonusAttacks is not None:
-                reactionAttackData += effectResult.bonusAttacks
+            if isinstance(effectFunction, EFImmediate):
+                effectResult = effectFunction.applyEffect(self, user, targets)
+                if effectResult.bonusAttacks is not None:
+                    reactionAttackData += effectResult.bonusAttacks
+
+        # Trigger effects caused by existing skills
+        for effectFunction in self.combatStateMap[user].getEffectFunctions(EffectTimings.IMMEDIATE):
+            if isinstance(effectFunction, EFOnAttackSkill) and skill.causesAttack:
+                effectResult = effectFunction.applyEffect(self, user, targets)
+                if effectResult.bonusAttacks is not None:
+                    reactionAttackData += effectResult.bonusAttacks
         return reactionAttackData
 
     """
@@ -828,7 +868,10 @@ class CombatController(object):
     def getSkillManaCost(self, entity : CombatEntity, skill : SkillData) -> int | None:
         if skill.mpCost is None:
             return None
-        return round(skill.mpCost * self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_COST_MULT))
+        costMult = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_COST_MULT)
+        if isinstance(skill, AttackSkillData):
+            costMult *= self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.ATTACK_SKILL_MANA_COST_MULT)
+        return round(skill.mpCost * costMult)
 
     """
         Performs all steps of an attack, modifying HP, Action Timers, etc. as needed.

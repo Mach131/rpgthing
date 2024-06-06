@@ -333,6 +333,8 @@ if __name__ == '__main__':
                          BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP,
                          BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP])
     p4.classRanks[BasePlayerClassNames.MAGE] = 3
+    p4.changeClass(AdvancedPlayerClassNames.WIZARD)
+    [p4.rankUp() for i in range(9-1)]
     rerollWeapon(p4, testRarity)
     rerollOtherEquips(p4, testRarity)
     print()
@@ -376,7 +378,7 @@ if __name__ == '__main__':
     rerollOtherEquips(p7, testRarity)
     print()
 
-    simpleCombatSimulation([p7], [p5], 2)
+    simpleCombatSimulation([p4], [p5], 2)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

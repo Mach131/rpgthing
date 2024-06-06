@@ -41,6 +41,7 @@ class CombatStats(Stats):
     LUCK = auto()
     MANA_COST_MULT = auto()
     MANA_GAIN_MULT = auto()
+    ATTACK_SKILL_MANA_COST_MULT = auto()
     REPOSITION_ACTION_TIME_MULT = auto()
     OPPORTUNISM = auto()
     INSTANTANEOUS_ETERNITY = auto()
@@ -71,6 +72,7 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.LUCK: 0,
     CombatStats.MANA_COST_MULT: 1,
     CombatStats.MANA_GAIN_MULT: 1,
+    CombatStats.ATTACK_SKILL_MANA_COST_MULT: 1,
     CombatStats.REPOSITION_ACTION_TIME_MULT: 1,
     CombatStats.OPPORTUNISM: 0,
     CombatStats.INSTANTANEOUS_ETERNITY: 0
@@ -148,6 +150,7 @@ class EffectStacks(Enum):
     EYES_OF_THE_DARK = auto()
     EOTD_CONSUMED = auto()
     UNRELENTING_ASSAULT = auto()
+    FIRE_BLESSING = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
