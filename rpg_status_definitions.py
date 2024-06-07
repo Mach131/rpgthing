@@ -43,8 +43,9 @@ class PoisonStatusEffect(StatusEffect):
 
     def _poisonTick(self, controller : CombatController, target : CombatEntity, skipDurationTick : bool, result : EffectFunctionResult):
         if not skipDurationTick:
+            controller.logMessage(MessageType.EFFECT,
+                                  f"{target.name} takes damage from POISON!")
             controller.applyDamage(self.inflicter, target, self.poisonStrength)
-            print(f"{target.name} takes {self.poisonStrength} damage from POISON!")
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, PoisonStatusEffect):
@@ -59,8 +60,9 @@ class BurnStatusEffect(StatusEffect):
 
     def _burnTick(self, controller : CombatController, target : CombatEntity, skipDurationTick : bool, result : EffectFunctionResult):
         if not skipDurationTick:
+            controller.logMessage(MessageType.EFFECT,
+                                  f"{target.name} takes damage from BURN!")
             controller.applyDamage(self.inflicter, target, self.burnStrength)
-            print(f"{target.name} takes {self.burnStrength} damage from BURN!")
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, BurnStatusEffect):
@@ -199,7 +201,8 @@ class FearStatusEffect(StatusEffect):
             targetStat = controller.rng.choice([BaseStats.ATK, BaseStats.DEF, BaseStats.MAG, BaseStats.RES,
                                                 BaseStats.ACC, BaseStats.AVO, BaseStats.SPD])
             controller.applyMultStatBonuses(user, {targetStat: self.multiplier})
-            print(f"FEAR effect decreases {targetStat.name}!")
+            controller.logMessage(MessageType.EFFECT,
+                                  f"{user.name}'s {targetStat.name} is decreased by their FEAR of {attacker.name}!")
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, FearStatusEffect):

@@ -233,9 +233,10 @@ class ActiveSkillDataSelector(SkillData):
         return self.skillGenerator(selectorInput)
 
 class SkillEffect(object):
-    def __init__(self, effectFunctions : list[EffectFunction], effectDuration : int | None):
+    def __init__(self, effectFunctions : list[EffectFunction], effectDuration : int | None, expirationMessage : str | None = None):
         self.effectFunctions : list[EffectFunction] = effectFunctions[:]
         self.effectDuration : int | None = effectDuration
+        self.expirationMessage : str | None = expirationMessage
 
 class EnchantmentSkillEffect(SkillEffect):
     def __init__(self, enchantmentAttribute : AttackAttribute, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],

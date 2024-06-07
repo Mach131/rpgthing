@@ -182,7 +182,7 @@ DAMAGE_FORMULA_C = 2.0 # scaling, higher means a steeper dropoff/alignment as ra
 
 ACCURACY_FORMULA_C = 1 # similar scaling factor; may not be needed
 
-ACTION_TIME_DISPLAY_MULTIPLIER = 0.08
+ACTION_TIME_DISPLAY_MULTIPLIER = 0.1
 
 class ActionSuccessState(Enum):
     SUCCESS = auto()
@@ -543,3 +543,17 @@ def getEquipClassAttributes(equipClass: EquipClass) -> EquipAttributes:
     assert(False)
 
 EQUIP_CURSE_CHANCE = 0.15
+
+""" Logging """
+
+class MessageType(Enum):
+    DEBUG = auto()
+    BASIC = auto()
+    ACTION = auto()
+    DAMAGE_COMBAT = auto()
+    MANA = auto()
+    POSITIONING = auto()
+    STAT_CHANGE = auto()
+    EXPIRATION = auto()
+    EFFECT = auto()
+    PROBABILITY = auto()

@@ -5,23 +5,25 @@ from rpg_consts import *
 from rpg_combat_entity import CombatEntity, Player
 from rpg_classes_skills import ActiveSkillDataSelector, AttackSkillData, PlayerClassData, SkillData
 from rpg_combat_state import CombatController, ActionResultInfo, AttackResultInfo
-from rpg_items import * # TODO
+from rpg_items import *
+from rpg_messages import MessageCollector # TODO
 
 def simpleCombatSimulation(team1 : list[Player], team2 : list[Player], starting_dist : int = 2) -> None:
-    cc : CombatController = CombatController([player for player in team1], [player for player in team2], {player : starting_dist for player in team1})
+    logger = MessageCollector()
+    cc : CombatController = CombatController([player for player in team1], [player for player in team2], {player : starting_dist for player in team1}, [logger])
     handlerMap : dict[CombatEntity, PlayerInputHandler] = {player : PlayerInputHandler(player) for player in team1 + team2}
 
     while (cc.checkPlayerVictory() is None):
         print(cc.getCombatOverviewString())
         print("---")
 
+        print(logger.getNewestMessages().getMessagesString(None, True))
+
         activePlayer : CombatEntity = cc.advanceToNextPlayer()
         if cc.isStunned(activePlayer):
-            print(f"{activePlayer.name} is stunned!")
             cc.stunSkipTurn(activePlayer)
         else:
             activePlayerHandler : PlayerInputHandler = handlerMap[activePlayer]
-            print(f"{activePlayer.name}'s turn!")
             cc.beginPlayerTurn(activePlayer)
             activePlayerHandler.takeTurn(cc)
 
@@ -39,45 +41,45 @@ class CombatInputHandler(object):
     def doAttack(self, combatController : CombatController, target : CombatEntity,
                  isPhysical : bool, attackType : AttackType | None, isBasic : bool,
                  bonusAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]):
-        print (f"{self.entity.name} attacks {target.name}!")
+        # print (f"{self.entity.name} attacks {target.name}!")
         attackResult : AttackResultInfo | None = combatController.performAttack(self.entity, target, isPhysical,
                                                                                 attackType, isBasic, bonusAttackData)
-        while attackResult is not None:
-            if not attackResult.inRange:
-                print ("Target out of range!\n")
-            elif not attackResult.attackHit:
-                print ("Attack missed!\n")
-            else:
-                print(f"{attackResult.damageDealt} damage{' (Crit)' if attackResult.isCritical else ''}!\n")
+        # while attackResult is not None:
+        #     if not attackResult.inRange:
+        #         print ("Target out of range!\n")
+        #     elif not attackResult.attackHit:
+        #         print ("Attack missed!\n")
+        #     else:
+        #         print(f"{attackResult.damageDealt} damage{' (Crit)' if attackResult.isCritical else ''}!\n")
             
-            attackResult = attackResult.bonusResultInfo
-            if attackResult is not None:
-                print(f"{attackResult.attacker.name} performs an extra attack against {attackResult.defender.name}!")
+        #     attackResult = attackResult.bonusResultInfo
+        #     if attackResult is not None:
+        #         print(f"{attackResult.attacker.name} performs an extra attack against {attackResult.defender.name}!")
 
     def _doReactionAttack(self, combatController : CombatController, user : CombatEntity, target : CombatEntity,
                           attackData : AttackSkillData, additionalAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]):
-        print (f"{user.name} attacks {target.name}!")
+        # print (f"{user.name} attacks {target.name}!")
         attackResult : AttackResultInfo | None = combatController.performReactionAttack(self.entity, user, target, attackData, additionalAttacks)
-        while attackResult is not None:
-            if not attackResult.inRange:
-                print ("Target out of range!\n")
-            elif not attackResult.attackHit:
-                print ("Attack missed!\n")
-            else:
-                print(f"{attackResult.damageDealt} damage{' (Crit)' if attackResult.isCritical else ''}!\n")
+        # while attackResult is not None:
+        #     if not attackResult.inRange:
+        #         print ("Target out of range!\n")
+        #     elif not attackResult.attackHit:
+        #         print ("Attack missed!\n")
+        #     else:
+        #         print(f"{attackResult.damageDealt} damage{' (Crit)' if attackResult.isCritical else ''}!\n")
             
-            attackResult = attackResult.bonusResultInfo
-            if attackResult is not None:
-                print(f"{attackResult.attacker.name} performs an extra attack against {attackResult.defender.name}!")
+        #     attackResult = attackResult.bonusResultInfo
+        #     if attackResult is not None:
+        #         print(f"{attackResult.attacker.name} performs an extra attack against {attackResult.defender.name}!")
 
     def doSkill(self, combatController : CombatController, targets : list[CombatEntity], skillData : SkillData) -> ActionResultInfo:
         actionResult : ActionResultInfo = combatController.performActiveSkill(self.entity, targets, skillData)
         if actionResult.success == ActionSuccessState.SUCCESS:
-            if actionResult.toggleChanged:
-                toggleString = "activates" if actionResult.newToggle else "deactivates"
-                print (f"{self.entity.name} {toggleString} {skillData.skillName}!")
-            else:
-                print (f"{self.entity.name} uses {skillData.skillName} on {', '.join([target.name for target in targets])}!")
+            # if actionResult.toggleChanged:
+            #     toggleString = "activates" if actionResult.newToggle else "deactivates"
+            #     print (f"{self.entity.name} {toggleString} {skillData.skillName}!")
+            # else:
+            #     print (f"{self.entity.name} uses {skillData.skillName} on {', '.join([target.name for target in targets])}!")
 
             if actionResult.startAttack:
                 assert(isinstance(skillData, AttackSkillData))
@@ -95,8 +97,8 @@ class CombatInputHandler(object):
         if not repositionResult.success:
             return False
         
-        for changedTarget in repositionResult.changedDistances:
-            print(f"Distance to {changedTarget.name} is now {repositionResult.changedDistances[changedTarget]}.")
+        # for changedTarget in repositionResult.changedDistances:
+        #     print(f"Distance to {changedTarget.name} is now {repositionResult.changedDistances[changedTarget]}.")
         if repositionResult.startAttack:
             assert(repositionResult.attackUser is not None)
             assert(repositionResult.attackTarget is not None)
@@ -107,7 +109,7 @@ class CombatInputHandler(object):
     
     def doDefend(self, combatController : CombatController) -> None:
         combatController.performDefend(self.entity)
-        print (f"{self.entity.name} defends against the next attack!")
+        # print (f"{self.entity.name} defends against the next attack!")
 
 class PlayerInputHandler(CombatInputHandler):
     def __init__(self, player : Player):
@@ -391,7 +393,7 @@ if __name__ == '__main__':
     rerollOtherEquips(p8, testRarity)
     print()
 
-    simpleCombatSimulation([p8], [p5], 0)
+    simpleCombatSimulation([p8, p5, p4], [p7, p3, p1], 0)
     # simpleCombatSimulation([p1, p2], [p3, p4], 2)
 
     while True:

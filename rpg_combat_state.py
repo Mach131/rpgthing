@@ -7,6 +7,7 @@ from rpg_consts import *
 from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
+from rpg_messages import MessageCollector, makeTeamString
 from rpg_status_definitions import StatusEffect
 
 if TYPE_CHECKING:
@@ -154,7 +155,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         Increments the amount of time skills have been active. Returns the set of expiring effects.
         Also automatically removes inactive enchatments.
     """
-    def durationTick(self) -> set[SkillEffect]:
+    def durationTick(self, controller : CombatController) -> set[SkillEffect]:
         for effect in self.activeSkillEffects:
             self.activeSkillEffects[effect] += 1
         
@@ -163,7 +164,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
             self.inactiveEnchantmentDurations[enchantment] += 1
             if enchantment.effectDuration is not None and self.inactiveEnchantmentDurations[enchantment] >= enchantment.effectDuration:
                 removeEnchantments.append(enchantment)
-        [self.removeEnchantmentEffect(enchantment) for enchantment in removeEnchantments]
+        [self.removeEnchantmentEffect(enchantment, controller) for enchantment in removeEnchantments]
         return self.durationCheck()
 
     def getEffectFunctions(self, effectTiming : EffectTimings) -> list:
@@ -192,12 +193,12 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         Removes an enchantment associated with the given skill.
         Assumes that the enchantment skill effect has been removed normally already.
     """
-    def removeEnchantmentEffect(self, enchantmentEffect : EnchantmentSkillEffect) -> None:
+    def removeEnchantmentEffect(self, enchantmentEffect : EnchantmentSkillEffect, controller : CombatController) -> None:
         wasActiveEnchantment = enchantmentEffect == self.activeEnchantments[-1]
         self.activeEnchantments.remove(enchantmentEffect)
         self.inactiveEnchantmentDurations.pop(enchantmentEffect, None)
-        print(f"{self.entity.name}'s {enchantmentEffect.enchantmentAttribute.name} enchantment wore off.")
-
+        
+        newEnchantmentStr = ""
         if wasActiveEnchantment:
             self.revertFlatStatBonuses(enchantmentEffect.flatStatBonuses)
             self.revertMultStatBonuses(enchantmentEffect.multStatBonuses)
@@ -207,7 +208,9 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
                 self.activeSkillEffects[newEnchantment] = self.inactiveEnchantmentDurations.pop(newEnchantment)
                 self.applyFlatStatBonuses(newEnchantment.flatStatBonuses)
                 self.applyMultStatBonuses(newEnchantment.multStatBonuses)
-                print(f"(The {newEnchantment.enchantmentAttribute.name} enchantment is now active.)")
+                newEnchantmentStr = f" (The {newEnchantment.enchantmentAttribute.name} enchantment is now active.)"
+        controller.logMessage(MessageType.EXPIRATION,
+                              f"{self.entity.name}'s {enchantmentEffect.enchantmentAttribute.name} enchantment wore off.{newEnchantmentStr}")
             
     def getCurrentAttackAttribute(self, isPhysical : bool) -> AttackAttribute:
         if len(self.activeEnchantments) > 0:
@@ -262,18 +265,21 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         randomRoll = controller._randomRoll(statusCondition.inflicter, self.entity)
         statusName : StatusConditionNames = statusCondition.statusName
         if statusName in self.currentStatusEffects:
-            print(f"amplified {statusName.name} on {self.entity.name}!")
             durationExtension = self.currentStatusEffects[statusName].amplifyStatus(controller, self.entity, statusCondition, randomRoll)
-            if durationExtension > 0:
-                print(f"duration successfully extended!")
             self.activeSkillEffects[self.currentStatusEffects[statusName]] -= durationExtension
+            
+            durationStr = " Its duration was extended!" if durationExtension > 0 else ""
+            controller.logMessage(MessageType.EFFECT,
+                                  f"{self.entity.name}'s {statusName.name} was amplified!{durationStr}")
             return True
         else:
             statusResistance = self.getStatusResistChance(statusName)
             statusResistance *= controller.combatStateMap[statusCondition.inflicter].getTotalStatValueFloat(CombatStats.STATUS_APPLICATION_TOLERANCE_MULTIPLIER)
-            print(f"status resist chance: {statusResistance * 100:.1f}%")
+            controller.logMessage(MessageType.PROBABILITY,
+                                  f"{self.entity.name}'s {statusName.name} resistance chance: {statusResistance * 100:.1f}%")
             if randomRoll >= statusResistance:
-                print(f"applied {statusName.name} on {self.entity.name}!")
+                controller.logMessage(MessageType.EFFECT,
+                                      f"{self.entity.name} was inflicted with {statusName.name}!")
                 self.currentStatusEffects[statusName] = statusCondition
 
                 immediateEffects = filter(lambda effectFunction : effectFunction.effectTiming == EffectTimings.IMMEDIATE, statusCondition.effectFunctions)
@@ -283,7 +289,8 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
                 self.activeSkillEffects[statusCondition] = 0
                 return True
             else:
-                print(f"failed to apply {statusName.name} on {self.entity.name}!")
+                controller.logMessage(MessageType.EFFECT,
+                                      f"{self.entity.name} resisted the {statusName.name}!")
                 self.reduceTolerance(statusName, STATUS_TOLERANCE_RESIST_DECREASE)
                 return False
             
@@ -292,11 +299,12 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         if self.currentStatusTolerance[statusName] < 0:
             self.currentStatusTolerance[statusName] = 0
         
-    def removeStatusCondition(self, statusName : StatusConditionNames):
+    def removeStatusCondition(self, statusName : StatusConditionNames, controller : CombatController):
         if statusName not in self.currentStatusEffects:
             return
         
-        print(f"{self.entity.name}'s {statusName.name} wore off.")
+        controller.logMessage(MessageType.EFFECT,
+                              f"{self.entity.name}'s {statusName.name} wore off.")
         self.currentStatusEffects.pop(statusName)
         self.maxStatusTolerance[statusName] *= STATUS_TOLERANCE_RECOVERY_INCREASE_FACTOR
         self.currentStatusTolerance[statusName] = self.maxStatusTolerance[statusName]
@@ -304,9 +312,10 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
 
 class CombatController(object):
     def __init__(self, playerTeam : list[CombatEntity], opponentTeam : list[CombatEntity],
-                startingPlayerTeamDistances : dict[CombatEntity, int]) -> None:
+                startingPlayerTeamDistances : dict[CombatEntity, int], loggers : list[MessageCollector]) -> None:
         self.playerTeam : list[CombatEntity] = playerTeam[:]
         self.opponentTeam : list[CombatEntity] = opponentTeam[:]
+        self.loggers : list[MessageCollector] = loggers
 
         self.distanceMap : dict[CombatEntity, dict[CombatEntity, int]] = {}
         for player in self.playerTeam:
@@ -325,6 +334,12 @@ class CombatController(object):
 
         self.previousTurnEntity : CombatEntity | None = None
         self.rng : random.Random = random.Random()
+
+        self.logMessage(MessageType.BASIC,
+                        f"{makeTeamString(playerTeam)} approach {makeTeamString(opponentTeam)}.\nCOMBAT START!")
+
+    def logMessage(self, messageType : MessageType, messageText : str):
+        [log.addMessage(messageType, messageText) for log in self.loggers]
 
     # Internal function; figures out which of two given entities expected to belong to separate teams is which
     def _separateTeamValidator(self, entity1 : CombatEntity, entity2 : CombatEntity) -> tuple[CombatEntity, CombatEntity] | None:
@@ -417,6 +432,10 @@ class CombatController(object):
             newDistance = oldDistance
         self.distanceMap[player][opponent] = newDistance
 
+        if oldDistance != newDistance:
+            self.logMessage(MessageType.POSITIONING,
+                            f"{entity1.name} repositions to distance {newDistance} from {entity2.name}!")
+
         reactionAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = []
         for effectFunction in self.combatStateMap[entity1].getEffectFunctions(EffectTimings.ON_REPOSITION):
             assert(isinstance(effectFunction, EFOnDistanceChange))
@@ -483,7 +502,8 @@ class CombatController(object):
         distanceMultiplier : float = 2 * (distanceMod ** 0.5)
         domainScaleTerm : float = math.tan(math.pi * (1 - (2 ** (1 - accAvoRatio))) / 2)
         hitChance : float = distanceMultiplier / (1 + math.exp(-ACCURACY_FORMULA_C * domainScaleTerm))
-        print(f"hit chance: {hitChance*100:.3f}%")
+        self.logMessage(MessageType.PROBABILITY,
+                        f"{attacker.name}'s chance to hit {defender.name}: {hitChance*100:.3f}%")
 
         return self._randomRoll(defender, attacker) <= hitChance
 
@@ -533,24 +553,32 @@ class CombatController(object):
     """
         Makes a target take damage. Returns actual damage taken.
     """
-    def applyDamage(self, attacker : CombatEntity, defender : CombatEntity, damageTaken : int) -> int:
+    def applyDamage(self, attacker : CombatEntity, defender : CombatEntity, damageTaken : int, isCritical : bool = False) -> int:
         # If doing anything with attacker, first ensure it's not the same as the defender (e.g. weapon curse)
         originalHP : int = self.combatStateMap[defender].currentHP
         newHP : int = max(0, originalHP - damageTaken)
         self.combatStateMap[defender].currentHP = newHP
 
         if originalHP != newHP:
+            critString = " (Critical)" if isCritical else ""
+            self.logMessage(MessageType.DAMAGE_COMBAT,
+                            f"{defender.name} takes {originalHP - newHP} damage{critString}!")
+            
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
                 assert(isinstance(effectFunction, EFOnStatsChange))
                 effectFunction.applyEffect(self, defender, {SpecialStats.CURRENT_HP: originalHP}, {SpecialStats.CURRENT_HP: newHP})
+        
+        if newHP == 0:
+            self.logMessage(MessageType.BASIC,
+                            f"{defender.name} is defeated!")
 
         return originalHP - self.combatStateMap[defender].currentHP
 
     """
         Makes a target gain health, subject to healing effectiveness. Returns actual health gained.
     """
-    def gainHealth(self, entity : CombatEntity, hpGain : int) -> int:
+    def gainHealth(self, entity : CombatEntity, hpGain : int, isCritical : bool = False) -> int:
         originalHP : int = self.combatStateMap[entity].currentHP
 
         healingEffectiveness = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.HEALING_EFFECTIVENESS)
@@ -559,7 +587,10 @@ class CombatController(object):
         self.combatStateMap[entity].currentHP = min(self.getMaxHealth(entity), originalHP + hpGain)
         healthGained : int = self.combatStateMap[entity].currentHP - originalHP
         if healthGained > 0:
-            print(f"{entity.name} restores {healthGained} health!") # TODO: logging
+            critString = " (Critical Heal)" if isCritical else ""
+            self.logMessage(MessageType.DAMAGE_COMBAT,
+                            f"{entity.name} restores {healthGained} health{critString}!")
+
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
                 assert(isinstance(effectFunction, EFOnStatsChange))
@@ -575,10 +606,14 @@ class CombatController(object):
         newMP : int = max(0, originalMP - mpCost)
         self.combatStateMap[entity].currentMP = newMP
 
-        # TODO: may need to do something with result
-        for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
-            assert(isinstance(effectFunction, EFOnStatsChange))
-            effectFunction.applyEffect(self, entity, {SpecialStats.CURRENT_MP: originalMP}, {SpecialStats.CURRENT_MP: newMP})
+        if originalMP != newMP:
+            self.logMessage(MessageType.MANA,
+                            f"{entity.name} spends {originalMP - newMP} mana!")
+            
+            # TODO: may need to do something with result
+            for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
+                assert(isinstance(effectFunction, EFOnStatsChange))
+                effectFunction.applyEffect(self, entity, {SpecialStats.CURRENT_MP: originalMP}, {SpecialStats.CURRENT_MP: newMP})
 
         return originalMP - self.combatStateMap[entity].currentMP
 
@@ -596,7 +631,9 @@ class CombatController(object):
         self.combatStateMap[entity].currentMP = min(self.getMaxMana(entity), originalMP + mpGain)
         manaGained = self.combatStateMap[entity].currentMP - originalMP
         if manaGained > 0:
-            print(f"{entity.name} restores {manaGained} mana!") # TODO: logging
+            self.logMessage(MessageType.MANA,
+                            f"{entity.name} restores {manaGained} mana!")
+            
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
                 assert(isinstance(effectFunction, EFOnStatsChange))
@@ -678,9 +715,9 @@ class CombatController(object):
         self.combatStateMap[entity].activeSkillEffects.pop(skillEffect)
         if isinstance(skillEffect, StatusEffect):
             skillEffect.onRemove(self, entity)
-            self.combatStateMap[entity].removeStatusCondition(skillEffect.statusName)
+            self.combatStateMap[entity].removeStatusCondition(skillEffect.statusName, self)
         if isinstance(skillEffect, EnchantmentSkillEffect):
-            self.combatStateMap[entity].removeEnchantmentEffect(skillEffect)
+            self.combatStateMap[entity].removeEnchantmentEffect(skillEffect, self)
 
     """
         Checks to see if all entities have been defeated.
@@ -786,7 +823,6 @@ class CombatController(object):
             self.gainMana(user, REPOSITION_MP_GAIN)
             self.spendActionTimer(user, realTimerCost)
         else:
-            print("Unable to move!")
             return RepositionResultInfo(False, {}, False, None, None, None, [])
 
         if len(bonusAttackDetails) == 0:
@@ -801,6 +837,8 @@ class CombatController(object):
     """
     def performDefend(self, user : CombatEntity) -> None:
         self.combatStateMap[user].defendActive = True
+        self.logMessage(MessageType.ACTION,
+                        f"{user.name} defends themselves against the next attack!")
 
         self.gainMana(user, DEFEND_MP_GAIN)
         self.spendActionTimer(user, MAX_ACTION_TIMER)
@@ -834,18 +872,28 @@ class CombatController(object):
         skipDurationTick = False
         reactionAttackData = []
         if not isToggle:
+            if skill.skillName != "":
+                targetString = f" on {makeTeamString(targets)}" if len(targets) > 0 else ""
+                if len(targets) == 1 and targets[0] == user:
+                    targetString = " on themselves"
+                self.logMessage(MessageType.ACTION,
+                                f"{user.name} uses {skill.skillName}{targetString}!")
             reactionAttackData = self._activateImmediateEffects(user, targets, skill)
             # add skill effects to active
             for effect in skill.skillEffects:
                 self.addSkillEffect(user, effect)
         else:
             if not toggleEnabled:
+                self.logMessage(MessageType.ACTION,
+                                f"{user.name} activates {skill.skillName}!")
                 self.combatStateMap[user].activeToggleSkills.add(skill)
                 self.applyFlatStatBonuses(user, skill.flatStatBonuses)
                 self.applyMultStatBonuses(user, skill.multStatBonuses)
                 for effect in skill.skillEffects:
                     self.addSkillEffect(user, effect)
             else:
+                self.logMessage(MessageType.ACTION,
+                                f"{user.name} deactivates {skill.skillName}.")
                 self.combatStateMap[user].activeToggleSkills.remove(skill)
                 self.revertFlatStatBonuses(user, skill.flatStatBonuses)
                 self.revertMultStatBonuses(user, skill.multStatBonuses)
@@ -878,6 +926,10 @@ class CombatController(object):
     def performAttack(self, attacker : CombatEntity, defender : CombatEntity,
                       isPhysical : bool, attackType : AttackType | None, isBasic : bool,
                       bonusAttackData : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]) -> AttackResultInfo:
+        if isBasic:
+            self.logMessage(MessageType.ACTION,
+                            f"{attacker.name} attacks {defender.name}!")
+
         # initial attack
         attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, attackType, isBasic, False)
         if attackResultInfo.repeatAttack:
@@ -895,6 +947,9 @@ class CombatController(object):
     """
     def performReactionAttack(self, turnPlayer : CombatEntity, attacker : CombatEntity, defender : CombatEntity, attackSkillData : AttackSkillData,
                               additionalAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]]):
+        self.logMessage(MessageType.ACTION,
+                        f"{attacker.name} performs a bonus attack against {defender.name}!")
+        
         self.performActiveSkill(attacker, [defender], attackSkillData)
         attackResultInfo = self._doSingleAttack(attacker, defender, attackSkillData.isPhysical, attackSkillData.attackType, False, True)
         [attackResultInfo.addBonusAttack(*additionalAttack) for additionalAttack in additionalAttacks]
@@ -910,6 +965,8 @@ class CombatController(object):
             bonusAttacker, bonusTarget, bonusAttackData = attackResultInfo.bonusAttacks.pop(0)
             if self.getCurrentHealth(bonusAttacker) > 0:
                 self.performActiveSkill(bonusAttacker, [bonusTarget], bonusAttackData)
+                self.logMessage(MessageType.ACTION,
+                                f"{bonusAttacker.name} performs a bonus attack against {bonusTarget.name}!")
                 bonusAttackResultInfo : AttackResultInfo = self._doSingleAttack(bonusAttacker, bonusTarget, bonusAttackData.isPhysical,
                                                                                 bonusAttackData.attackType, False, True)
                 attackResultInfo.addBonusResultInfo(bonusAttackResultInfo)
@@ -946,12 +1003,17 @@ class CombatController(object):
 
         originalDistance = self.checkDistanceStrict(attacker, defender)
         inRange = self.checkInRange(attacker, defender)
+        if not inRange:
+            self.logMessage(MessageType.DAMAGE_COMBAT,
+                            f"{attacker.name} is out of range of {defender.name}!")
 
         parryBonusAttacks = None
         parryDamageMultiplier = 1
         guaranteeDodge = False
         if inRange and self.combatStateMap[defender].parryType is not None:
             if attackType == self.combatStateMap[defender].parryType:
+                self.logMessage(MessageType.EFFECT,
+                                f"{defender.name} reacts to the {attackType.name.lower()} attack!")
                 for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.PARRY):
                     assert(isinstance(effectFunction, EFOnParry))
                     effectResult = effectFunction.applyEffect(self, defender, attacker, isPhysical)
@@ -959,21 +1021,29 @@ class CombatController(object):
                     if effectResult.damageMultiplier is not None:
                         parryDamageMultiplier = effectResult.damageMultiplier
                     if effectResult.guaranteeDodge is not None:
+                        self.logMessage(MessageType.PROBABILITY,
+                                        f"{attacker.name} is guaranteed to miss {defender.name}!")
                         guaranteeDodge = effectResult.guaranteeDodge
             self.combatStateMap[defender].clearParryType()
 
         checkHit : bool = False
         if inRange and not guaranteeDodge:
             if self.combatStateMap[defender].getTotalStatValue(CombatStats.GUARANTEE_SELF_HIT) == 1:
+                self.logMessage(MessageType.PROBABILITY,
+                                f"{attacker.name} is guaranteed to hit {defender.name}!")
                 checkHit = True
             else:
                 checkHit = self.rollForHit(attacker, defender)
         damageDealt : int = 0
         isCritical : bool = False
-        if inRange and checkHit:
-            damage, isCritical = self.rollForDamage(attacker, defender, isPhysical)
-            damage = math.ceil(damage * parryDamageMultiplier)
-            damageDealt = self.applyDamage(attacker, defender, damage)
+        if inRange:
+            if checkHit:
+                damage, isCritical = self.rollForDamage(attacker, defender, isPhysical)
+                damage = math.ceil(damage * parryDamageMultiplier)
+                damageDealt = self.applyDamage(attacker, defender, damage, isCritical)
+            else:
+                self.logMessage(MessageType.DAMAGE_COMBAT,
+                                f"{attacker.name}'s attack misses {defender.name}!")
 
         attackResultInfo = AttackResultInfo(attacker, defender, originalDistance, inRange, checkHit, damageDealt,
                                             isCritical, isBonus, isPhysical, attackType)
@@ -1021,9 +1091,7 @@ class CombatController(object):
         variationFactor : float = self._randomRollUniform(0.9, 1.1, healer, None)
         baseHealAmount = math.ceil(rawHealValue * variationFactor * critFactor)
     
-        if isCritical:
-            print("Critical Heal!")
-        totalHealAmount = self.gainHealth(target, baseHealAmount)
+        totalHealAmount = self.gainHealth(target, baseHealAmount, isCritical)
 
         for effectFunction in self.combatStateMap[healer].getEffectFunctions(EffectTimings.ON_HEAL_SKILL):
             if isinstance(effectFunction, EFOnHealSkill):
@@ -1035,12 +1103,15 @@ class CombatController(object):
     def _cleanupEffects(self, player) -> None:
         for expiredEffect in self.combatStateMap[player].durationCheck():
             self.removeSkillEffect(player, expiredEffect)
+            if expiredEffect.expirationMessage is not None:
+                self.logMessage(MessageType.EFFECT, f"{player.name}'s {expiredEffect.expirationMessage}")
 
     """
         Cleanup for beginning of turn. At the moment, just disables defend.
         Should be called when it's a player's turn, unless they are stunned.
     """
     def beginPlayerTurn(self, player) -> None:
+        self.logMessage(MessageType.BASIC, f"--{player.name} turn!--")
         self.combatStateMap[player].defendActive = False
         for effectFunction in self.combatStateMap[player].getEffectFunctions(EffectTimings.START_TURN):
             if isinstance(effectFunction, EFStartTurn):
@@ -1057,8 +1128,9 @@ class CombatController(object):
     def stunSkipTurn(self, player) -> bool:
         if not self.isStunned(player):
             return False
-        
+
         self.beginPlayerTurn(player)
+        self.logMessage(MessageType.BASIC, f"{player.name} is stunned!")
         self.spendActionTimer(player, MAX_ACTION_TIMER)
         self._endPlayerTurn(player)
         return True
@@ -1072,8 +1144,10 @@ class CombatController(object):
                 effectFunction.applyEffect(self, player, skipDurationTick)
 
         if not skipDurationTick:
-            for expiredEffect in self.combatStateMap[player].durationTick():
+            for expiredEffect in self.combatStateMap[player].durationTick(self):
                 self.removeSkillEffect(player, expiredEffect)
+                if expiredEffect.expirationMessage is not None:
+                    self.logMessage(MessageType.EFFECT, f"{player.name}'s {expiredEffect.expirationMessage}")
 
         self.previousTurnEntity = player
 
