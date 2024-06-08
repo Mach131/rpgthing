@@ -30,13 +30,30 @@ class MessageCollector(object):
     def addMessage(self, messageType : MessageType, messageText : str) -> None:
         self.allMessages.append(LogMessage(messageType, messageText))
 
-    def getAllMessages(self) -> LogMessageCollection:
-        return LogMessageCollection(self.allMessages)
+    def sendAllMessages(self, filters : list[MessageType] | None, includeTypes : bool) -> LogMessageCollection:
+        result = LogMessageCollection(self.allMessages)
+        return result
     
-    def getNewestMessages(self) -> LogMessageCollection:
+    def sendNewestMessages(self, filters : list[MessageType] | None, includeTypes : bool) -> LogMessageCollection:
         result = LogMessageCollection(self.allMessages[self.lastSendLength:])
         self.lastSendLength = len(self.allMessages)
         return result
+    
+class LocalMessageCollector(MessageCollector):
+    def __init__(self):
+        super().__init__()
+
+    def sendAllMessages(self, filters : list[MessageType] | None, includeTypes : bool) -> LogMessageCollection:
+        result = super().sendAllMessages(filters, includeTypes)
+        print(result.getMessagesString(filters, includeTypes))
+        return result
+    
+    def sendNewestMessages(self, filters : list[MessageType] | None, includeTypes : bool) -> LogMessageCollection:
+        result = super().sendNewestMessages(filters, includeTypes)
+        print(result.getMessagesString(filters, includeTypes))
+        return result
+
+# eventually have a child class that does whatever networking instead of just printing
     
 def makeTeamString(entities : list[CombatEntity]):
     nameList = [entity.name for entity in entities]

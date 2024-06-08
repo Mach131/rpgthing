@@ -1,0 +1,177 @@
+Level 2 -> Rank 3 on first base class
+Level 8-9 -> Rank 9 on first advanced class
+Level 14-15 -> Rank 9 on second advanced class
+
+
+Examples/Ratios (exp to next)
+	Base Rank
+1 - 1
+2 - 4
+	Advanced Rank
+1 - 10		10
+2 - 15		25
+3 - 45		70
+4 - 70		140
+5 - 100		240
+6 - 300		540
+7 - 500		1040
+8 - 1000	2040
+
+--
+	Level
+1 - 5 | 5		11 - 640 | 3370
+2 - 45 | 50		12 - 690 | 4060
+3 - 120 | 170		13 - 760 | 4820
+4 - 160 | 330		14 - 850 | 5670
+
+5 - 310 | 640		15 - 1000 | 6670
+6 - 330 | 970		16 - 1100 | 7770
+7 - 350 | 1320		17 - 1250 | 9020
+8 - 380 | 1700		18 - 1400 | 10420
+9 - 430 | 2130		19 - 1600 | 12020
+
+10 - 600 | 2730
+
+--------------
+
+first maxed class ~level 10, second ~ level 13, third ~ level 15
+	equips:
+common - always around
+uncommon - rarely available around level 2, more common by level 7; expected upgrade around level 4-5
+rare - rarely available around level 5, more common by level 13; expected upgrade around level 9
+epic - rarely available around level 10, (slightly) more common by level 17; expected upgrade around level 15
+legendary - mostly boss drops past level 15; expected upgrade around level 20
+
+EXP per full dungeon run (normally)
+	less bonus EXP if too far above a dungeon's recommended level (and most of the dungeon exp comes from the completion bonus, rather than monsters)
+level 1: training dungeon gives 5
+level 2-4: 20-30
+level 5-10: 45-60
+level 10-15: 70-85
+level 16-20: 100-120
+
+	WUPs (weapon upgrade (fruits?)) - currency to enhance weapon rank
+	SWUPs (super/sweet) - currency to increase rarity
+common: 1/1/1/2/2/2/3/3/3; 10 + 1 SWUP
+uncommon: 3/3/4/5/6/7/8/9/10; 40 + 5 SWUP
+rare: 10/12/14/16/18/20/22/24/26; 100 + 10 SWUP
+epic: 30/35/40/45/50/55/60/65/70; 300 + 30 SWUP
+leg: 100 + 5S / 125 + 5S / 150 + 10S / 200 + 10S / 250 + 15S / 300 + 15S / 400 + 20S / 500 + 20S / 600 + 25S
+
+per dungeon run:
+level 1-4: 2-5 WUP, expect 1 SWUP in 10 runs
+level 5-10: 5-8 WUP, expect 1 SWUP in 5 runs
+level 11-15: 8-12 WUP, expect 1 SWUP in 3 runs
+level 15-20: 12-15 WUP, 1 SWUP on every boss
+endgame: 20-50 WUP, 3-5 SWUP
+
+-------
+
+[TODO: create sample characters/equip loadouts at each level to judge expected strength]
+
+-------
+
+Training Dungeon
+	Req level 1, 3 Rooms, solo only
+	Tutorial dummy (1 exp) -> skill dummy (1 exp) -> boss fight (3 exp, 3 WUP)
+
+-- lv 2-4
+
+Field
+	Varied weaknesses
+Cave
+	physically tankier, better physical drops
+Woods
+	magically tankier, better magical drops
+Beginner dungeon
+	more enemies at once, more WUP/better SWUP chance
+
+-- lv 5-9
+all dungeons begin having more enemies, partying likely needed
+
+
+Beach
+	likely to run into magic-using enemies
+Swamp
+	likely to run into status-using enemies
+Abandoned Castle
+	likely to run into physically strong enemies
+Grasslands
+	high enemy variation, longer than usual
+
+Tower
+	requires Abandoned Castle clear
+	single boss (Clover the Roc); high speed/avoidability, weak to wind and piercing
+		repositions quickly upon aggro changing, can act fairly quickly after repositioning
+
+Meadow
+	requires Grasslands clear
+	duo boss (salali & risuri); mechanics requiring specific positioning relative to each boss
+		enrage AOEs if one defeated without the other
+	
+
+-- lv 10-14
+
+Graveyard
+	enemies with immunities
+Desert
+	more DOT status conditions
+Crime City
+	strong ranged enemies hiding behind others
+Jungle
+	high chance of mixing attack attributes/resistances etc.
+
+
+Bridge to the World's End
+	Kenelm and Avalie boss fight
+
+
+-- lv 15-20
+Mountain
+	pretty long
+	can lead to several different boss fights
+		will + clover + dori
+		risuri + salali + nacho
+Fight Club
+	at most 2 people
+	fairly short, but pretty difficult fights
+	Fleet boss fight
+True Dungeon
+	very long, ~3 checkpoints with special rewards
+	has some boss-tier fights that can appear as enemies randomly
+Seafloor Cavern
+
+
+Gische Islands
+	Irae boss fights - Doom status effect (high damage when wearing off)
+Space
+	Requires Mountain clear
+	Hermes boss fight (w/ automatic defense system)
+
+-- special
+
+Queen's Invitation
+	Lv 20, solo only, single room
+	Boss fight against Charlotte; all stats very high, can use physical/magic based on lower defense
+		Signature skill Astral Charge; negates MP usage for several turns, but temporarily lowers stats and negates skill usage on cooldown
+		Range 0 physical, range 1 magic
+	20 WUP + 1 SWUP for victory, but can learn Astral Charge as a free skill on first victory
+
+Giles' Legion
+	requires Gische Islands clear
+	5 rooms, first 3 are standard but strong enemies
+	room 4 is mini-boss fight vs vulcan, shubi, sienna, and haihaya; similar roles to player party (physical/magic/support/ranged), but more unique skills
+	room 5 is vs giles; has summons to protect him, big FMAs if not countered
+	big rewards, like 50 WUP + 5 SWUP + legendary drop chances from rooms 4/5
+
+**
+general dungeon rules:
+	at the beginning, can choose Formation: move starting position backwards/forwards, at the cost of initial action gauge
+	between rooms, can switch equipment but not class/free skills
+	restore some % of HP and MP based on dungeon difficulty
+special dungeon events:
+	Monster House: large enemy team, including a slow tanky spanwer that creates new enemies every turn
+		spawned enemies give less exp, but big WUP/SWUP bonus based on haw fast it's cleared
+	Golden Slime: ~3 enemies that retreat on their turn, escape if at distance 3; worth lots of exp/WUP/SWUP
+	Special Dummy: can appear at the end of a dungeon; deal as much damage as possible within a set time, standard minor boss rewards but keeps a global leaderboard
+	Wanted Party: team of opponents with player class skills; generally higher level than dungeon's recommendation, but can drop notably better equips

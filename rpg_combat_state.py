@@ -335,8 +335,9 @@ class CombatController(object):
         self.previousTurnEntity : CombatEntity | None = None
         self.rng : random.Random = random.Random()
 
+        plural = "" if len(playerTeam) > 1 else "es"
         self.logMessage(MessageType.BASIC,
-                        f"{makeTeamString(playerTeam)} approach {makeTeamString(opponentTeam)}.\nCOMBAT START!")
+                        f"{makeTeamString(playerTeam)} approach{plural} {makeTeamString(opponentTeam)}.\nCOMBAT START!")
 
     def logMessage(self, messageType : MessageType, messageText : str):
         [log.addMessage(messageType, messageText) for log in self.loggers]
@@ -1024,6 +1025,9 @@ class CombatController(object):
                         self.logMessage(MessageType.PROBABILITY,
                                         f"{attacker.name} is guaranteed to miss {defender.name}!")
                         guaranteeDodge = effectResult.guaranteeDodge
+            else:
+                self.logMessage(MessageType.EFFECT,
+                                f"{defender.name} fails to react to the {attackType.name.lower()} attack!")
             self.combatStateMap[defender].clearParryType()
 
         checkHit : bool = False

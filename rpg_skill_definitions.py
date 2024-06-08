@@ -160,12 +160,12 @@ def deadlyDanceFn(controller, user, target, attackInfo, _):
         inRangeOpponents = list(filter(lambda opp: controller.checkInRange(user, opp), otherOpponents))
         if len(inRangeOpponents) > 0:
             bonusTarget = controller.rng.choice(inRangeOpponents)
-            newPower = attackInfo.damageDealt * 0.3
+            newPower = attackInfo.damageDealt * 0.5
             counterData = CounterSkillData(True, AttackType.MELEE, 1,
                                         [SkillEffect([EFBeforeNextAttack({CombatStats.FIXED_ATTACK_POWER: newPower}, {}, None, None)], 0)])
             attackInfo.addBonusAttack(user, bonusTarget, counterData)
 PassiveSkillData("Deadly Dance", AdvancedPlayerClassNames.MERCENARY, 7, False,
-    "If your first attack of a turn hits, trigger a bonus attack based on 30% of the damage dealt against another enemy in range.",
+    "If your first attack of a turn hits, trigger a bonus attack based on 50% of the damage dealt against another enemy in range.",
     {}, {}, [SkillEffect([EFAfterNextAttack(deadlyDanceFn)], None)])
 
 def undeterredFn(controller, user, _1, attackInfo, _2):
@@ -526,6 +526,8 @@ ambushSkillEffects : dict[str, SkillEffect] = {
     "INTERROGATE": SkillEffect([
         EFBeforeNextAttack({}, {BaseStats.ATK: 0.5}, None, None),
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void((
+                controller.logMessage(MessageType.EFFECT, f"{target.name}'s Eyes of the Dark stacks were consumed to increase {user.name}'s ATK, ACC, and SPD!")
+                    if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) > 0 else None,
                 controller.applyMultStatBonuses(user, {
                     BaseStats.ATK: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.04),
                     BaseStats.SPD: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.04),
@@ -536,14 +538,14 @@ ambushSkillEffects : dict[str, SkillEffect] = {
                     BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02),
                     BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02)
                 }),
-                controller.combatStateMap[target].setStack(EffectStacks.EYES_OF_THE_DARK, 0),
-                controller.logMessage(MessageType.EFFECT, f"{target.name}'s Eyes of the Dark stacks were consumed to increase {user.name}'s ATK, ACC, and SPD!")
-                    if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) > 0 else None,
+                controller.combatStateMap[target].setStack(EffectStacks.EYES_OF_THE_DARK, 0)
             )) if attackResult.attackHit else None)
     ], 0),
     "DISABLE": SkillEffect([
         EFBeforeNextAttack({}, {BaseStats.ATK: 0.8}, None, None),
         EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
+                controller.logMessage(MessageType.EFFECT, f"{target.name}'s Eyes of the Dark stacks were consumed to decrease their ATK, DEF, MAG, and RES!")
+                    if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) > 0 else None,
                 controller.applyMultStatBonuses(target, {
                     BaseStats.ATK: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
                     BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
@@ -555,9 +557,7 @@ ambushSkillEffects : dict[str, SkillEffect] = {
                     BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02),
                     BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02)
                 }),
-                controller.combatStateMap[target].setStack(EffectStacks.EYES_OF_THE_DARK, 0),
-                controller.logMessage(MessageType.EFFECT, f"{target.name}'s Eyes of the Dark stacks were consumed to decrease their ATK, DEF, MAG, and RES!")
-                    if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) > 0 else None,
+                controller.combatStateMap[target].setStack(EffectStacks.EYES_OF_THE_DARK, 0)
             )) if attackResult.attackHit else None)
     ], 0),
     "EXECUTE": SkillEffect([
@@ -617,7 +617,7 @@ PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, Tr
                     if controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 0 else None,
             None),
         EFAfterNextAttack(
-            lambda controller, user, target, _1, _2: void((
+            lambda controller, user, _, attackResult, _2: void((
                 controller.revertMultStatBonuses(user, {
                     BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2),
                     BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2)
@@ -627,7 +627,7 @@ PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, Tr
                     BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2),
                     BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2)
                 })
-            ))
+            )) if not attackResult.isBonus else None
         ),
         EFOnAdvanceTurn(
             lambda controller, user, _1, nextPlayer, _2: void((
@@ -690,7 +690,7 @@ PassiveSkillData("Ride the Wake", AdvancedPlayerClassNames.ACROBAT, 4, False,
     )], None)])
 
 def sidestepFn(controller : CombatController, user : CombatEntity, _2, _3, effectResult : EffectFunctionResult):
-    controller.increaseActionTimer(user, 0.75)
+    controller.increaseActionTimer(user, 0.85)
     effectResult.setGuaranteeDodge(True)
 ActiveSkillDataSelector("Sidestep", AdvancedPlayerClassNames.ACROBAT, 5, False, 25,
     "Select an attack type. If the next attack on you matches, evade it and reduce the time to your next action.",
@@ -782,9 +782,6 @@ PassiveSkillData("Wizard's Wisdom", AdvancedPlayerClassNames.WIZARD, 1, False,
 
 natureBlessingEnchantments = {
     "FIRE": EnchantmentSkillEffect(MagicalAttackAttribute.FIRE, {}, {}, [
-        EFImmediate(lambda controller, user, _1, _2: 
-            controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s attacks are Enchanted with Fire! When attacking, their MAG will be increased.")),
         EFBeforeNextAttack({}, {}, 
             lambda controller, user, _: void((
                 controller.combatStateMap[user].setStack(
@@ -804,9 +801,6 @@ natureBlessingEnchantments = {
                 ) if attackResult.attackHit else None))
     ], 8),
     "ICE": EnchantmentSkillEffect(MagicalAttackAttribute.ICE, {CombatStats.CRIT_RATE: 0.1}, {}, [
-        EFImmediate(lambda controller, user, _1, _2: 
-            controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s attacks are Enchanted with Ice! Their Critical Hit rate increases.")),
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void((
                 controller.applyMultStatBonuses(target, {
                     BaseStats.SPD: 0.925,
@@ -820,10 +814,12 @@ natureBlessingEnchantments = {
         CombatStats.RANGE: 1
     }, {
         CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.65
-    }, [EFImmediate(lambda controller, user, _1, _2: 
-            controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s attacks are Enchanted with Wind! Their Range increases, and the time between their actions decreases."))
-                                  ], 8)
+    }, [], 8)
+}
+natureBlessingMessage = {
+    "FIRE": "{}'s attacks are Enchanted with Fire! When attacking, their MAG will be increased. Their attacks will attempt to inflict BURN.",
+    "ICE": "{}'s attacks are Enchanted with Ice! Their Critical Hit rate increases, and Critical Hits will lower targets' DEF and RES.",
+    "WIND": "{}'s attacks are Enchanted with Wind! Their Range increases, and the time between their actions decreases."
 }
 ActiveSkillDataSelector("Nature's Blessing", AdvancedPlayerClassNames.WIZARD, 2, False, 30,
     "Select an attribute and a target ally; for 8 turns, their attacks will be Enchanted with that attribute. (Only the latest Enchantment's effects are applied to a player.) | " +
@@ -832,9 +828,10 @@ ActiveSkillDataSelector("Nature's Blessing", AdvancedPlayerClassNames.WIZARD, 2,
     "WIND: Increases Range by 1. Decreases the time between the ally's actions by 35%.", MAX_ACTION_TIMER / 5, 1, False,
     lambda attribute: ActiveBuffSkillData(f"Nature's Blessing ({attribute[0] + attribute[1:].lower()})",
                     AdvancedPlayerClassNames.WIZARD, 2, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [
-                        SkillEffect([EFImmediate(lambda controller, _1, targets, _2: controller.addSkillEffect(
+                        SkillEffect([EFImmediate(lambda controller, _1, targets, _2: void((
+                            controller.logMessage(MessageType.EFFECT, natureBlessingMessage[attribute].format(targets[0].name)),
                             targets[0], natureBlessingEnchantments[attribute]
-                        ))], 0)], 1, 0, False, False), ["FIRE", "ICE", "WIND"])
+                        )))], 0)], 1, 0, False, False), ["FIRE", "ICE", "WIND"])
 
 PassiveSkillData("Serendipity", AdvancedPlayerClassNames.WIZARD, 3, True,
     "Increases critical hit rate by 5%. On critical hit, restore additional MP equal to 5% of the damge you deal (max 30).",
@@ -976,24 +973,20 @@ spiritBlessingEnchantments = {
         BaseStats.DEF: 1.1,
         BaseStats.RES: 1.1,
         BaseStats.AVO: 1.1
-    }, [
-        EFImmediate(lambda controller, user, _1, _2: 
-            controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s attacks are Enchanted with Light! Their DEF, RES, and AVO increase, and their attacks will restore HP.")),
-        EFAfterNextAttack(lambda controller, user, _1, attackResult, _2:
+    }, [EFAfterNextAttack(lambda controller, user, _1, attackResult, _2:
             void(controller.gainHealth(user, math.ceil(controller.getMaxHealth(user) * 0.07))) if attackResult.attackHit else None)
     ], 6),
     "DARK": EnchantmentSkillEffect(MagicalAttackAttribute.DARK, {}, {
         BaseStats.ATK: 1.1,
         BaseStats.MAG: 1.1,
         BaseStats.ACC: 1.1
-    }, [
-        EFImmediate(lambda controller, user, _1, _2: 
-            controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s attacks are Enchanted with Dark! Their ATK, MAG, and ACC increase, and their attacks will restore MP.")),
-        EFAfterNextAttack(lambda controller, user, _1, attackResult, _2:
+    }, [EFAfterNextAttack(lambda controller, user, _1, attackResult, _2:
             void(controller.gainMana(user, math.ceil(controller.getMaxMana(user) * 0.07))) if attackResult.attackHit else None)
     ], 6),
+}
+spiritBlessingMessage = {
+    "LIGHT": "{}'s attacks are Enchanted with Light! Their DEF, RES, and AVO increase, and their attacks will restore HP.",
+    "DARK": "{}'s attacks are Enchanted with Dark! Their ATK, MAG, and ACC increase, and their attacks will restore MP.",
 }
 ActiveSkillDataSelector("Spirits's Blessing", AdvancedPlayerClassNames.SAINT, 5, False, 30,
     "Select an attribute and a target ally; for 6 turns, their attacks will be Enchanted with that attribute. (Only the latest enchantment's effects are applied to a player.) | " +
@@ -1001,9 +994,12 @@ ActiveSkillDataSelector("Spirits's Blessing", AdvancedPlayerClassNames.SAINT, 5,
     "DARK: Increases ATK, MAG, and ACC by 10%. On hit, restores 7% of the ally's max MP.", MAX_ACTION_TIMER / 5, 1, False,
     lambda attribute: ActiveBuffSkillData(f"Spirit's Blessing ({attribute[0] + attribute[1:].lower()})",
                     AdvancedPlayerClassNames.SAINT, 5, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [
-                        SkillEffect([EFImmediate(lambda controller, _1, targets, _2: controller.addSkillEffect(
-                            targets[0], spiritBlessingEnchantments[attribute]
-                        ))], 0)], 1, 0, False, False), ["LIGHT", "DARK"])
+                        SkillEffect([EFImmediate(lambda controller, _1, targets, _2: void((
+                            controller.logMessage(MessageType.EFFECT, spiritBlessingMessage[attribute].format(targets[0].name)),
+                            controller.addSkillEffect(
+                                targets[0], spiritBlessingEnchantments[attribute]
+                            )
+                        )))], 0)], 1, 0, False, False), ["LIGHT", "DARK"])
 
 PassiveSkillData("Faith", AdvancedPlayerClassNames.SAINT, 6, True,
     "Increases RES by 10%, MAG by 10%, and MP by 5%.",
