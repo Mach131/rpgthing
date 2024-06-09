@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 # Warrior
 
 PassiveSkillData("Warrior's Resolution", BasePlayerClassNames.WARRIOR, 1, False,
-    "Increases HP by 100, ATK by 10, and DEF by 5.",
-    {BaseStats.HP: 100, BaseStats.ATK: 10, BaseStats.DEF: 5}, {}, [])
+    "Increases HP by 50, ATK by 10, and DEF by 5.",
+    {BaseStats.HP: 50, BaseStats.ATK: 10, BaseStats.DEF: 5}, {}, [])
 
 AttackSkillData("Great Swing", BasePlayerClassNames.WARRIOR, 2, False, 20,
     "Attack with 1.5x ATK.",
@@ -590,14 +590,14 @@ ambushSkillEffects : dict[str, SkillEffect] = {
             )))
     ], 0)
 }
-ActiveSkillDataSelector("Ambush", AdvancedPlayerClassNames.ASSASSIN, 5, False, 40,
+ActiveSkillDataSelector("Ambush", AdvancedPlayerClassNames.ASSASSIN, 5, False, 30,
     "Select an effect and attack a target, removing all Eyes of the Dark stacks on hit. | " +
     "INTERROGATE: Attack with 0.5x ATK. Per stack removed, +4% ATK/SPD and +8% ACC. | " +
     "DISABLE: Attack with 0.8x ATK. Per stack removed, opponent ATK/DEF/MAG/RES - 3.5%. | " +
     "EXECUTE: Attack with 0.7x ATK, +0.2x per stack removed. Additional 10% Critical Hit rate per stack removed.",
     DEFAULT_ATTACK_TIMER_USAGE, 1, True,
     lambda ambushString: AttackSkillData(f"Ambush ({ambushString[0] + ambushString[1:].lower()})",
-                                         AdvancedPlayerClassNames.ASSASSIN, 5, False, 40, "",
+                                         AdvancedPlayerClassNames.ASSASSIN, 5, False, 30, "",
     True, None, 0.7, DEFAULT_ATTACK_TIMER_USAGE, [ambushSkillEffects[ambushString]], False), ["INTERROGATE", "DISABLE", "EXECUTE"])
 
 PassiveSkillData("Relentlessness", AdvancedPlayerClassNames.ASSASSIN, 6, True,
@@ -760,7 +760,7 @@ ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9,
     MAX_ACTION_TIMER / 10, 0, True,
     lambda amount: ActiveBuffSkillData(f"Insidious Killer x{amount}",
                                          AdvancedPlayerClassNames.ACROBAT, 9, True, 15 * int(amount), "",
-    0, {}, {}, [SkillEffect([
+    MAX_ACTION_TIMER / 10, {}, {}, [SkillEffect([
         EFImmediate(lambda controller, user, _1, _2: void((
             controller.applyMultStatBonuses(user, {
                 BaseStats.DEF: 1 - (0.25 * int(amount)),

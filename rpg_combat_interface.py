@@ -1,8 +1,9 @@
 from __future__ import annotations
+import asyncio
 import random
 
 from rpg_classes_skills import ActiveSkillDataSelector, AttackSkillData, SkillData
-from rpg_combat_entity import CombatEntity, Player
+from rpg_combat_entity import CombatEntity, Enemy, Player
 from rpg_combat_state import ActionResultInfo, CombatController
 from rpg_consts import *
 from rpg_messages import MessageCollector
@@ -57,8 +58,9 @@ class CombatInputHandler(object):
         raise NotImplementedError()
     
 class RandomEntityInputHandler(CombatInputHandler):
-    def __init__(self, entity : CombatEntity):
+    def __init__(self, entity : CombatEntity, sleepTime : float):
         super().__init__(entity)
+        self.sleepTime = sleepTime
 
     async def takeTurn(self, combatController : CombatController) -> None:
         targetList = combatController.getTargets(self.entity)
@@ -100,6 +102,7 @@ class RandomEntityInputHandler(CombatInputHandler):
             if command == "attack":
                 target = random.choice(attackTargets)
                 self.doAttack(combatController, target, None, None, True, [])
+                await asyncio.sleep(self.sleepTime)
                 return
             elif command == "skill":
                 chosenSkill = random.choice(availableSkills)
@@ -124,6 +127,7 @@ class RandomEntityInputHandler(CombatInputHandler):
 
                 skillResult = self.doSkill(combatController, targets, chosenSkill)
                 if skillResult.success == ActionSuccessState.SUCCESS:
+                    await asyncio.sleep(self.sleepTime)
                     return
                 # elif skillResult.success == ActionSuccessState.FAILURE_MANA:
                 #     print("You do not have enough MP to use this skill.")
@@ -138,6 +142,7 @@ class RandomEntityInputHandler(CombatInputHandler):
                     print("You may change your distance by at most 2 on your turn.")
                     
                 if self.doReposition(combatController, targets, -amount):
+                    await asyncio.sleep(self.sleepTime)
                     return
 
             elif command == "retreat":
@@ -148,10 +153,12 @@ class RandomEntityInputHandler(CombatInputHandler):
                     print("You may change your distance by at most 2 on your turn.")
                     
                 if self.doReposition(combatController, targets, amount):
+                    await asyncio.sleep(self.sleepTime)
                     return
                 
             elif command == "defend":
                 self.doDefend(combatController)
+                await asyncio.sleep(self.sleepTime)
                 return
             
             else:
@@ -318,6 +325,62 @@ class LocalPlayerInputHandler(CombatInputHandler):
             print(f"Time to next action: {nextActionTime:.3f}")
         print()
 
+class EnemyInputHandler(CombatInputHandler):
+    def __init__(self, enemy : Enemy):
+        super().__init__(enemy)
+        self.enemy : Enemy = enemy
+
+    async def takeTurn(self, combatController : CombatController) -> None:
+        targetList = combatController.getTargets(self.entity)
+        teammateList = combatController.getTeammates(self.entity)
+
+        aiDecision = self.enemy.ai.chooseAction(combatController, self.enemy)
+
+        if aiDecision.action == CombatActions.ATTACK:
+            target = targetList[aiDecision.targetIndices[0]]
+            self.doAttack(combatController, target, None, None, True, [])
+            return
+        elif aiDecision.action == CombatActions.SKILL:
+            assert(aiDecision.skillIndex is not None)
+            chosenSkill = self.entity.availableActiveSkills[aiDecision.skillIndex]
+
+            if isinstance(chosenSkill, ActiveSkillDataSelector):
+                assert(aiDecision.skillSelector) is not None
+                chosenSkill = chosenSkill.selectSkill(aiDecision.skillSelector)
+
+            skillTargetList = targetList if chosenSkill.targetOpponents else teammateList
+            targets = [skillTargetList[i] for i in aiDecision.targetIndices]
+
+            skillResult = self.doSkill(combatController, targets, chosenSkill)
+            if skillResult.success == ActionSuccessState.SUCCESS:
+                return
+
+        elif aiDecision.action == CombatActions.APPROACH:
+            targets = [targetList[i] for i in aiDecision.targetIndices]
+
+            assert(aiDecision.actionParameter is not None)
+            amount =  aiDecision.actionParameter
+                
+            if self.doReposition(combatController, targets, -amount):
+                return
+
+        elif aiDecision.action == CombatActions.RETREAT:
+            targets = [targetList[i] for i in aiDecision.targetIndices]
+
+            assert(aiDecision.actionParameter is not None)
+            amount =  aiDecision.actionParameter
+                
+            if self.doReposition(combatController, targets, amount):
+                return
+            
+        elif aiDecision.action == CombatActions.DEFEND:
+            self.doDefend(combatController)
+            return
+        
+        assert(False) # AI tried to do an action that failed
+        self.doDefend(combatController)
+        return
+
 class CombatInterface(object):
     def __init__(self, players : dict[CombatEntity, CombatInputHandler], opponents: dict[CombatEntity, CombatInputHandler],
                  loggers : list[MessageCollector]):
@@ -331,7 +394,7 @@ class CombatInterface(object):
             self.players, self.opponents, {player : DEFAULT_STARTING_DISTANCE for player in self.players}, self.loggers)
         
     def sendAllLatestMessages(self):
-        [logger.sendNewestMessages(None, True) for logger in self.loggers]
+        [logger.sendNewestMessages(None, False) for logger in self.loggers]
         
     async def runCombat(self):
         self.sendAllLatestMessages()

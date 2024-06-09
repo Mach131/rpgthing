@@ -403,4 +403,14 @@ def generateShoes(rarity : int, rank : int, shoeClass : None | ShoeClasses = Non
         shoeClass = random.choice([shoeClass for shoeClass in ShoeClasses])
     return generateEquip(rarity, rank, shoeClass)
     
-
+## Special item generators definitions
+def makeBeginnerWeapon(playerClass : BasePlayerClassNames):
+    weaponName, weaponClass = {
+        BasePlayerClassNames.WARRIOR: ("Training Sword", WeaponClasses.BROADSWORD),
+        BasePlayerClassNames.RANGER: ("Training Bow", WeaponClasses.LONGBOW),
+        BasePlayerClassNames.ROGUE: ("Training Knife", WeaponClasses.DAGGER),
+        BasePlayerClassNames.MAGE: ("Training Wand", WeaponClasses.WOODENWAND)
+    }[playerClass]
+    weaponClassAttributes = weaponClassAttributeMap[weaponClass]
+    return Weapon(weaponName, weaponClassAttributes.weaponType, weaponClassAttributes.baseStats, None,
+                  [luckTrait], 0, 0)

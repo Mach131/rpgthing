@@ -332,6 +332,10 @@ class CombatController(object):
                     self._activateImmediateEffects(entity, [], skill)
                     [self.addSkillEffect(entity, skillEffect) for skillEffect in skill.skillEffects]
 
+                if entity in startingPlayerTeamDistances:
+                    displacement = abs(startingPlayerTeamDistances[entity] - DEFAULT_STARTING_DISTANCE)
+                    self.combatStateMap[entity].actionTimer -= FORMATION_ACTION_TIMER_PENALTY * displacement
+
         self.previousTurnEntity : CombatEntity | None = None
         self.rng : random.Random = random.Random()
 

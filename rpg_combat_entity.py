@@ -1,5 +1,7 @@
 from __future__ import annotations
+from typing import Callable
 
+from rpg_combat_state import CombatController
 from rpg_consts import *
 from rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
 from rpg_items import Item, Equipment, Weapon
@@ -230,3 +232,43 @@ class Player(CombatEntity):
             self._updateAvailableSkills()
             return True
         return False
+    
+
+class Enemy(CombatEntity):
+    def __init__(self, name : str, level : int, baseStats : dict[BaseStats, int],
+                 bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float],
+                 passiveSkills : list[SkillData], activeSkills : list[SkillData], ai : EnemyAI,
+                 rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
+        super().__init__(name, level, passiveSkills, activeSkills)
+        self.baseStats = baseStats
+        self.flatStatMod = bonusFlatStats
+        self.multStatMod = bonusMultStats
+        self.ai = ai
+        self.rewardFn = rewardFn
+
+    def getReward(self, combatController : CombatController, player : CombatEntity) -> EnemyReward:
+        return self.rewardFn(combatController, player)
+        
+class EnemyAI(object):
+    def __init__(self, data : dict, decisionFn : Callable[[CombatController, CombatEntity, dict], EnemyAIAction]):
+        self.data = data
+        self.decisionFn = decisionFn
+    
+    def chooseAction(self, combatController : CombatController, enemy : CombatEntity) -> EnemyAIAction:
+        return self.decisionFn(combatController, enemy, self.data)
+        
+class EnemyAIAction(object):
+    def __init__(self, action : CombatActions, skillIndex : int | None, targetIndices : list[int],
+                 actionParameter : int | None, skillSelector : str | None):
+        self.action = action
+        self.skillIndex = skillIndex
+        self.targetIndices = targetIndices
+        self.actionParameter = actionParameter
+        self.skillSelector = skillSelector
+
+class EnemyReward(object):
+    def __init__(self, exp : int, wup : int, swup : int, equip : Equipment | None):
+        self.exp = exp
+        self.wup = wup
+        self.swup = swup
+        self.equip = equip

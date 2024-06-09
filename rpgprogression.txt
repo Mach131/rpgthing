@@ -58,6 +58,14 @@ rare: 10/12/14/16/18/20/22/24/26; 100 + 10 SWUP
 epic: 30/35/40/45/50/55/60/65/70; 300 + 30 SWUP
 leg: 100 + 5S / 125 + 5S / 150 + 10S / 200 + 10S / 250 + 15S / 300 + 15S / 400 + 20S / 500 + 20S / 600 + 25S
 
+To change a trait (cost doubles for every other trait that's already been changed):
+common - 1S
+uncommon - 3S
+rare - 8S
+epic - 20S
+leg - 50S
+
+
 per dungeon run:
 level 1-4: 2-5 WUP, expect 1 SWUP in 10 runs
 level 5-10: 5-8 WUP, expect 1 SWUP in 5 runs
@@ -68,12 +76,30 @@ endgame: 20-50 WUP, 3-5 SWUP
 -------
 
 [TODO: create sample characters/equip loadouts at each level to judge expected strength]
+	Example: HP/MP	/ATK/DEF/MAG/RES	/ACC/AVO/SPD
+Beginners:
+	warri: 100/30	/30/15/10/10	/60/50/25
+	range: 50/30	/16/10/10/20	/84/53/32
+	rogue: 50/30	/21/10/10/10	/63/75/40
+	mage:  50/80	/12/10/28/15	/57/50/30
 
 -------
 
 Training Dungeon
 	Req level 1, 3 Rooms, solo only
+	100% HP/MP recovery between rooms
 	Tutorial dummy (1 exp) -> skill dummy (1 exp) -> boss fight (3 exp, 3 WUP)
+		secret boss fight if you come back with at least one max-rank advanced class
+
+Basic Dummy: 40/1	/1/5/1/5	/1/30/50
+	speed reduces to 20 after first turn, then doesn't attack ever
+Skillful Dummy: 60/1	/1/5/1/5	/1/30/50
+	speed reduces to 20 after first turn, then doesn't attack ever
+Instructor Aqi: 100/1000	/50/20/1/20	/50/60/100
+	speed reduces to 30 after first turn, but uses less action gauge on advance
+	tries to close to range 0; once there, charges a skill with a warning, then attacks with 2x ATK next turn; long time to next turn afterwards
+
+[secret fight: titled Torrential Goddess Aqi]
 
 -- lv 2-4
 

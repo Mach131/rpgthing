@@ -190,6 +190,14 @@ class ActionSuccessState(Enum):
     FAILURE_MANA = auto()
     FAILURE_TARGETS = auto()
 
+
+class CombatActions(Enum):
+    ATTACK = auto()
+    DEFEND = auto()
+    APPROACH = auto()
+    RETREAT = auto()
+    SKILL = auto()
+
 """ Status """
 
 class StatusConditionNames(Enum):
@@ -545,11 +553,29 @@ def getEquipClassAttributes(equipClass: EquipClass) -> EquipAttributes:
 
 EQUIP_CURSE_CHANCE = 0.15
 
+""" Progression """
+
+MAX_PLAYER_LEVEL = 20
+EXP_TO_NEXT_PLAYER_LEVEL = [
+    5, 45, 120, 160, 310,
+    330, 350, 380, 430, 600,
+    640, 690, 760, 850, 1000,
+    1100, 1250, 1400, 1600
+]
+
+EXP_TO_NEXT_BASE_CLASS_RANK = [1, 4]
+EXP_TO_NEXT_ADVANCED_CLASS_RANK = [
+    10, 15, 45, 70, 100,
+    300, 500, 1000
+]
+
 """ Logging """
 
 class MessageType(Enum):
     DEBUG = auto()
     BASIC = auto()
+    DIALOGUE = auto()
+    TELEGRAPH = auto()
     ACTION = auto()
     DAMAGE_COMBAT = auto()
     MANA = auto()
