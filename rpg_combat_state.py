@@ -312,10 +312,10 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
 
 class CombatController(object):
     def __init__(self, playerTeam : list[CombatEntity], opponentTeam : list[CombatEntity],
-                startingPlayerTeamDistances : dict[CombatEntity, int], loggers : list[MessageCollector]) -> None:
+                startingPlayerTeamDistances : dict[CombatEntity, int], loggers : dict[CombatEntity, MessageCollector]) -> None:
         self.playerTeam : list[CombatEntity] = playerTeam[:]
         self.opponentTeam : list[CombatEntity] = opponentTeam[:]
-        self.loggers : list[MessageCollector] = loggers
+        self.loggers : dict[CombatEntity, MessageCollector] = loggers
 
         self.distanceMap : dict[CombatEntity, dict[CombatEntity, int]] = {}
         for player in self.playerTeam:
@@ -344,7 +344,7 @@ class CombatController(object):
                         f"{makeTeamString(playerTeam)} approach{plural} {makeTeamString(opponentTeam)}.\nCOMBAT START!")
 
     def logMessage(self, messageType : MessageType, messageText : str):
-        [log.addMessage(messageType, messageText) for log in self.loggers]
+        [log.addMessage(messageType, messageText) for log in self.loggers.values()]
 
     # Internal function; figures out which of two given entities expected to belong to separate teams is which
     def _separateTeamValidator(self, entity1 : CombatEntity, entity2 : CombatEntity) -> tuple[CombatEntity, CombatEntity] | None:
@@ -558,15 +558,17 @@ class CombatController(object):
     """
         Makes a target take damage. Returns actual damage taken.
     """
-    def applyDamage(self, attacker : CombatEntity, defender : CombatEntity, damageTaken : int, isCritical : bool = False) -> int:
+    def applyDamage(self, attacker : CombatEntity, defender : CombatEntity, damageTaken : int,
+                    isCritical : bool = False, silent : bool = False) -> int:
         # If doing anything with attacker, first ensure it's not the same as the defender (e.g. weapon curse)
         originalHP : int = self.combatStateMap[defender].currentHP
         newHP : int = max(0, originalHP - damageTaken)
         self.combatStateMap[defender].currentHP = newHP
 
         if originalHP != newHP:
-            critString = " (Critical)" if isCritical else ""
-            self.logMessage(MessageType.DAMAGE_COMBAT,
+            if not silent:
+                critString = " (Critical)" if isCritical else ""
+                self.logMessage(MessageType.DAMAGE_COMBAT,
                             f"{defender.name} takes {originalHP - newHP} damage{critString}!")
             
             # TODO: may need to do something with result
@@ -583,7 +585,7 @@ class CombatController(object):
     """
         Makes a target gain health, subject to healing effectiveness. Returns actual health gained.
     """
-    def gainHealth(self, entity : CombatEntity, hpGain : int, isCritical : bool = False) -> int:
+    def gainHealth(self, entity : CombatEntity, hpGain : int, isCritical : bool = False, silent : bool = False) -> int:
         originalHP : int = self.combatStateMap[entity].currentHP
 
         healingEffectiveness = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.HEALING_EFFECTIVENESS)
@@ -592,9 +594,10 @@ class CombatController(object):
         self.combatStateMap[entity].currentHP = min(self.getMaxHealth(entity), originalHP + hpGain)
         healthGained : int = self.combatStateMap[entity].currentHP - originalHP
         if healthGained > 0:
-            critString = " (Critical Heal)" if isCritical else ""
-            self.logMessage(MessageType.DAMAGE_COMBAT,
-                            f"{entity.name} restores {healthGained} health{critString}!")
+            if not silent:
+                critString = " (Critical Heal)" if isCritical else ""
+                self.logMessage(MessageType.DAMAGE_COMBAT,
+                                f"{entity.name} restores {healthGained} health{critString}!")
 
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
@@ -606,14 +609,15 @@ class CombatController(object):
     """
         Makes a target spend mana. Returns actual mana spent.
     """
-    def spendMana(self, entity : CombatEntity, mpCost : int) -> int:
+    def spendMana(self, entity : CombatEntity, mpCost : int, silent : bool = False) -> int:
         originalMP : int = self.combatStateMap[entity].currentMP
         newMP : int = max(0, originalMP - mpCost)
         self.combatStateMap[entity].currentMP = newMP
 
         if originalMP != newMP:
-            self.logMessage(MessageType.MANA,
-                            f"{entity.name} spends {originalMP - newMP} mana!")
+            if not silent:
+                self.logMessage(MessageType.MANA,
+                                f"{entity.name} spends {originalMP - newMP} mana!")
             
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
@@ -625,7 +629,7 @@ class CombatController(object):
     """
         Makes a target gain mana. Returns actual mana gained.
     """
-    def gainMana(self, entity : CombatEntity, mpGain : int) -> int:
+    def gainMana(self, entity : CombatEntity, mpGain : int, silent : bool = False) -> int:
         originalMP : int = self.combatStateMap[entity].currentMP
 
         manaGainMult = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_GAIN_MULT)
@@ -636,8 +640,9 @@ class CombatController(object):
         self.combatStateMap[entity].currentMP = min(self.getMaxMana(entity), originalMP + mpGain)
         manaGained = self.combatStateMap[entity].currentMP - originalMP
         if manaGained > 0:
-            self.logMessage(MessageType.MANA,
-                            f"{entity.name} restores {manaGained} mana!")
+            if not silent:
+                self.logMessage(MessageType.MANA,
+                                f"{entity.name} restores {manaGained} mana!")
             
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):

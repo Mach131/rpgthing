@@ -10,7 +10,7 @@ def waitSkill(name, timeMult):
 
 ## Training Courtyard
 
-def basicDummy():
+def basicDummy() -> Enemy:
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
         if data["messageIdx"] == 0:
             controller.logMessage(MessageType.DIALOGUE, "You see a note on the training dummy...\n\"Practice the basics! Get in range of me, then Attack!\"")
@@ -23,9 +23,10 @@ def basicDummy():
         BaseStats.HP: 40, BaseStats.MP: 1,
         BaseStats.ATK: 1, BaseStats.DEF: 5, BaseStats.MAG: 1, BaseStats.RES: 5,
         BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 50
-    }, {}, {}, [], [waitSkill("", 1)], EnemyAI({"messageIdx": 0}, decisionFn))
+    }, {}, {}, [], [waitSkill("", 1)], EnemyAI({"messageIdx": 0}, decisionFn),
+    lambda _1, _2: EnemyReward(1, 0, 0, None))
 
-def skillfulDummy():
+def skillfulDummy() -> Enemy:
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
         if data["messageIdx"] == 0:
             controller.logMessage(MessageType.DIALOGUE, "You see a note on the training dummy...\n\"You've learned an Active Skill! Try it out now!\"")
@@ -38,9 +39,10 @@ def skillfulDummy():
         BaseStats.HP: 60, BaseStats.MP: 1,
         BaseStats.ATK: 1, BaseStats.DEF: 5, BaseStats.MAG: 1, BaseStats.RES: 5,
         BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 50
-    }, {}, {}, [], [waitSkill("", 1)], EnemyAI({"messageIdx": 0}, decisionFn))
+    }, {}, {}, [], [waitSkill("", 1)], EnemyAI({"messageIdx": 0}, decisionFn),
+    lambda _1, _2: EnemyReward(1, 0, 0, None))
 
-def trainingBoss():
+def trainingBoss() -> Enemy:
     attackSkill = AttackSkillData("Storm Breaker", BasePlayerClassNames.WARRIOR, 0, False, 30, "",
                                   True, AttackType.MELEE, 3, DEFAULT_ATTACK_TIMER_USAGE, [], False)
 
@@ -84,4 +86,5 @@ def trainingBoss():
         CombatStats.RANGE: 0
     }, {
         CombatStats.REPOSITION_ACTION_TIME_MULT: 0.5
-    }, [], [waitSkill("", 1), waitSkill("", 1.2), attackSkill], EnemyAI({"aiIdx": 0, "target": None}, decisionFn))
+    }, [], [waitSkill("", 1), waitSkill("", 1.2), attackSkill], EnemyAI({"aiIdx": 0, "target": None}, decisionFn),
+    lambda _1, _2: EnemyReward(1, 0, 0, None))

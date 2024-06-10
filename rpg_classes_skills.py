@@ -61,6 +61,14 @@ class PlayerClassData(object):
             if rankSkill.isFreeSkill:
                 return rankSkill
         return None
+
+    """ Gets the skill for a specific rank. Returns None if it does nto exist. """
+    @staticmethod
+    def getSingleSkillForRank(className : PlayerClassNames, rank : int) -> SkillData | None:
+        classData : PlayerClassData = PlayerClassData.PLAYER_CLASS_DATA_MAP[className]
+        if rank in classData.rankSkills:
+            return classData.rankSkills[rank]
+        return None
     
     """ Gets the base classes a class requires (indicating which weapons it can use, for instance). """
     @staticmethod

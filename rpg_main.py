@@ -7,22 +7,28 @@ from rpg_consts import *
 from rpg_combat_entity import CombatEntity, Player
 from rpg_classes_skills import ActiveSkillDataSelector, AttackSkillData, PlayerClassData, SkillData
 from rpg_combat_state import CombatController, ActionResultInfo, AttackResultInfo
+from rpg_dungeons import *
+from rpg_dungeon_data import *
 from rpg_items import *
 from rpg_messages import LocalMessageCollector, MessageCollector
 from rpg_loadout_testing import *
 from rpg_enemy_data import *
 
 async def simpleCombatSimulation(team1 : list[Player], team2 : list[Player], bothRandom : bool, sleepTime : int) -> None:
-    logger = LocalMessageCollector()
+    mainLogger = LocalMessageCollector()
+    loggers : dict[CombatEntity, MessageCollector] = {player : MessageCollector() for player in team1}
+    loggers[team1[0]] = mainLogger
     ci = CombatInterface({player: RandomEntityInputHandler(player, sleepTime) if bothRandom else LocalPlayerInputHandler(player) for player in team1},
-                         {opponent: RandomEntityInputHandler(opponent, sleepTime) for opponent in team2}, [logger])
+                         {opponent: RandomEntityInputHandler(opponent, sleepTime) for opponent in team2}, loggers, {}, {})
 
     await ci.runCombat()
 
 async def betterCombatSimulation(players : list[Player], enemies : list[Enemy]) -> None:
-    logger = LocalMessageCollector()
+    mainLogger = LocalMessageCollector()
+    loggers : dict[CombatEntity, MessageCollector] = {player : MessageCollector() for player in players}
+    loggers[players[0]] = mainLogger
     ci = CombatInterface({player: LocalPlayerInputHandler(player) for player in players},
-                         {opponent: EnemyInputHandler(opponent) for opponent in enemies}, [logger])
+                         {opponent: EnemyInputHandler(opponent) for opponent in enemies}, loggers, {}, {})
 
     await ci.runCombat()
 
@@ -41,7 +47,13 @@ def rerollOtherEquips(player : Player, testRarity : int = 0):
         player.equipItem(drip)
 
 if __name__ == '__main__':
-    asyncio.run(betterCombatSimulation([bgp_warrior], [trainingBoss()]))
+    # asyncio.run(betterCombatSimulation([bgp_warrior], [trainingBoss()]))
+    player = bgp_mage
+    dungeonController = DungeonController(trainingDungeon,
+                                          {player: DungeonInputHandler(player, LocalPlayerInputHandler)},
+                                          {player: DEFAULT_STARTING_DISTANCE},
+                                          {player: LocalMessageCollector()})
+    asyncio.run(dungeonController.runDungeon())
 
     while True:
         inp = input("> ")

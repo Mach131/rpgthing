@@ -56,7 +56,7 @@ class Player(CombatEntity):
 
         self.playerExp : int = 0
 
-        self.freeStatPoints : int = 4
+        self.freeStatPoints : int = STAT_POINTS_PER_LEVEL
         self.statLevels : dict[BaseStats, int] = {baseStat : 0 for baseStat in BaseStats}
 
         self.classRanks : dict[PlayerClassNames, int] = {}
@@ -70,6 +70,9 @@ class Player(CombatEntity):
         self.freeSkills : list[tuple[PlayerClassNames, int]] = []
 
         self.equipment : dict[EquipmentSlot, Equipment] = {}
+        self.inventory : list[Equipment] = []
+        self.wup : int = 0
+        self.swup : int = 0
 
         self._updateBaseStats()
         self._updateAvailableSkills()
@@ -131,7 +134,7 @@ class Player(CombatEntity):
     
     """
         Puts on an item, replacing any item currently equipped in the same slot. Automatically updates
-        stats accordingly, and returns an item if one was unequipped.
+        stats accordingly, and returns an item if one was unequipped (it is not automatically added to inventory).
     """
     def equipItem(self, newEquip: Equipment) -> Equipment | None:
         equipSlot = newEquip.equipSlot
@@ -220,16 +223,81 @@ class Player(CombatEntity):
         self.unequipItem(EquipmentSlot.WEAPON) # Also reloads skills
         return True
     
-    """
-        TODO: should hide eventually, so that it's done through exp. Will also need to account for changing exp
-        (is there class exp already?)
-    """
-    def rankUp(self) -> bool:
+    def getExpToNextLevel(self) -> int | None:
+        if self.level < MAX_PLAYER_LEVEL:
+            return EXP_TO_NEXT_PLAYER_LEVEL[self.level - 1]
+    
+    def getExpToNextRank(self) -> int | None:
         classData = PlayerClassData.PLAYER_CLASS_DATA_MAP[self.currentPlayerClass]
         maxRank = MAX_BASE_CLASS_RANK if classData.isBaseClass else MAX_ADVANCED_CLASS_RANK
         if self.classRanks[self.currentPlayerClass] < maxRank:
+            nextRankExpList = EXP_TO_NEXT_BASE_CLASS_RANK if classData.isBaseClass else EXP_TO_NEXT_ADVANCED_CLASS_RANK
+            return nextRankExpList[self.classRanks[self.currentPlayerClass] - 1]
+    
+    """
+        Internal rank up; returns True as long as not already at max rank (for current class)
+    """
+    def _rankUp(self) -> bool:
+        classData = PlayerClassData.PLAYER_CLASS_DATA_MAP[self.currentPlayerClass]
+        maxRank = MAX_BASE_CLASS_RANK if classData.isBaseClass else MAX_ADVANCED_CLASS_RANK
+        expToNextRank = self.getExpToNextRank()
+        if expToNextRank is not None:
+            self.classExp[self.currentPlayerClass] -= expToNextRank
+
             self.classRanks[self.currentPlayerClass] += 1
             self._updateAvailableSkills()
+
+            if self.classRanks[self.currentPlayerClass] >= maxRank:
+                self.classExp[self.currentPlayerClass] = 0
+            return True
+        return False
+    
+    """
+        Internal level up; returns True as long as not already at max level
+    """
+    def _levelUp(self) -> bool:
+        expToNextLevel = self.getExpToNextLevel()
+        if expToNextLevel is not None:
+            self.playerExp -= expToNextLevel
+            self.level += 1
+            self.freeStatPoints += STAT_POINTS_PER_LEVEL
+
+            if self.level >= MAX_PLAYER_LEVEL:
+                self.playerExp = 0
+            return True
+        return False
+    
+    """
+        Gains EXP for both current class and player level; performs any appropriate level ups.
+        Returns a tuple indicating if the player leveled up, then if the class did.
+    """
+    def gainExp(self, expAmount : int) -> tuple[bool, bool]:
+        levelUp = False
+        rankUp = False
+
+        if self.level < MAX_PLAYER_LEVEL:
+            self.playerExp += expAmount
+            expToNextLevel = self.getExpToNextLevel()
+            if expToNextLevel is not None and self.playerExp >= expToNextLevel:
+                levelUp = self._levelUp()
+
+        classData = PlayerClassData.PLAYER_CLASS_DATA_MAP[self.currentPlayerClass]
+        maxRank = MAX_BASE_CLASS_RANK if classData.isBaseClass else MAX_ADVANCED_CLASS_RANK
+        classRank = self.classRanks[self.currentPlayerClass]
+        if classRank < maxRank:
+            self.classExp[self.currentPlayerClass] += expAmount
+            nextRankExp = self.getExpToNextRank()
+            if nextRankExp is not None and self.classExp[self.currentPlayerClass] >= nextRankExp:
+                rankUp = self._rankUp()
+
+        return (levelUp, rankUp)
+    
+    """
+        Tries to put an item into inventory if there is space; returns true iff successful
+    """
+    def storeEquipItem(self, equip : Equipment) -> bool:
+        if len(self.inventory) < MAX_INVENTORY:
+            self.inventory.append(equip)
             return True
         return False
     

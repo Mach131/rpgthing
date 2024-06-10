@@ -383,18 +383,26 @@ class EnemyInputHandler(CombatInputHandler):
 
 class CombatInterface(object):
     def __init__(self, players : dict[CombatEntity, CombatInputHandler], opponents: dict[CombatEntity, CombatInputHandler],
-                 loggers : list[MessageCollector]):
+                 loggers : dict[CombatEntity, MessageCollector], startingPlayerHealth : dict[CombatEntity, int],
+                 startingPlayerMana : dict[CombatEntity, int]):
         self.players : list[CombatEntity] = list(players.keys())
         self.opponents : list[CombatEntity] = list(opponents.keys())
         self.handlerMap : dict[CombatEntity, CombatInputHandler] = players.copy()
         self.handlerMap.update(opponents.copy())
-        self.loggers : list[MessageCollector] = loggers
+        self.loggers : dict[CombatEntity, MessageCollector] = loggers
         
         self.cc : CombatController = CombatController(
             self.players, self.opponents, {player : DEFAULT_STARTING_DISTANCE for player in self.players}, self.loggers)
         
+        for player in startingPlayerHealth:
+            healthDelta = self.cc.getCurrentHealth(player) - startingPlayerHealth[player]
+            self.cc.applyDamage(player, player, healthDelta, False, True)
+        for player in startingPlayerMana:
+            manaDelta = self.cc.getCurrentMana(player) - startingPlayerMana[player]
+            self.cc.spendMana(player, manaDelta, True)
+        
     def sendAllLatestMessages(self):
-        [logger.sendNewestMessages(None, False) for logger in self.loggers]
+        [logger.sendNewestMessages(None, False) for logger in self.loggers.values()]
         
     async def runCombat(self):
         self.sendAllLatestMessages()
@@ -412,7 +420,7 @@ class CombatInterface(object):
             
         self.sendAllLatestMessages()
         if self.cc.checkPlayerVictory():
-            self.cc.logMessage(MessageType.BASIC, f"Player team wins!")
+            self.cc.logMessage(MessageType.BASIC, f"Your party is victorious!\n")
         else:
-            self.cc.logMessage(MessageType.BASIC, f"Player team loses...")
+            self.cc.logMessage(MessageType.BASIC, f"Your party is defeated...\n")
         self.sendAllLatestMessages()

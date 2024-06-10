@@ -28,7 +28,7 @@ tp_mercenary.assignStatPoints([BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseS
                         BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.SPD,])
 tp_mercenary.classRanks[BasePlayerClassNames.WARRIOR] = 3
 tp_mercenary.changeClass(AdvancedPlayerClassNames.MERCENARY)
-[tp_mercenary.rankUp() for i in range(9-1)]
+[tp_mercenary._rankUp() for i in range(9-1)]
 rerollWeapon(tp_mercenary, testRarity)
 rerollOtherEquips(tp_mercenary, testRarity)
 print()
@@ -41,7 +41,7 @@ tp_assassin.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseS
                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
 tp_assassin.classRanks[BasePlayerClassNames.ROGUE] = 3
 tp_assassin.changeClass(AdvancedPlayerClassNames.ASSASSIN)
-[tp_assassin.rankUp() for i in range(9-1)]
+[tp_assassin._rankUp() for i in range(9-1)]
 rerollWeapon(tp_assassin, testRarity)
 rerollOtherEquips(tp_assassin, testRarity)
 print()
@@ -54,7 +54,7 @@ tp_sniper.assignStatPoints([BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseSta
                         BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.HP])
 tp_sniper.classRanks[BasePlayerClassNames.RANGER] = 3
 tp_sniper.changeClass(AdvancedPlayerClassNames.SNIPER)
-[tp_sniper.rankUp() for i in range(9-1)]
+[tp_sniper._rankUp() for i in range(9-1)]
 rerollWeapon(tp_sniper, testRarity)
 rerollOtherEquips(tp_sniper, testRarity)
 print()
@@ -67,7 +67,7 @@ tp_wizard.assignStatPoints([BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStat
                         BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP])
 tp_wizard.classRanks[BasePlayerClassNames.MAGE] = 3
 tp_wizard.changeClass(AdvancedPlayerClassNames.WIZARD)
-[tp_wizard.rankUp() for i in range(9-1)]
+[tp_wizard._rankUp() for i in range(9-1)]
 rerollWeapon(tp_wizard, testRarity)
 rerollOtherEquips(tp_wizard, testRarity)
 print()
@@ -80,7 +80,7 @@ tp_knight.assignStatPoints([BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStat
                         BaseStats.ATK, BaseStats.DEF, BaseStats.HP, BaseStats.RES,])
 tp_knight.classRanks[BasePlayerClassNames.WARRIOR] = 3
 tp_knight.changeClass(AdvancedPlayerClassNames.KNIGHT)
-[tp_knight.rankUp() for i in range(9-1)]
+[tp_knight._rankUp() for i in range(9-1)]
 rerollWeapon(tp_knight, testRarity)
 rerollOtherEquips(tp_knight, testRarity)
 print()
@@ -93,7 +93,7 @@ tp_hunter.assignStatPoints([BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseSta
                         BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.MP])
 tp_hunter.classRanks[BasePlayerClassNames.RANGER] = 3
 tp_hunter.changeClass(AdvancedPlayerClassNames.HUNTER)
-[tp_hunter.rankUp() for i in range(9-1)]
+[tp_hunter._rankUp() for i in range(9-1)]
 rerollWeapon(tp_hunter, testRarity)
 rerollOtherEquips(tp_hunter, testRarity)
 print()
@@ -106,7 +106,7 @@ tp_acrobat.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseSt
                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
 tp_acrobat.classRanks[BasePlayerClassNames.ROGUE] = 3
 tp_acrobat.changeClass(AdvancedPlayerClassNames.ACROBAT)
-[tp_acrobat.rankUp() for i in range(9-1)]
+[tp_acrobat._rankUp() for i in range(9-1)]
 rerollWeapon(tp_acrobat, testRarity)
 rerollOtherEquips(tp_acrobat, testRarity)
 print()
@@ -119,7 +119,7 @@ tp_saint.assignStatPoints([BaseStats.MAG, BaseStats.MP, BaseStats.RES, BaseStats
                         BaseStats.MAG, BaseStats.MP, BaseStats.RES, BaseStats.HP])
 tp_saint.classRanks[BasePlayerClassNames.MAGE] = 3
 tp_saint.changeClass(AdvancedPlayerClassNames.SAINT)
-[tp_saint.rankUp() for i in range(9-1)]
+[tp_saint._rankUp() for i in range(9-1)]
 rerollWeapon(tp_saint, testRarity)
 rerollOtherEquips(tp_saint, testRarity)
 print()
