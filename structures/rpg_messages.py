@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from rpg_consts import *
 if TYPE_CHECKING:
-    from rpg_combat_entity import CombatEntity
+    from structures.rpg_combat_entity import CombatEntity
 
 
 class LogMessage(object):

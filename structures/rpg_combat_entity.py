@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Callable
 
-from rpg_combat_state import CombatController
+from structures.rpg_combat_state import CombatController
 from rpg_consts import *
-from rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
-from rpg_items import Item, Equipment, Weapon
+from structures.rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
+from structures.rpg_items import Item, Equipment, Weapon
 
 class CombatEntity(object):
     def __init__(self, name : str, level : int, passiveSkills : list[SkillData], activeSkills : list[SkillData]) -> None:

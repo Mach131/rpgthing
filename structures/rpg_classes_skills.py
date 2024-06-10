@@ -5,8 +5,8 @@ from typing import Callable, TYPE_CHECKING
 from rpg_consts import *
 
 if TYPE_CHECKING:
-    from rpg_combat_entity import CombatEntity
-    from rpg_combat_state import CombatController, AttackResultInfo
+    from structures.rpg_combat_entity import CombatEntity
+    from structures.rpg_combat_state import CombatController, AttackResultInfo
 
 ### Classes
 
@@ -518,4 +518,4 @@ class EffectFunctionResult(object):
         self.guaranteeDodge = guaranteeDodge
 
 # load definitions
-from rpg_skill_definitions import *
+from gameData.rpg_skill_definitions import *

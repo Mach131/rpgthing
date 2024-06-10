@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from rpg_classes_skills import AttackSkillData
+from structures.rpg_classes_skills import AttackSkillData
 from rpg_consts import *
-from rpg_combat_entity import *
+from structures.rpg_combat_entity import *
 
 def waitSkill(name, timeMult):
     return SkillData(name, BasePlayerClassNames.WARRIOR, 0, True, False, "", 0, MAX_ACTION_TIMER * timeMult, False,

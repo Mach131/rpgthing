@@ -2,11 +2,11 @@ from __future__ import annotations
 import asyncio
 import random
 
-from rpg_classes_skills import ActiveSkillDataSelector, AttackSkillData, SkillData
-from rpg_combat_entity import CombatEntity, Enemy, Player
-from rpg_combat_state import ActionResultInfo, CombatController
+from structures.rpg_classes_skills import ActiveSkillDataSelector, AttackSkillData, SkillData
+from structures.rpg_combat_entity import CombatEntity, Enemy, Player
+from structures.rpg_combat_state import ActionResultInfo, CombatController
 from rpg_consts import *
-from rpg_messages import MessageCollector
+from structures.rpg_messages import MessageCollector
 
 class CombatInputHandler(object):
     def __init__(self, entity : CombatEntity):

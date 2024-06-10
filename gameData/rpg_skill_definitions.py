@@ -3,17 +3,17 @@ from typing import TYPE_CHECKING
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFEndTurn, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDistanceChange, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
+from structures.rpg_classes_skills import EFEndTurn, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDistanceChange, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked
-from rpg_status_definitions import BlindStatusEffect, BurnStatusEffect, ExhaustionStatusEffect, FearStatusEffect, MisfortuneStatusEffect, PerplexityStatusEffect, \
+from gameData.rpg_status_definitions import BlindStatusEffect, BurnStatusEffect, ExhaustionStatusEffect, FearStatusEffect, MisfortuneStatusEffect, PerplexityStatusEffect, \
     PoisonStatusEffect, RestrictStatusEffect, StatusEffect, StunStatusEffect, TargetStatusEffect
 
 if TYPE_CHECKING:
-    from rpg_classes_skills import EffectFunctionResult
-    from rpg_combat_entity import CombatEntity
-    from rpg_combat_state import CombatController
+    from structures.rpg_classes_skills import EffectFunctionResult
+    from structures.rpg_combat_entity import CombatEntity
+    from structures.rpg_combat_state import CombatController
 
 # Warrior
 

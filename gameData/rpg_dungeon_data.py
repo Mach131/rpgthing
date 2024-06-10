@@ -2,10 +2,10 @@ from __future__ import annotations
 from functools import reduce
 from typing import Callable, TYPE_CHECKING
 
-from rpg_combat_entity import EnemyReward
+from structures.rpg_combat_entity import EnemyReward
 from rpg_consts import *
-from rpg_dungeons import DungeonData, DungeonRoomData
-from rpg_enemy_data import *
+from structures.rpg_dungeons import DungeonData, DungeonRoomData
+from gameData.rpg_enemy_data import *
 
 trainingDungeon = DungeonData("Training Courtyard", True, 1.0, 1.0,
                               [

@@ -1,6 +1,7 @@
+from gameData.rpg_item_data import makeBeginnerWeapon
 from rpg_consts import *
-from rpg_combat_entity import *
-from rpg_items import *
+from structures.rpg_combat_entity import *
+from structures.rpg_items import *
 
 ### randomly generated classes
 

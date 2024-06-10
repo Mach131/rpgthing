@@ -3,10 +3,10 @@ import asyncio
 from random import Random
 from typing import Callable
 
-from rpg_combat_interface import CombatInputHandler, CombatInterface, EnemyInputHandler, LocalPlayerInputHandler
+from structures.rpg_combat_interface import CombatInputHandler, CombatInterface, EnemyInputHandler, LocalPlayerInputHandler
 from rpg_consts import *
-from rpg_combat_entity import *
-from rpg_messages import MessageCollector, makeTeamString
+from structures.rpg_combat_entity import *
+from structures.rpg_messages import MessageCollector, makeTeamString
 
 class DungeonData(object):
     def __init__(self, dungeonName : str, allowRetryFights : bool, hpBetweenRooms : float, mpBetweenRooms : float,

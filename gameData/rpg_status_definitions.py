@@ -3,13 +3,13 @@ from typing import TYPE_CHECKING
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import SkillEffect, EffectFunction, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
+from structures.rpg_classes_skills import SkillEffect, EffectFunction, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked, EFStartTurn, EFEndTurn, EFBeforeAttacked
 
 if TYPE_CHECKING:
-    from rpg_classes_skills import EffectFunctionResult
-    from rpg_combat_entity import CombatEntity
-    from rpg_combat_state import AttackResultInfo, CombatController
+    from structures.rpg_classes_skills import EffectFunctionResult
+    from structures.rpg_combat_entity import CombatEntity
+    from structures.rpg_combat_state import AttackResultInfo, CombatController
 
 EFFECT_EXTENSION_CONST = 0.5 # The chance of a 2-duration stun extending an existing stun, for instance
 def amplifyExtensionChance(newDuration : int):

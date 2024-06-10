@@ -4,14 +4,14 @@ import random
 import math
 
 from rpg_consts import *
-from rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from structures.rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
-from rpg_messages import MessageCollector, makeTeamString
-from rpg_status_definitions import StatusEffect
+from structures.rpg_messages import MessageCollector, makeTeamString
+from gameData.rpg_status_definitions import StatusEffect
 
 if TYPE_CHECKING:
-    from rpg_combat_entity import CombatEntity
+    from structures.rpg_combat_entity import CombatEntity
 
 class EntityCombatState(object):
     def __init__(self, entity : CombatEntity) -> None:
