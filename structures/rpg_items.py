@@ -80,6 +80,9 @@ class Equipment(Item):
         self.currentTraitSkills : list[PassiveSkillData] = []
         self.reloadTraitSkills()
 
+    def getShortDescription(self) -> str:
+        return f"({self.equipSlot.name[0] + self.equipSlot.name[1:].lower()}) {self.name} ({itemRarityStrings[self.rarity]})"
+
     def getDescription(self) -> str:
         statMap = self.getStatMap()
         mainLine =  f"{self.name}: {itemRarityStrings[self.rarity]} Rank {self.rank}\n"
@@ -120,6 +123,20 @@ class Weapon(Equipment):
 
         super().__init__(name, EquipmentSlot.WEAPON, baseStats, curse, traits, rarity, rank)
         self.weaponType : WeaponType = weaponType
+
+    def getDescription(self) -> str:
+        baseDescription = super().getDescription()
+        firstPart, statLine, secondPart = baseDescription.split('\n', 2)
+        
+        attributeMap = weaponTypeAttributeMap[self.weaponType]
+        equipClasses = attributeMap.permittedClasses
+        equipString = f"\nUsable by: {', '.join([f'{equipClass.name[0] + equipClass.name[1:].lower()}' for equipClass in equipClasses])}\n"
+        
+        damageTypeString = f"{attributeMap.basicAttackType.name[0] + attributeMap.basicAttackType.name[1:].lower()} Basic Attacks"
+        damageTypeString += f" ({attributeMap.basicAttackAttribute.name[0] + attributeMap.basicAttackAttribute.name[1:].lower()} Attribute)"
+        statLine += f"\n{attributeMap.maxRange} Range, {damageTypeString}\n"
+
+        return firstPart + equipString + statLine + secondPart
 
     def reloadTraitSkills(self):
         super().reloadTraitSkills()

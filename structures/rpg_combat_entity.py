@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Callable
 
+from gameData.rpg_item_data import makeBeginnerWeapon
 from structures.rpg_combat_state import CombatController
 from rpg_consts import *
 from structures.rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
@@ -74,8 +75,17 @@ class Player(CombatEntity):
         self.wup : int = 0
         self.swup : int = 0
 
+        self.milestones : set[Milestones] = set()
+
         self._updateBaseStats()
         self._updateAvailableSkills()
+
+        self.weaponCache : dict[PlayerClassNames, Equipment] = {}
+        for baseClass in BasePlayerClassNames:
+            newWeapon = makeBeginnerWeapon(baseClass)
+            self.inventory.append(newWeapon)
+            if baseClass == self.currentPlayerClass:
+                self.equipItem(newWeapon)
 
     def _updateBaseStats(self) -> None:
         for baseStat in BaseStats:
@@ -133,8 +143,25 @@ class Player(CombatEntity):
         return result
     
     """
+        Resets all stat points to 0.
+    """
+    def resetStatPoints(self):
+        for stat in self.statLevels:
+            self.freeStatPoints += self.statLevels[stat]
+            self.statLevels[stat] = 0
+        self._updateBaseStats()
+
+    """
+        Checks to see if the player's current class can equip a weapon.
+    """
+    def canEquipWeapon(self, newWeapon: Weapon) -> bool:
+        permittedClasses = weaponTypeAttributeMap[newWeapon.weaponType].permittedClasses
+        baseClasses = PlayerClassData.getBaseClasses(self.currentPlayerClass)
+        return any([baseClass in permittedClasses for baseClass in baseClasses])
+    
+    """
         Puts on an item, replacing any item currently equipped in the same slot. Automatically updates
-        stats accordingly, and returns an item if one was unequipped (it is not automatically added to inventory).
+        stats accordingly, and returns an item if one was unequipped.
     """
     def equipItem(self, newEquip: Equipment) -> Equipment | None:
         equipSlot = newEquip.equipSlot
@@ -154,6 +181,7 @@ class Player(CombatEntity):
             assert(isinstance(newEquip, Weapon))
             self.basicAttackType = weaponTypeAttributeMap[newEquip.weaponType].basicAttackType
             self.basicAttackAttribute = weaponTypeAttributeMap[newEquip.weaponType].basicAttackAttribute
+            self.weaponCache[self.currentPlayerClass] = newEquip
 
         self._updateAvailableSkills()
         return oldEquip
@@ -174,6 +202,14 @@ class Player(CombatEntity):
 
         self._updateAvailableSkills()
         return oldEquip
+    
+    """
+        Drops a piece of equipment, unequipping it if necessary.
+    """
+    def dropItem(self, equip : Equipment):
+        if self.equipment.get(equip.equipSlot, None) == equip:
+            self.unequipItem(equip.equipSlot)
+        self.inventory.remove(equip)
     
     """
         Adds a class's free skill, as specified by the skill's class and rank.
@@ -208,19 +244,49 @@ class Player(CombatEntity):
         return False
     
     """
-        Attempts to change to the given class. 
-        Returns true if successful (meeting requirements). If so, will un-equip weapon and all free skills.
+        Checks to see if player meets the requirements for a class.
     """
-    def changeClass(self, newClass : PlayerClassNames) -> bool:
+    def classRequirementsMet(self, newClass : PlayerClassNames) -> bool:
         classData = PlayerClassData.PLAYER_CLASS_DATA_MAP[newClass]
         for requiredClass in classData.classRequirements:
             requiredRank = MAX_BASE_CLASS_RANK if isinstance(requiredClass, BasePlayerClassNames) else MAX_ADVANCED_CLASS_RANK
             if self.classRanks[requiredClass] < requiredRank:
                 return False
+        return True
+    
+    """
+        Attempts to change to the given class. 
+        Returns true if successful (meeting requirements). If so, unequips invalid
+        free skills, and (attempts to) switch weapons if the current one cannot be equipped.
+    """
+    def changeClass(self, newClass : PlayerClassNames) -> bool:
+        if not self.classRequirementsMet(newClass):
+            return False
             
         self.currentPlayerClass = newClass
-        self.freeSkills = []
-        self.unequipItem(EquipmentSlot.WEAPON) # Also reloads skills
+        removedFreeSkills = []
+        for skillClass, skillRank in self.freeSkills:
+            if skillClass in PlayerClassData.getAllClassDependencies(self.currentPlayerClass):
+                removedFreeSkills.append((skillClass, skillRank))
+        [self.removeFreeSkill(skillClass, skillRank) for (skillClass, skillRank) in removedFreeSkills]
+
+        if EquipmentSlot.WEAPON in self.equipment:
+            weapon = self.equipment[EquipmentSlot.WEAPON]
+            assert isinstance(weapon, Weapon)
+            if self.canEquipWeapon(weapon):
+                self.weaponCache[self.currentPlayerClass] = weapon
+            elif self.currentPlayerClass in self.weaponCache:
+                self.equipItem(self.weaponCache[self.currentPlayerClass])
+            else:
+                self.unequipItem(EquipmentSlot.WEAPON)
+
+        if EquipmentSlot.WEAPON not in self.equipment:
+            for item in self.inventory:
+                if isinstance(item, Weapon) and self.canEquipWeapon(item):
+                    self.equipItem(item)
+                    break
+
+        self._updateAvailableSkills()
         return True
     
     def getExpToNextLevel(self) -> int | None:

@@ -194,8 +194,8 @@ PassiveSkillData("Knight's Vitality", AdvancedPlayerClassNames.KNIGHT, 1, False,
     {}, {BaseStats.HP: 1.2, BaseStats.DEF: 1.15}, [])
 
 AttackSkillData("Challenge", AdvancedPlayerClassNames.KNIGHT, 2, False, 10,
-    "Attack with 1x ATK, generating 3x the aggro from the target.",
-    True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFBeforeNextAttack({}, {CombatStats.AGGRO_MULT: 3}, None, None)], 0)])
+    "Attack with 1.2x ATK, generating 3x the aggro from the target.",
+    True, AttackType.MELEE, 1.2, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect([EFBeforeNextAttack({}, {CombatStats.AGGRO_MULT: 3}, None, None)], 0)])
 
 def chivalryUpdateFn(controller, user, oldStats, newStats, _):
     if BaseStats.DEF in oldStats:
@@ -609,7 +609,7 @@ PassiveSkillData("Opportunism", AdvancedPlayerClassNames.ASSASSIN, 7, False,
     {CombatStats.OPPORTUNISM: 1}, {}, [])
 
 PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, True,
-    "After each attack, +20% ATK/MAG. Resets when it is no longer your turn.",
+    "After each attack, +20% ATK/MAG. Resets when an enemy takes a turn.",
     {}, {}, [SkillEffect([
         EFBeforeNextAttack({}, {}, 
             lambda controller, user, _:
@@ -638,7 +638,7 @@ PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, Tr
                     BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2)
                 }),
                 controller.combatStateMap[user].setStack(EffectStacks.UNRELENTING_ASSAULT, 0)
-            )) if nextPlayer != user and controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 0 else None
+            )) if nextPlayer not in controller.getTeammates(user) and controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 0 else None
         )
     ], None)])
 

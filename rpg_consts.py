@@ -574,6 +574,9 @@ EXP_TO_NEXT_ADVANCED_CLASS_RANK = [
 
 STAT_POINTS_PER_LEVEL = 4
 
+class Milestones(Enum):
+    TUTORIAL_COMPLETE = auto()
+
 """ Logging """
 
 class MessageType(Enum):

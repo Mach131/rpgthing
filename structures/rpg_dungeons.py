@@ -9,14 +9,23 @@ from structures.rpg_combat_entity import *
 from structures.rpg_messages import MessageCollector, makeTeamString
 
 class DungeonData(object):
-    def __init__(self, dungeonName : str, allowRetryFights : bool, hpBetweenRooms : float, mpBetweenRooms : float,
-                 dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, CombatEntity], EnemyReward]):
+    registeredDungeons : list[DungeonData] = []
+
+    def __init__(self, dungeonName : str, description : str, milestoneRequirements : set[Milestones], maxPartySize : int,
+                 recLevel : int, allowRetryFights : bool, hpBetweenRooms : float, mpBetweenRooms : float,
+                dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, CombatEntity], EnemyReward]):
         self.dungeonName = dungeonName
+        self.description = description
+        self.milestoneRequirements = milestoneRequirements
+        self.maxPartySize = maxPartySize
+        self.recLevel = recLevel
         self.allowRetryFights = allowRetryFights
         self.hpBetweenRooms = hpBetweenRooms
         self.mpBetweenRooms = mpBetweenRooms
         self.dungeonRooms = dungeonRooms
         self.rewardFn = rewardFn
+
+        DungeonData.registeredDungeons.append(self)
 
     def getReward(self, controller : DungeonController, player : CombatEntity):
         return self.rewardFn(controller, player)

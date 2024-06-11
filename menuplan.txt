@@ -1,0 +1,65 @@
+Main Menu (Menu):
+	-> Character
+	-> Dungeons
+	-> Inventory
+	-> Change Characters
+
+Dungeons (Page):
+	-> [list of available dungeons, paged]
+		-> Dungeon Entry
+
+Dungeon Entry (Menu):
+	-> Dungeon info (page) : name, rec. level, description, rewards
+	-> Make Party (If >1 party size allowed and leading the party)
+	-> Character
+	-> Inventory
+	-> Formation
+	-> Ready (Solo) (If not in a party)
+		-> In Dungeon
+	-> Ready (Party) (If in a party)
+		-> In Dungeon
+	-> Back (If not party leader) [Main Menu]
+		-> (leaves party)
+
+Make Party (page):
+	-> [enter people to invite]
+		-> [if they're not in a dungeon, they get a prompt to accept in a separate window; when pressed, checks again if in dungeon before joining party] -> Dungeon Entry (for invited player)
+	-> [Kick memeber for each joined member]
+		-> Main Menu (for invited player)
+	-> Disband Party
+		-> Dungeon Entry
+		-> Main Menu (for invited players)
+	-> Dungeon Entry
+
+Character (page):
+	Name, Class, Stats, Level, EXP, Current Equips, WUP/SWUP
+	-> Class Skills
+	-> Free Skills
+	-> Class Ranks
+
+Inventory (page):
+	Current Equips
+	-> [list of inventory items, paged]
+		-> Item Menu
+
+Item Menu (sub-page)
+	Equip Details
+	-> Equip Item
+	-> Drop Item (confirm)
+	-> Sell Item (if not in dungeon)
+	-> Give Item to [party members] (if in party and member's inventory has space)
+		-> [sends request prompt: acceptance]
+
+Class Skills (sub-page)
+	Active Skills, Passive Skills
+
+Free Skills (sub-page)
+	Current Free Skills
+	-> Remove Free Skill [for each equipped]
+	-> Add Free Skill [for each available, paged] (if free skills not full)
+
+Class Ranks (sub-page)
+	Base Classes, Advanced Classes
+	-> Change Class (if not in dungeon)
+
+
