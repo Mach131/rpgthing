@@ -19,7 +19,7 @@ def basicDummy() -> Enemy:
         else:
             controller.logMessage(MessageType.DIALOGUE, "The training dummy is chilling.")
         return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
-    return Enemy("Basic Dummy", 1, {
+    return Enemy("Basic Dummy", "Dummy", 1, {
         BaseStats.HP: 40, BaseStats.MP: 1,
         BaseStats.ATK: 1, BaseStats.DEF: 5, BaseStats.MAG: 1, BaseStats.RES: 5,
         BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 50
@@ -35,7 +35,7 @@ def skillfulDummy() -> Enemy:
         else:
             controller.logMessage(MessageType.DIALOGUE, "The training dummy is chilling.")
         return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
-    return Enemy("Skillful Dummy", 1, {
+    return Enemy("Skillful Dummy", "Dummy", 1, {
         BaseStats.HP: 60, BaseStats.MP: 1,
         BaseStats.ATK: 1, BaseStats.DEF: 5, BaseStats.MAG: 1, BaseStats.RES: 5,
         BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 50
@@ -78,7 +78,7 @@ def trainingBoss() -> Enemy:
             if controller.checkDistanceStrict(enemy, playerList[targetIdx]) == 0:
                 controller.logMessage(MessageType.DIALOGUE, "Aqi: \"Might not want to stand next to me here!\"")
             return EnemyAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
-    return Enemy("Instructor Aqi", 1, {
+    return Enemy("Instructor Aqi", "Aqi", 1, {
         BaseStats.HP: 100, BaseStats.MP: 1000,
         BaseStats.ATK: 50, BaseStats.DEF: 15, BaseStats.MAG: 1, BaseStats.RES: 15,
         BaseStats.ACC: 50, BaseStats.AVO: 60, BaseStats.SPD: 500

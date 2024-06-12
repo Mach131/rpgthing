@@ -243,6 +243,7 @@ def unifiedSpiritsFn(controller, user, attacker, defender, _):
         resBonus = controller.combatStateMap[user].getTotalStatValue(BaseStats.RES) * 0.3
         flatStatBonuses : dict[Stats, float] = {BaseStats.DEF: defBonus, BaseStats.RES: resBonus}
         controller.applyFlatStatBonuses(defender, flatStatBonuses)
+        controller.logMessage(MessageType.EFFECT, f"{defender.name} is protected by {user.name}'s Unified Spirits!")
         revertEffect : SkillEffect = SkillEffect([EFAfterNextAttack(
             lambda controller_, attacker_, defender_, _1, _2: controller_.revertFlatStatBonuses(defender, flatStatBonuses)
         )], 0)

@@ -8,8 +8,9 @@ from structures.rpg_classes_skills import PlayerClassData, SkillData, PassiveSki
 from structures.rpg_items import Item, Equipment, Weapon
 
 class CombatEntity(object):
-    def __init__(self, name : str, level : int, passiveSkills : list[SkillData], activeSkills : list[SkillData]) -> None:
+    def __init__(self, name : str, level : int, passiveSkills : list[SkillData], activeSkills : list[SkillData], shortName : str = "") -> None:
         self.name = name
+        self.shortName = shortName if len(shortName) > 0 else self.name
         self.level = level
         self.baseStats : dict[BaseStats, int] = {}
         self.flatStatMod : dict[Stats, float] = {}
@@ -369,7 +370,7 @@ class Player(CombatEntity):
     
 
 class Enemy(CombatEntity):
-    def __init__(self, name : str, level : int, baseStats : dict[BaseStats, int],
+    def __init__(self, name : str, shortName : str, level : int, baseStats : dict[BaseStats, int],
                  bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float],
                  passiveSkills : list[SkillData], activeSkills : list[SkillData], ai : EnemyAI,
                  rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):

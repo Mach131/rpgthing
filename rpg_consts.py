@@ -194,10 +194,10 @@ class ActionSuccessState(Enum):
 
 class CombatActions(Enum):
     ATTACK = auto()
-    DEFEND = auto()
+    SKILL = auto()
     APPROACH = auto()
     RETREAT = auto()
-    SKILL = auto()
+    DEFEND = auto()
 
 """ Status """
 

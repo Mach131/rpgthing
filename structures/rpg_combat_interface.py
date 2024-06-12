@@ -390,6 +390,8 @@ class CombatInterface(object):
         self.handlerMap : dict[CombatEntity, CombatInputHandler] = players.copy()
         self.handlerMap.update(opponents.copy())
         self.loggers : dict[CombatEntity, MessageCollector] = loggers
+
+        self.activePlayer : CombatEntity | None = None
         
         self.cc : CombatController = CombatController(
             self.players, self.opponents, {player : DEFAULT_STARTING_DISTANCE for player in self.players}, self.loggers)
@@ -404,23 +406,67 @@ class CombatInterface(object):
     def sendAllLatestMessages(self):
         [logger.sendNewestMessages(None, False) for logger in self.loggers.values()]
         
-    async def runCombat(self):
+    async def runCombat(self, readyFlag: asyncio.Event | None = None):
         self.sendAllLatestMessages()
+        if readyFlag is not None:
+            readyFlag.set()
         
         while (self.cc.checkPlayerVictory() is None):
-            self.cc.logMessage(MessageType.BASIC, "\n" + self.cc.getCombatOverviewString() + "\n")
-            activePlayer : CombatEntity = self.cc.advanceToNextPlayer()
+            # self.cc.logMessage(MessageType.BASIC, "\n" + self.cc.getCombatOverviewString() + "\n")
+            self.activePlayer = self.cc.advanceToNextPlayer()
             self.sendAllLatestMessages()
-            if self.cc.isStunned(activePlayer):
-                self.cc.stunSkipTurn(activePlayer)
+            if self.cc.isStunned(self.activePlayer):
+                self.cc.stunSkipTurn(self.activePlayer)
             else:
-                activePlayerHandler : CombatInputHandler = self.handlerMap[activePlayer]
-                self.cc.beginPlayerTurn(activePlayer)
+                activePlayerHandler : CombatInputHandler = self.handlerMap[self.activePlayer]
+                self.cc.beginPlayerTurn(self.activePlayer)
                 await activePlayerHandler.takeTurn(self.cc)
             
         self.sendAllLatestMessages()
         if self.cc.checkPlayerVictory():
-            self.cc.logMessage(MessageType.BASIC, f"Your party is victorious!\n")
+            self.cc.logMessage(MessageType.BASIC, f"**Your party is victorious!**\n")
         else:
-            self.cc.logMessage(MessageType.BASIC, f"Your party is defeated...\n")
+            self.cc.logMessage(MessageType.BASIC, f"**Your party is defeated...**\n")
         self.sendAllLatestMessages()
+
+    def getPlayerTeamSummary(self, player : Player):
+        teamInfoStrings = []
+        for member in self.cc.playerTeam:
+            overviewString = self.cc.combatStateMap[member].getStateOverviewString()
+            if member == player:
+                teamInfoStrings.append(f"\\*{overviewString}")
+            else:
+                teamInfoStrings.append(overviewString)
+        return '\n'.join(teamInfoStrings)
+
+    def getEnemyTeamSummary(self, player : Player):
+        teamInfoStrings = []
+        for member in self.cc.opponentTeam:
+            overviewString = self.cc.combatStateMap[member].getStateOverviewString()
+            distance = self.cc.checkDistance(player, member)
+            if distance is not None:
+                teamInfoStrings.append(f"{overviewString} (dist. {distance})")
+            else:
+                teamInfoStrings.append(overviewString)
+        return '\n'.join(teamInfoStrings)
+    
+    def advancePossible(self, player : Player):
+        return any([self.cc.validateReposition(player, [target], -1) for target in self.cc.getTargets(player)])
+    
+    def retreatPossible(self, player : Player):
+        return any([self.cc.validateReposition(player, [target], 1) for target in self.cc.getTargets(player)])
+    
+    def validateReposition(self, player : Player, targets : list[CombatEntity], amount : int):
+        return self.cc.validateReposition(player, targets, amount)
+    
+    def getTeammates(self, player : Player, onlyAlive : bool):
+        if onlyAlive:
+            return self.cc.getTeammates(player)
+        else:
+            return self.cc.playerTeam
+    
+    def getOpponents(self, player : Player, onlyAlive : bool):
+        if onlyAlive:
+            return self.cc.getTargets(player)
+        else:
+            return self.cc.opponentTeam

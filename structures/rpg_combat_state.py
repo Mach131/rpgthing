@@ -341,7 +341,7 @@ class CombatController(object):
 
         plural = "" if len(playerTeam) > 1 else "es"
         self.logMessage(MessageType.BASIC,
-                        f"{makeTeamString(playerTeam)} approach{plural} {makeTeamString(opponentTeam)}.\nCOMBAT START!")
+                        f"*{makeTeamString(playerTeam)} approach{plural} {makeTeamString(opponentTeam)}.*\n**COMBAT START!**")
 
     def logMessage(self, messageType : MessageType, messageText : str):
         [log.addMessage(messageType, messageText) for log in self.loggers.values()]
@@ -841,6 +841,41 @@ class CombatController(object):
         else:
             return RepositionResultInfo(True, newDistances, True,
                                         bonusAttackDetails[0][0], bonusAttackDetails[0][1], bonusAttackDetails[0][2], bonusAttackDetails[1:])
+
+    """
+        Checks to see if a given reposition is possible (and will have any effect), without actually executing it.
+    """
+    def validateReposition(self, user : CombatEntity, targets : list[CombatEntity], distanceChange : int) -> bool:
+        if StatusConditionNames.RESTRICT in self.combatStateMap[user].currentStatusEffects:
+            return False
+        
+        if distanceChange > MAX_SINGLE_REPOSITION:
+            return False
+        if distanceChange < -MAX_SINGLE_REPOSITION:
+            return False
+
+        timerPerDistance = DEFAULT_RETREAT_TIMER_USAGE if distanceChange > 0 else DEFAULT_APPROACH_TIMER_USAGE
+        expectedTimerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(distanceChange)
+        expectedTimerCost *= self.combatStateMap[user].getTotalStatValueFloat(CombatStats.REPOSITION_ACTION_TIME_MULT)
+        if expectedTimerCost > MAX_ACTION_TIMER:
+            return False
+
+        oldDistances = {}
+        for target in targets:
+            oldDistances[target] = self.checkDistance(user, target)
+            if oldDistances[target] is None:
+                return False
+            
+        newDistances = {}
+        for target in targets:
+            newDistances[target] = oldDistances[target] + distanceChange
+            if newDistances[target] < 0:
+                newDistances[target] = 0
+            if newDistances[target] > MAX_DISTANCE:
+                newDistances[target] = MAX_DISTANCE
+            if abs(newDistances[target] - oldDistances[target]) > 0:
+                return True
+        return False
 
     """
         Performs a defend action, performing end-of-turn cleanup.

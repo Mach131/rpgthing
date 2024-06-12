@@ -62,4 +62,40 @@ Class Ranks (sub-page)
 	Base Classes, Advanced Classes
 	-> Change Class (if not in dungeon)
 
+_____
+in dungeon
 
+Between Rooms:
+	Character
+		can change free stats/skills (not class)
+	Equipment
+		can change/trade/drop
+	Formation
+	Party
+		can see essentially their detail subpage
+	Ready
+
+In Combat:
+	Actions
+		Shows HP/MP, your distances to enemies, combat log, currently selected action
+		-Attack
+			-> [target], [Confirm if >1] or Cancel
+		-Skill
+			-> [skill options] or Cancel
+			-> [skill option selection] or Cancel
+			-> [target], [Confirm if >1] or Cancel	
+		-Approach
+			-> [target], Confirm or Cancel
+			-> 1, [2 if possible], or Cancel
+		-Retreat
+			-> [target], Confirm or Cancel
+			-> 1, [2 if possible], or Cancel
+		-Defend
+			-> Confirm or Cancel
+	Party
+		detail subpages, yours is first in allies
+	Enemies
+		detail subpages, also includes distance
+	Escape
+		Confirm dialogue (this will exit the dungeon)
+	

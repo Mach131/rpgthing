@@ -7,7 +7,10 @@ from rpg_consts import *
 from structures.rpg_dungeons import DungeonData, DungeonRoomData
 from gameData.rpg_enemy_data import *
 
-trainingDungeon = DungeonData("Training Courtyard", "\"Can't have you divin' in without a quick warm-up!\"", set(),
+trainingDungeon = DungeonData("Training Courtyard", "Training",
+                              "\"Can't have you divin' in without a quick warm-up!\"",
+                              "2 EXP, 3 WUP",
+                              set(),
                               1, 1, True, 1.0, 1.0,
                               [
                                   DungeonRoomData([([basicDummy], 1)]),

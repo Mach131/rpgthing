@@ -1,4 +1,5 @@
 from __future__ import annotations
+import random
 from typing import Callable, Coroutine
 from typing import Callable, TYPE_CHECKING
 import discord
@@ -6,8 +7,14 @@ import asyncio
 
 from rpg_consts import *
 from rpg_global_state import GLOBAL_STATE
-from structures.rpg_combat_entity import Player
+from structures.rpg_classes_skills import PlayerClassData, SkillData
+from structures.rpg_combat_entity import CombatEntity, Player
+from structures.rpg_combat_interface import CombatInputHandler
+from structures.rpg_combat_state import CombatController
+from structures.rpg_dungeons import DungeonController, DungeonData, DungeonInputHandler
 from structures.rpg_items import Equipment, Weapon
+import gameData.rpg_dungeon_data
+from structures.rpg_messages import LogMessageCollection, MessageCollector
 
 if TYPE_CHECKING:
     from rpg_discord_interface import GameSession, InterfaceView
@@ -88,8 +95,8 @@ async def scrollCallbackFn(interaction : discord.Interaction, session : GameSess
     await interaction.response.defer()
     if interaction.user.id != session.userId:
         return asyncio.sleep(0)
-    oldIdx = view.pageData.get('scrollIdx', 0)
-    await view.updateData('scrollIdx', (oldIdx + amount) % (bounds + 1))
+    oldIdx = view.pageData.get(SCROLL_IDX, 0)
+    await view.updateData(SCROLL_IDX, (oldIdx + amount) % (bounds + 1))
 
 async def updateDataCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, key : str, val):
     await interaction.response.defer()
@@ -100,6 +107,10 @@ async def updateDataCallbackFn(interaction : discord.Interaction, session : Game
 class InterfaceMenu(object):
     def __init__(self, pages : list[InterfacePage]):
         self.pages = pages
+
+SCROLL_IDX = 'scrollIdx'
+ACTION_CHOICE = 'actionChoice'
+ACTION_CHOICE_DATA = 'actionChoiceData'
 
 #### New Character
 
@@ -247,10 +258,58 @@ async def changeClassButton(interaction : discord.Interaction, session : GameSes
 CHARACTER_CLASSES_SUBPAGE = InterfacePage("Classes", discord.ButtonStyle.secondary, [],
                                           characterClassesContent, lambda session: True, changePageCallback)
 
+
+def characterClassSkillsContent(session : GameSession, view : InterfaceView):
+    player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
+    currentClass = player.currentPlayerClass
+    embed = discord.Embed(title="Class Skills",
+                          description=f"{currentClass.name[0] + currentClass.name[1:].lower()} Rank {player.classRanks[currentClass]}")
+    
+    activeSkillStrings = []
+    passiveSkillStrings = []
+    for skill in PlayerClassData.getSkillsForRank(currentClass, player.classRanks[currentClass]):
+        targetArray = activeSkillStrings if skill.isActiveSkill else passiveSkillStrings
+        targetArray.append(getSkillDescription(skill))
+
+    activeSkillString = "*None Yet*" if len(activeSkillStrings) == 0 else '\n\n'.join(activeSkillStrings)
+    passiveSkillString = "*None Yet*" if len(passiveSkillStrings) == 0 else '\n\n'.join(passiveSkillStrings)
+    embed.add_field(name="__Active Skills:__", value=activeSkillString)
+    embed.add_field(name="__Passive Skills:__", value=passiveSkillString)
+
+    return embed
+def getSkillDescription(skill : SkillData) -> str:
+    skillString = f"**{skill.skillName}** ({skill.playerClass.name[0] + skill.playerClass.name[1:].lower()} Rank {skill.rank})\n"
+    skillString += f"{skill.description}"
+    if skill.isActiveSkill:
+        skillString += f"\nMP Cost: {skill.mpCost} \\|| {getSkillSpeed(skill)}"
+        if skill.isFreeSkill:
+            skillString += " \\|| **Free Skill**"
+    return skillString
+def getSkillSpeed(skill : SkillData) -> str:
+    skillSpeed = skill.actionTime
+    if skillSpeed is None:
+        return "None"
+    speedString = "Slow"
+    if skillSpeed <= DEFAULT_ATTACK_TIMER_USAGE:
+        speedString = "Normal"
+    if skillSpeed <= MAX_ACTION_TIMER / 2:
+        speedString = "Fast"
+    if skillSpeed <= MAX_ACTION_TIMER / 5:
+        speedString = "Very Fast"
+    if skillSpeed <= 0:
+        speedString = "Instant"
+    return speedString 
+CHARACTER_CLASS_SKILLS_SUBPAGE = InterfacePage("Class Skills", discord.ButtonStyle.secondary, [],
+                                               characterClassSkillsContent,  lambda session: True, changePageCallback)
+
+
+# TODO: free skill display/selection as another subpage
+CHARACTER_SKILLS_SUBPAGE = InterfacePage("Skills", discord.ButtonStyle.secondary, [CHARACTER_CLASS_SKILLS_SUBPAGE],
+                                         None, lambda session: True, changePageCallback)
+
 CHARACTER_PAGE = InterfacePage("Character", discord.ButtonStyle.secondary,
-                               [CHARACTER_DETAIL_SUBPAGE, CHARACTER_STATS_SUBPAGE, CHARACTER_CLASSES_SUBPAGE],
+                               [CHARACTER_DETAIL_SUBPAGE, CHARACTER_STATS_SUBPAGE, CHARACTER_CLASSES_SUBPAGE, CHARACTER_SKILLS_SUBPAGE],
                                None, lambda session: True, changePageCallback)
-# TODO: free skill selection
 
 
 #### Equipment
@@ -270,11 +329,11 @@ def equipMainContentFn(session : GameSession, view : InterfaceView):
         focusItemIdx = None
 
     if focusItemIdx is None:
-        if 'scrollIdx' not in view.pageData:
-            view.pageData['scrollIdx'] = 0
+        if SCROLL_IDX not in view.pageData:
+            view.pageData[SCROLL_IDX] = 0
         window_size = 5
 
-        scrollWindowMin = view.pageData['scrollIdx'] * window_size
+        scrollWindowMin = view.pageData[SCROLL_IDX] * window_size
         scrollWindowMax = scrollWindowMin + window_size
         equipStrings = []
         for i in range(len(player.inventory)):
@@ -331,6 +390,77 @@ async def dropEquipCallbackFn(interaction : discord.Interaction, session : GameS
 EQUIPMENT_PAGE = InterfacePage("Equipment", discord.ButtonStyle.secondary, [],
                                equipMainContentFn, lambda session: True, changePageCallback)
 
+
+#### Dungeon Selection
+
+def dungeonListContentFn(session : GameSession, view : InterfaceView):
+    player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
+    embed = discord.Embed(title="Dungeons", description="Select a dungeon to enter/view details")
+
+    focusDungeon : DungeonData | None = view.pageData.get('focusDungeon', None)
+
+    if focusDungeon is None:
+        if SCROLL_IDX not in view.pageData:
+            view.pageData[SCROLL_IDX] = 0
+        window_size = 5
+
+        scrollWindowMin = view.pageData[SCROLL_IDX] * window_size
+        scrollWindowMax = scrollWindowMin + window_size
+        dungeonStrings = []
+        availableDungeons = [dungeon for dungeon in DungeonData.registeredDungeons
+                            if len(dungeon.milestoneRequirements.intersection(player.milestones)) == len(dungeon.milestoneRequirements)]
+        for i in range(scrollWindowMin, scrollWindowMax):
+            if i >= len(availableDungeons):
+                break
+            dungeon = availableDungeons[i]
+            dungeonString = f"**{dungeon.dungeonName}**\n"
+            dungeonString += f"*{dungeon.description}*\n"
+            dungeonString += f"Rec. Level: {dungeon.recLevel} \\|| Max Party Size: {dungeon.maxPartySize}"
+            dungeonStrings.append(dungeonString)
+
+            dungeonButton = discord.ui.Button(label=f"{dungeon.shortDungeonName}", style=discord.ButtonStyle.blurple)
+            dungeonButton.callback = (lambda j: lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusDungeon', dungeon))(i)
+            view.add_item(dungeonButton)
+
+        embed.add_field(name="", value='\n\n'.join(dungeonStrings))
+        if len(player.inventory) > window_size:
+            backButton = discord.ui.Button(emoji="⬅️", style=discord.ButtonStyle.green, row=2)
+            backButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, -1, len(availableDungeons) // window_size)
+            forwardButton = discord.ui.Button(emoji="➡️", style=discord.ButtonStyle.green, row=2)
+            forwardButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, 1, len(availableDungeons) // window_size)
+            view.add_item(backButton)
+            view.add_item(forwardButton)
+    else:
+        dungeonString = f"*{focusDungeon.description}*\n"
+        dungeonString += f"Recommended Level: {focusDungeon.recLevel} \\|| Max Party Size: {focusDungeon.maxPartySize}\n"
+        dungeonString += f"{len(focusDungeon.dungeonRooms)} Rooms \\|| Restore {focusDungeon.hpBetweenRooms*100:.1f}% HP/{focusDungeon.mpBetweenRooms*100:.1f}% MP between rooms"
+        if focusDungeon.allowRetryFights:
+            dungeonString += " \\|| Can retry fights"
+        dungeonString += f"\nRewards: {focusDungeon.rewardDescription}"
+        embed.add_field(name=f"Selected Dungeon: {focusDungeon.dungeonName}", value=dungeonString)
+
+        enterButton = discord.ui.Button(label="Enter (Solo)", style=discord.ButtonStyle.green)
+        enterButton.callback = lambda interaction: enterDungeonFn(interaction, session, focusDungeon)
+        view.add_item(enterButton)
+
+        # dropButton = discord.ui.Button(label="Drop", style=discord.ButtonStyle.red)
+        # dropButton.callback = lambda interaction: dropEquipCallbackFn(interaction, session, view, player, focusItem)
+        # view.add_item(dropButton)
+
+        returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
+        returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusDungeon', None)
+        view.add_item(returnButton)
+
+    return embed
+async def enterDungeonFn(interaction : discord.Interaction, session : GameSession, dungeon : DungeonData):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return asyncio.sleep(0)
+    await session.enterDungeon(dungeon)
+DUNGEON_PAGE = InterfacePage("Dungeons", discord.ButtonStyle.secondary, [],
+                             dungeonListContentFn, lambda session: True, changePageCallback)
+
+
 #### Testing    
 
 testPage1 = InterfacePage("1", discord.ButtonStyle.secondary,[],
@@ -346,4 +476,235 @@ testPage3 = InterfacePage("3", discord.ButtonStyle.blurple, [],
 testPage4 = InterfacePage("2/3", discord.ButtonStyle.secondary, [testPage2, testPage3],
                           None, lambda session: True, changePageCallback)
 
-MAIN_MENU = InterfaceMenu([CHARACTER_PAGE, EQUIPMENT_PAGE, testPage4])
+MAIN_MENU = InterfaceMenu([CHARACTER_PAGE, EQUIPMENT_PAGE, DUNGEON_PAGE])
+
+#### Dungeon Combat
+
+def combatMainContentFn(session : GameSession, view : InterfaceView):
+    assert(session.currentDungeon is not None)
+    assert(session.currentDungeon.currentCombatInterface is not None)
+    combatInterface = session.currentDungeon.currentCombatInterface
+
+    player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
+    playerTurnString = f" - *{combatInterface.activePlayer}'s Turn*" if combatInterface.activePlayer is not None else ""
+    if combatInterface.activePlayer == player:
+        playerTurnString = " - *Your Turn!*"
+    embed = discord.Embed(title=f"Combat{playerTurnString}", description="")
+
+    combatLog : str = session.unseenCombatLog
+
+    embed.add_field(name="__Player Team__", value=combatInterface.getPlayerTeamSummary(player))
+    embed.add_field(name="__Opponent Team__", value=combatInterface.getEnemyTeamSummary(player))
+
+    embed.add_field(name="__Combat Log__", value=combatLog, inline=False)
+
+    if isPlayerTurn(session):
+        combatHandler = combatInterface.handlerMap[player]
+        assert(isinstance(combatHandler, DiscordCombatInputHandler))
+
+        actionChoice : str = view.pageData.get(ACTION_CHOICE, None)
+        if actionChoice == CombatActions.ATTACK:
+            embed.description = "**Attack**: Select a target."
+
+            targets = combatInterface.getOpponents(player, True)
+            for target in targets:
+                targetButton = discord.ui.Button(label=target.shortName, style=discord.ButtonStyle.green)
+                targetButton.callback = (lambda _targ: lambda interaction:
+                                         submitActionCallbackFn(interaction, session, view, combatHandler,
+                                                                CombatActions.ATTACK, [_targ]))(target)
+                view.add_item(targetButton)
+        elif actionChoice == CombatActions.SKILL:
+            embed.description = "**Skill**: [WIP]."
+        elif actionChoice == CombatActions.APPROACH:
+            embed.description = "**Approach**: [WIP]."
+        elif actionChoice == CombatActions.RETREAT:
+            embed.description = "**Retreat**: [WIP]."
+        elif actionChoice == CombatActions.DEFEND:
+            embed.description = "**Defend**"
+
+            confirmButton = discord.ui.Button(label="Confirm Defend", style=discord.ButtonStyle.green)
+            confirmButton.callback = lambda interaction: submitActionCallbackFn(interaction, session, view, combatHandler,
+                                                                                CombatActions.DEFEND, [])
+            view.add_item(confirmButton)
+        else:
+            embed.description = "Select an action."
+
+            buttonMap : dict[CombatActions, discord.ui.Button] = {}
+            for option in CombatActions:
+                buttonMap[option] = discord.ui.Button(label=option.name[0] + option.name[1:].lower(), style=discord.ButtonStyle.blurple)
+                buttonMap[option].callback = (lambda _opt: lambda interaction:
+                                              updateDataCallbackFn(interaction, session, view, ACTION_CHOICE, _opt))(option)
+            if len(player.availableActiveSkills) == 0:
+                buttonMap[CombatActions.SKILL].disabled = True
+            if not combatInterface.advancePossible(player):
+                buttonMap[CombatActions.APPROACH].disabled = True
+            if not combatInterface.retreatPossible(player):
+                buttonMap[CombatActions.RETREAT].disabled = True
+            [view.add_item(buttonMap[option]) for option in CombatActions]
+
+        if actionChoice is not None:
+            returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
+            if len(view.pageData.get(ACTION_CHOICE_DATA, {})) == 0:
+                returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, ACTION_CHOICE, None)
+            else:
+                returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, {})
+            view.add_item(returnButton)
+    return embed
+async def submitActionCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView,
+                                 handler : DiscordCombatInputHandler, action : CombatActions, targets : list[CombatEntity],
+                                 amount : int = 0, skillData : SkillData | None = None):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return asyncio.sleep(0)
+    session.unseenCombatLog = ""
+
+    if action == CombatActions.ATTACK:
+        handler.selectAttack(targets[0])
+    elif action == CombatActions.SKILL:
+        assert(skillData is not None)
+        handler.selectSkill(targets, skillData)
+    elif action == CombatActions.APPROACH:
+        handler.selectAdvance(targets, amount)
+    elif action == CombatActions.RETREAT:
+        handler.selectRetreat(targets, amount)
+    elif action == CombatActions.DEFEND:
+        handler.selectDefend()
+
+    view.pageData[ACTION_CHOICE] = None
+    view.pageData[ACTION_CHOICE_DATA] = {}
+    await view.refresh()
+def isPlayerTurn(session : GameSession) -> bool:
+    if session.currentDungeon is None or session.currentDungeon.currentCombatInterface is None:
+        return False
+    player = session.getPlayer()
+    if player is None:
+        return False
+    return session.currentDungeon.currentCombatInterface.activePlayer == player
+COMBAT_MAIN_PAGE = InterfacePage("Actions", discord.ButtonStyle.secondary, [],
+                                 combatMainContentFn, lambda session: True, changePageCallback,
+                                 lambda session, _: discord.ButtonStyle.green if isPlayerTurn(session) else discord.ButtonStyle.secondary)
+
+COMBAT_MENU = InterfaceMenu([COMBAT_MAIN_PAGE])
+
+
+#### Dungeon/Combat Interaction
+
+class DiscordDungeonInputHandler(DungeonInputHandler):
+    def __init__(self, player : Player, session : GameSession):
+        super().__init__(player, DiscordCombatInputHandler)
+        self.session = session
+
+    def makeCombatInputController(self):
+        return DiscordCombatInputHandler(self.player, self.session)
+
+    """
+        Waits for the player to be ready for the dungeon rooms.
+        Allows free skills, equips, and formation positions to be changed.
+    """
+    async def waitReady(self, dungeonController : DungeonController):
+        # TODO
+        # add a "waiting for allies" message before returning
+        return True
+    
+    """
+        Allows the player to choose between a set of text options.
+        Returns the index of the selection.
+    """
+    async def makeChoice(self, dungeonController : DungeonController, options : list[str]):
+        # TODO: offer choice of options
+        return 0
+    
+    """
+        Picks up a new equip; if inventory is full, gives the player the option to
+        drop something from their inventory. (Should give a confirmation prompt as well; maybe add a way to lock items later?)
+    """
+    async def getEquip(self, dungeonController : DungeonController, newEquip : Equipment):
+        hadSpace = self.player.storeEquipItem(newEquip)
+        if not hadSpace:
+            # TODO
+            pass
+
+
+class DiscordCombatInputHandler(CombatInputHandler):
+    def __init__(self, player : Player, session : GameSession):
+        super().__init__(player)
+        self.session = session
+        self.controller : CombatController | None = None
+        self.actionFlag = asyncio.Event()
+
+    def selectAttack(self, target : CombatEntity) -> bool:
+        assert(self.controller is not None)
+        self.doAttack(self.controller, target, None, None, True, [])
+        self.actionFlag.set()
+        return True
+    
+    def selectSkill(self, targets : list[CombatEntity], skillData : SkillData) -> bool:
+
+        # reference for menu:
+        #     assert(aiDecision.skillIndex is not None)
+        #     chosenSkill = self.entity.availableActiveSkills[aiDecision.skillIndex]
+
+        #     if isinstance(chosenSkill, ActiveSkillDataSelector):
+        #         assert(aiDecision.skillSelector) is not None
+        #         chosenSkill = chosenSkill.selectSkill(aiDecision.skillSelector)
+
+        assert(self.controller is not None)
+        result = self.doSkill(self.controller, targets, skillData)
+        if result.success == ActionSuccessState.SUCCESS:
+            self.actionFlag.set()
+            return True
+        return False
+        
+    def selectAdvance(self, targets : list[CombatEntity], amount : int) -> bool:
+        assert(self.controller is not None)
+        if self.doReposition(self.controller, targets, -amount):
+            self.actionFlag.set()
+            return True
+        return False
+        
+    def selectRetreat(self, targets : list[CombatEntity], amount : int) -> bool:
+        assert(self.controller is not None)
+        if self.doReposition(self.controller, targets, amount):
+            self.actionFlag.set()
+            return True
+        return False
+        
+    def selectDefend(self) -> bool:
+        assert(self.controller is not None)
+        self.doDefend(self.controller)
+        self.actionFlag.set()
+        return True
+
+    async def takeTurn(self, combatController : CombatController) -> None:
+        if not self.session.dungeonLoaded.is_set():
+            await self.session.dungeonLoaded.wait()
+
+        self.session.currentView.pageData[ACTION_CHOICE] = None
+        self.session.currentView.pageData[ACTION_CHOICE_DATA] = {}
+        self.controller = combatController
+
+        await self.session.currentView.refresh()
+        self.actionFlag.clear()
+        await self.actionFlag.wait()
+    
+class DiscordMessageCollector(MessageCollector):
+    def __init__(self, session : GameSession):
+        super().__init__()
+        self.session = session
+        self.pendingMessages = {}
+
+    def sendAllMessages(self, filters : list[MessageType] | None, includeTypes : bool) -> LogMessageCollection:
+        result = super().sendAllMessages(filters, includeTypes)
+        resultString = result.getMessagesString(filters, includeTypes)
+        self._updateViewLog(resultString)
+        return result
+    
+    def sendNewestMessages(self, filters : list[MessageType] | None, includeTypes : bool) -> LogMessageCollection:
+        result = super().sendNewestMessages(filters, includeTypes)
+        resultString = result.getMessagesString(filters, includeTypes)
+        self._updateViewLog(resultString)
+        return result
+    
+    def _updateViewLog(self, newLog : str):
+        self.session.unseenCombatLog += '\n' + newLog if self.session.unseenCombatLog else newLog
+

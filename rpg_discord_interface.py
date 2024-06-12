@@ -19,7 +19,11 @@ class GameSession(object):
         self.currentEmbed : discord.Embed = discord.Embed()
         self.currentMessage : discord.Message | None = None
         self.currentMenu : InterfaceMenu = NEW_GAME_MENU
-        self.currentView : InterfaceView = InterfaceView(self, self.currentMenu.pages, [])
+        self.currentView : InterfaceView = InterfaceView(self, self.currentMenu.pages, [], {})
+
+        self.currentDungeon : DungeonController | None = None
+        self.dungeonLoaded : asyncio.Event = asyncio.Event()
+        self.unseenCombatLog : str = ""
 
     async def messageTimeout(self, view):
         if view == self.currentView:
@@ -43,24 +47,49 @@ class GameSession(object):
             clearOld = self.currentMessage.edit(view=None)
 
         oldView = self.currentView
-        self.currentView = InterfaceView(self, self.currentMenu.pages, oldView.currentPageStack)
+        self.currentView = InterfaceView(self, self.currentMenu.pages, oldView.currentPageStack, oldView.pageData)
         self.currentMessage = await channel.send(embed=self.currentEmbed, view=self.currentView)
 
         if clearOld is not None:
             await clearOld
+
+    def getPlayer(self) -> Player | None:
+        accountData = GLOBAL_STATE.accountDataMap.get(self.userId, None)
+        if accountData is not None:
+            return accountData.currentCharacter
+
+    async def enterDungeon(self, dungeonData : DungeonData):
+        # TODO: the party leader calling this should set the same dungeonController for teammates, including making handlers & stuff
+        # TODO: formations -> starting distances
+        player = self.getPlayer()
+        assert(player is not None)
+
+        self.unseenCombatLog = ""
+        self.dungeonLoaded.clear()
+        self.currentDungeon = DungeonController(dungeonData, {player: DiscordDungeonInputHandler(player, self)},
+                                                {player: DEFAULT_STARTING_DISTANCE},
+                                                {player: DiscordMessageCollector(self)})
+        
+        asyncio.create_task(self.currentDungeon.runDungeon())
+        await self.currentDungeon.combatReadyFlag.wait()
+
+        # TODO: also load other party sessions, including loading flags
+        await self.loadNewMenu(COMBAT_MENU)
+        self.dungeonLoaded.set()
 
     async def loadNewMenu(self, newMenu : InterfaceMenu):
         self.currentMenu = newMenu
         await self.currentView.loadPages(newMenu.pages)
 
 class InterfaceView(discord.ui.View):
-    def __init__(self, session : GameSession, availablePages : list[InterfacePage], currentPageStack : list[int]):
+    def __init__(self, session : GameSession, availablePages : list[InterfacePage],
+                 currentPageStack : list[int], pageData : dict):
         super().__init__()
         self.session = session
         self.availablePages = availablePages
         self.currentPageStack = currentPageStack
+        self.pageData : dict = pageData
 
-        self.pageData : dict = {}
         self.indexMap : dict[InterfacePage, int] = {}
         self.currentConfirmation : InterfaceConfirmation | None = None
 

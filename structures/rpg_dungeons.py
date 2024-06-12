@@ -11,11 +11,13 @@ from structures.rpg_messages import MessageCollector, makeTeamString
 class DungeonData(object):
     registeredDungeons : list[DungeonData] = []
 
-    def __init__(self, dungeonName : str, description : str, milestoneRequirements : set[Milestones], maxPartySize : int,
-                 recLevel : int, allowRetryFights : bool, hpBetweenRooms : float, mpBetweenRooms : float,
+    def __init__(self, dungeonName : str, shortDungeonName : str, description : str, rewardDescription : str, milestoneRequirements : set[Milestones],
+                 maxPartySize : int, recLevel : int, allowRetryFights : bool, hpBetweenRooms : float, mpBetweenRooms : float,
                 dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, CombatEntity], EnemyReward]):
         self.dungeonName = dungeonName
+        self.shortDungeonName = shortDungeonName
         self.description = description
+        self.rewardDescription = rewardDescription
         self.milestoneRequirements = milestoneRequirements
         self.maxPartySize = maxPartySize
         self.recLevel = recLevel
@@ -56,6 +58,8 @@ class DungeonController(object):
         self.startingPlayerTeamDistances = startingPlayerTeamDistances
         self.loggers = loggers
 
+        self.combatReadyFlag = asyncio.Event()
+
         self.rng = Random()
         self.currentRoom = 0
         self.totalRooms = len(self.dungeonData.dungeonRooms)
@@ -69,6 +73,9 @@ class DungeonController(object):
 
     def logMessage(self, messageType : MessageType, messageText : str):
         [log.addMessage(messageType, messageText) for log in self.loggers.values()]
+
+    def combatActive(self) -> bool:
+        return self.currentCombatInterface is not None
 
     def beginRoom(self) -> CombatInterface | None:
         if self.currentRoom < self.totalRooms and self.currentCombatInterface is None:
@@ -120,37 +127,37 @@ class DungeonController(object):
     async def handleRewardsForPlayer(self, player : Player, reward : DungeonReward):
         levelUp, rankUp = player.gainExp(reward.exp)
         self.loggers[player].addMessage(
-            MessageType.BASIC, f"Gained {reward.exp} EXP!"
+            MessageType.BASIC, f"*Gained {reward.exp} EXP!*"
         )
         if levelUp:
             self.loggers[player].addMessage(
-                MessageType.BASIC, f"Your level increased to {player.level}! Gained {STAT_POINTS_PER_LEVEL} stat points."
+                MessageType.BASIC, f"**Your level increased to {player.level}! Gained {STAT_POINTS_PER_LEVEL} stat points.**"
             )
         if rankUp:
             classData =  PlayerClassData.PLAYER_CLASS_DATA_MAP[player.currentPlayerClass]
             newSkillData = classData.getSingleSkillForRank(player.currentPlayerClass, player.classRanks[player.currentPlayerClass])
             newSkillString = f" Gained new skill: {newSkillData.skillName}!" if newSkillData is not None else "" 
             self.loggers[player].addMessage(
-                MessageType.BASIC, f"Your {classData.className.name[0] + classData.className.name[1:].lower()}" +
-                    f" rank increased to {player.classRanks[player.currentPlayerClass]}!{newSkillString}"
+                MessageType.BASIC, f"**Your {classData.className.name[0] + classData.className.name[1:].lower()}" +
+                    f" rank increased to {player.classRanks[player.currentPlayerClass]}!{newSkillString}**"
             )
         
         player.wup += reward.wup
         player.swup += reward.swup
         swupString = f" and {reward.swup} SWUP" if reward.swup > 0 else ""
         self.loggers[player].addMessage(
-            MessageType.BASIC, f"Picked up {reward.wup} WUP{swupString}!"
+            MessageType.BASIC, f"*Picked up {reward.wup} WUP{swupString}!*"
         )
 
         for equip in reward.equips:
             self.loggers[player].addMessage(
-                MessageType.BASIC, f"Picked up {equip.name}!"
+                MessageType.BASIC, f"*Picked up {equip.name}!*"
             )
             self.sendAllLatestMessages()
             await self.playerTeamHandlers[player].getEquip(self, equip)
 
         self.loggers[player].addMessage(
-            MessageType.BASIC, f"Waiting for teammates..."
+            MessageType.BASIC, f"*Waiting for teammates...*"
         )
         self.sendAllLatestMessages()
 
@@ -161,13 +168,13 @@ class DungeonController(object):
     async def runDungeon(self) -> bool:
         plural = "s" if len(self.playerTeamHandlers) == 1 else ""
         self.logMessage(MessageType.BASIC,
-                        f"{makeTeamString([player for player in self.playerTeamHandlers])} enter{plural} {self.dungeonData.dungeonName}...\n")
+                        f"*{makeTeamString([player for player in self.playerTeamHandlers])} enter{plural} {self.dungeonData.dungeonName}...*\n")
         
         while self.currentRoom < self.totalRooms:
             combatInterface = self.beginRoom()
             assert (self.currentCombatInterface is not None)
 
-            await self.currentCombatInterface.runCombat()
+            await self.currentCombatInterface.runCombat(self.combatReadyFlag)
 
             if not self.currentCombatInterface.cc.checkPlayerVictory():
                 if self.dungeonData.allowRetryFights:
@@ -187,7 +194,7 @@ class DungeonController(object):
                     await asyncio.gather(*[self.playerTeamHandlers[player].waitReady(self) for player in self.playerTeamHandlers])
         
         self.logMessage(MessageType.BASIC,
-                        f"{makeTeamString([player for player in self.playerTeamHandlers])} cleared {self.dungeonData.dungeonName}!\n")
+                        f"**{makeTeamString([player for player in self.playerTeamHandlers])} cleared {self.dungeonData.dungeonName}!**\n")
         rewardMap = self.completeDungeon()
         assert(rewardMap is not None)
         await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
