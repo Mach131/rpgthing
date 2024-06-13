@@ -374,7 +374,7 @@ class Enemy(CombatEntity):
                  bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float],
                  passiveSkills : list[SkillData], activeSkills : list[SkillData], ai : EnemyAI,
                  rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
-        super().__init__(name, level, passiveSkills, activeSkills)
+        super().__init__(name, level, passiveSkills, activeSkills, shortName)
         self.baseStats = baseStats
         self.flatStatMod = bonusFlatStats
         self.multStatMod = bonusMultStats

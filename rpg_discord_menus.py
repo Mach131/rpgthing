@@ -7,9 +7,9 @@ import asyncio
 
 from rpg_consts import *
 from rpg_global_state import GLOBAL_STATE
-from structures.rpg_classes_skills import PlayerClassData, SkillData
+from structures.rpg_classes_skills import ActiveSkillDataSelector, PlayerClassData, SkillData
 from structures.rpg_combat_entity import CombatEntity, Player
-from structures.rpg_combat_interface import CombatInputHandler
+from structures.rpg_combat_interface import CombatInputHandler, CombatInterface
 from structures.rpg_combat_state import CombatController
 from structures.rpg_dungeons import DungeonController, DungeonData, DungeonInputHandler
 from structures.rpg_items import Equipment, Weapon
@@ -103,6 +103,15 @@ async def updateDataCallbackFn(interaction : discord.Interaction, session : Game
     if interaction.user.id != session.userId:
         return asyncio.sleep(0)
     await view.updateData(key, val)
+
+async def updateDataMapCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView,
+                                  mapKey : str, key : str, val):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return asyncio.sleep(0)
+    mapVal = view.pageData.get(mapKey, {})
+    mapVal[key] = val
+    await view.updateData(mapKey, mapVal)
 
 class InterfaceMenu(object):
     def __init__(self, pages : list[InterfacePage]):
@@ -503,6 +512,7 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
         assert(isinstance(combatHandler, DiscordCombatInputHandler))
 
         actionChoice : str = view.pageData.get(ACTION_CHOICE, None)
+        actionChoiceData : dict = view.pageData.get(ACTION_CHOICE_DATA, {})
         if actionChoice == CombatActions.ATTACK:
             embed.description = "**Attack**: Select a target."
 
@@ -514,26 +524,91 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                                                                 CombatActions.ATTACK, [_targ]))(target)
                 view.add_item(targetButton)
         elif actionChoice == CombatActions.SKILL:
-            embed.description = "**Skill**: [WIP]."
-        elif actionChoice == CombatActions.APPROACH:
-            embed.description = "**Approach**: [WIP]."
-        elif actionChoice == CombatActions.RETREAT:
-            embed.description = "**Retreat**: [WIP]."
-        elif actionChoice == CombatActions.DEFEND:
-            embed.description = "**Defend**"
+            chosenSkill : SkillData | None = actionChoiceData.get('chosenSkill', None)
+            if chosenSkill is None:
+                embed.description = f"**Skill**: Select a skill to use:\n"
+                skillDescriptions = []
+                for skill in player.availableActiveSkills:
+                    skillDescriptions.append(f"__{skill.skillName}__ ({combatInterface.getSkillManaCost(player, skill)} MP): {skill.description}")
 
-            confirmButton = discord.ui.Button(label="Confirm Defend", style=discord.ButtonStyle.green)
-            confirmButton.callback = lambda interaction: submitActionCallbackFn(interaction, session, view, combatHandler,
-                                                                                CombatActions.DEFEND, [])
-            view.add_item(confirmButton)
+                    skillButton = discord.ui.Button(label=skill.skillName, style=discord.ButtonStyle.blurple)
+                    skillButton.callback = (lambda _sk: lambda interaction:
+                                            updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, 'chosenSkill', _sk))(skill)
+                    skillButton.disabled = not combatInterface.canPayForSkill(player, skill)
+
+                    if combatInterface.isActiveToggle(player, skill):
+                        skillButton = discord.ui.Button(label="Disable " + skill.skillName, style=discord.ButtonStyle.green)
+                        skillButton.callback = (lambda _sk: lambda interaction:
+                                                submitActionCallbackFn(interaction, session, view, combatHandler,
+                                                                        CombatActions.SKILL, [], 0, _sk))(skill)
+
+                    view.add_item(skillButton)
+                embed.description += '\n'.join(skillDescriptions)
+            elif isinstance(chosenSkill, ActiveSkillDataSelector):
+                embed.description = f"**Skill**: Options for {chosenSkill.skillName}:\n{chosenSkill.optionDescription}"
+                for option in chosenSkill.options:
+                    optionName = option[0] + option[1:].lower()
+                    optionSkill = chosenSkill.selectSkill(option)
+                    optionButton = discord.ui.Button(label=optionName, style=discord.ButtonStyle.blurple)
+                    optionButton.callback = (lambda _os: lambda interaction:
+                                            updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, 'chosenSkill', _os))(optionSkill)
+                    optionButton.disabled = not combatInterface.canPayForSkill(player, optionSkill)
+                    view.add_item(optionButton)
+            else:
+                selectedTargets : set[CombatEntity] = actionChoiceData.get('skillTargets', set())
+                expectedTargets = chosenSkill.expectedTargets
+
+                if expectedTargets == 0:
+                    embed.description = f"**{chosenSkill.skillName}**: No targets needed."
+                else:
+                    amount = "any number of" if expectedTargets == None else f"{expectedTargets}"
+                    embed.description = f"**{chosenSkill.skillName}**: Select {amount} target(s)."
+                    if len(selectedTargets) > 0:
+                        embed.description += f" Current targets: {', '.join([st.shortName for st in selectedTargets])}"
+
+                    targetTeam = combatInterface.getOpponents(player, True) if chosenSkill.targetOpponents else combatInterface.getTeammates(player, True)
+                    for target in targetTeam:
+                        targetButton = discord.ui.Button(label=target.shortName)
+                        if target in selectedTargets:
+                            targetButton.style = discord.ButtonStyle.secondary
+                            updatedTargets = selectedTargets.difference([target])
+                            targetButton.callback = (lambda _ut: lambda interaction:
+                                                    updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, 'skillTargets', _ut))(updatedTargets)
+                        else:
+                            targetButton.style = discord.ButtonStyle.blurple
+                            updatedTargets = selectedTargets.union([target])
+                            targetButton.callback = (lambda _ut: lambda interaction:
+                                                    updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, 'skillTargets', _ut))(updatedTargets)
+                            if expectedTargets is not None:
+                                targetButton.disabled = len(selectedTargets) >= expectedTargets
+                        view.add_item(targetButton)
+
+                confirmButton = discord.ui.Button(label=f"Confirm Targets", style=discord.ButtonStyle.green)
+                confirmButton.callback = lambda interaction: submitActionCallbackFn(interaction, session, view, combatHandler,
+                                                                    CombatActions.SKILL, list(selectedTargets), 0, chosenSkill)
+                if expectedTargets is not None:
+                    confirmButton.disabled = len(selectedTargets) != expectedTargets
+                else:
+                    confirmButton.disabled = len(selectedTargets) == 0
+                view.add_item(confirmButton)
+        elif actionChoice == CombatActions.APPROACH:
+            repositionHandler(True, session, view, combatInterface, player, combatHandler, embed, actionChoiceData)
+        elif actionChoice == CombatActions.RETREAT:
+            repositionHandler(False, session, view, combatInterface, player, combatHandler, embed, actionChoiceData)
         else:
             embed.description = "Select an action."
 
             buttonMap : dict[CombatActions, discord.ui.Button] = {}
             for option in CombatActions:
                 buttonMap[option] = discord.ui.Button(label=option.name[0] + option.name[1:].lower(), style=discord.ButtonStyle.blurple)
-                buttonMap[option].callback = (lambda _opt: lambda interaction:
-                                              updateDataCallbackFn(interaction, session, view, ACTION_CHOICE, _opt))(option)
+                if option != CombatActions.DEFEND:
+                    buttonMap[option].callback = (lambda _opt: lambda interaction:
+                                                updateDataCallbackFn(interaction, session, view, ACTION_CHOICE, _opt))(option)
+                
+            buttonMap[CombatActions.DEFEND].style = discord.ButtonStyle.green
+            buttonMap[CombatActions.DEFEND].callback = lambda interaction: submitActionCallbackFn(interaction, session, view, combatHandler,
+                                                                                                  CombatActions.DEFEND, [])
+
             if len(player.availableActiveSkills) == 0:
                 buttonMap[CombatActions.SKILL].disabled = True
             if not combatInterface.advancePossible(player):
@@ -544,12 +619,56 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
 
         if actionChoice is not None:
             returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
-            if len(view.pageData.get(ACTION_CHOICE_DATA, {})) == 0:
+            if len(actionChoiceData) == 0:
                 returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, ACTION_CHOICE, None)
             else:
                 returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, {})
             view.add_item(returnButton)
     return embed
+def repositionHandler(isApproach : bool, session : GameSession, view : InterfaceView, combatInterface : CombatInterface,
+                      player : Player, combatHandler : DiscordCombatInputHandler, embed : discord.Embed, actionChoiceData : dict):
+    actionName = 'Approach' if isApproach else 'Retreat'
+    changeString = 'Decrease' if isApproach else 'Increase'
+    targetKey = 'approachTargets' if isApproach else 'retreatTargets'
+    combatAction = CombatActions.APPROACH if isApproach else CombatActions.RETREAT
+    amount = -1 if isApproach else 1
+
+    selectedTargets : set[CombatEntity] = actionChoiceData.get(targetKey, set())
+    if len(selectedTargets) > 0:
+        embed.description = f"**{actionName}**: {changeString} distance from {', '.join([st.shortName for st in selectedTargets])}."
+    else:
+        embed.description = f"**{actionName}**: Select targets, then amount to move by."
+
+    if not actionChoiceData.get('targetConfirm', False):
+        targets = combatInterface.getOpponents(player, True)
+        for target in targets:
+            targetButton = discord.ui.Button(label=target.shortName)
+            if target in selectedTargets:
+                targetButton.style = discord.ButtonStyle.secondary
+                updatedTargets = selectedTargets.difference([target])
+                targetButton.callback = (lambda _ut: lambda interaction:
+                                         updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, targetKey, _ut))(updatedTargets)
+            else:
+                targetButton.style = discord.ButtonStyle.blurple
+                updatedTargets = selectedTargets.union([target])
+                targetButton.callback = (lambda _ut: lambda interaction:
+                                         updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, targetKey, _ut))(updatedTargets)
+                targetButton.disabled = not combatInterface.validateReposition(player, list(selectedTargets) + [target], amount)
+            view.add_item(targetButton)
+        confirmButton = discord.ui.Button(label="Confirm Targets", style=discord.ButtonStyle.green, row=2, disabled=len(selectedTargets)==0)
+        confirmButton.callback = lambda interaction: updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, 'targetConfirm', True)
+        view.add_item(confirmButton)
+    else:
+        oneButton = discord.ui.Button(label=f"{actionName} by 1", style=discord.ButtonStyle.green)
+        oneButton.callback = lambda interaction: submitActionCallbackFn(interaction, session, view, combatHandler,
+                                                        combatAction, list(selectedTargets), 1)
+        view.add_item(oneButton)
+
+        twoButton = discord.ui.Button(label=f"{actionName} by 2", style=discord.ButtonStyle.green)
+        twoButton.callback = lambda interaction: submitActionCallbackFn(interaction, session, view, combatHandler,
+                                                        combatAction, list(selectedTargets), 2)
+        twoButton.disabled = not combatInterface.validateReposition(player, list(selectedTargets), amount * 2)
+        view.add_item(twoButton)
 async def submitActionCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView,
                                  handler : DiscordCombatInputHandler, action : CombatActions, targets : list[CombatEntity],
                                  amount : int = 0, skillData : SkillData | None = None):
@@ -572,7 +691,6 @@ async def submitActionCallbackFn(interaction : discord.Interaction, session : Ga
 
     view.pageData[ACTION_CHOICE] = None
     view.pageData[ACTION_CHOICE_DATA] = {}
-    await view.refresh()
 def isPlayerTurn(session : GameSession) -> bool:
     if session.currentDungeon is None or session.currentDungeon.currentCombatInterface is None:
         return False
@@ -639,15 +757,6 @@ class DiscordCombatInputHandler(CombatInputHandler):
         return True
     
     def selectSkill(self, targets : list[CombatEntity], skillData : SkillData) -> bool:
-
-        # reference for menu:
-        #     assert(aiDecision.skillIndex is not None)
-        #     chosenSkill = self.entity.availableActiveSkills[aiDecision.skillIndex]
-
-        #     if isinstance(chosenSkill, ActiveSkillDataSelector):
-        #         assert(aiDecision.skillSelector) is not None
-        #         chosenSkill = chosenSkill.selectSkill(aiDecision.skillSelector)
-
         assert(self.controller is not None)
         result = self.doSkill(self.controller, targets, skillData)
         if result.success == ActionSuccessState.SUCCESS:
@@ -686,6 +795,7 @@ class DiscordCombatInputHandler(CombatInputHandler):
         await self.session.currentView.refresh()
         self.actionFlag.clear()
         await self.actionFlag.wait()
+        await self.session.currentView.refresh()
     
 class DiscordMessageCollector(MessageCollector):
     def __init__(self, session : GameSession):

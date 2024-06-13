@@ -226,6 +226,7 @@ def parryFn(controller, user, attacker, isPhysical, effectResult):
     effectResult.setBonusAttack(user, attacker, counterData)
 ActiveSkillDataSelector("Parry", AdvancedPlayerClassNames.KNIGHT, 5, False, 25,
     "Select an attack type. If the next attack on you matches, reduce damage taken by 65% and parry based on 50% of their offensive stat.",
+    "Select the attack type to parry.",
     MAX_ACTION_TIMER, 0, True,
         lambda parryType: PrepareParrySkillData(f"Parry ({parryType[0] + parryType[1:].lower()})", AdvancedPlayerClassNames.KNIGHT, 5, False, 25, "",
             MAX_ACTION_TIMER, AttackType[parryType], [EFOnParry(parryFn)], False), [attackType.name for attackType in AttackType]
@@ -388,7 +389,10 @@ def lacedStatus(statusString : str, controller : CombatController, user : Combat
     else:
         raise KeyError
 ActiveSkillDataSelector("Laced Ammunition", AdvancedPlayerClassNames.HUNTER, 2, False, 20,
-    "Select POISON (50% Strength, 6 Turns), BLIND (4 Turns), or STUN (2 Turns). Attack with 0.8x ATK, attempting to inflict the selected status condition.",
+    "Select a status effect. Attack with 0.8x ATK, attempting to inflict the selected status condition.",
+    "__POISON__: The opponent takes damage at the end of their turn, based on your ATK when inflicting POISON. Duration: 6 Turns\n"
+    "__BLIND__: The opponent's accuracy is reduced as if their distance from you is increased by 1. Duration: 4 Turns\n"
+    "__STUN__: The opponent's turn is skipped. Duration: 2 Turns",
     DEFAULT_ATTACK_TIMER_USAGE, 1, True,
     lambda statusString: AttackSkillData(f"Laced Ammunition ({statusString[0] + statusString[1:].lower()})",
                                          AdvancedPlayerClassNames.HUNTER, 2, False, 20, "",
@@ -592,10 +596,10 @@ ambushSkillEffects : dict[str, SkillEffect] = {
     ], 0)
 }
 ActiveSkillDataSelector("Ambush", AdvancedPlayerClassNames.ASSASSIN, 5, False, 30,
-    "Select an effect and attack a target, removing all Eyes of the Dark stacks on hit. | " +
-    "INTERROGATE: Attack with 0.5x ATK. Per stack removed, +4% ATK/SPD and +8% ACC. | " +
-    "DISABLE: Attack with 0.8x ATK. Per stack removed, opponent ATK/DEF/MAG/RES - 3.5%. | " +
-    "EXECUTE: Attack with 0.7x ATK, +0.2x per stack removed. Additional 10% Critical Hit rate per stack removed.",
+    "Select an effect and attack a target, removing all Eyes of the Dark stacks on hit.",
+    "__INTERROGATE__: Attack with 0.5x ATK. Per stack removed, +4% ATK/SPD and +8% ACC.\n" +
+    "__DISABLE__: Attack with 0.8x ATK. Per stack removed, opponent ATK/DEF/MAG/RES - 3.5%.\n" +
+    "__EXECUTE__: Attack with 0.7x ATK, +0.2x per stack removed. Additional 10% Critical Hit rate per stack removed.",
     DEFAULT_ATTACK_TIMER_USAGE, 1, True,
     lambda ambushString: AttackSkillData(f"Ambush ({ambushString[0] + ambushString[1:].lower()})",
                                          AdvancedPlayerClassNames.ASSASSIN, 5, False, 30, "",
@@ -649,7 +653,7 @@ ActiveBuffSkillData("Instantaneous Eternity", AdvancedPlayerClassNames.ASSASSIN,
             lambda controller, user, _1, _2: void((
                 controller.applyFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1}),
                 controller.logMessage(MessageType.EFFECT,
-                                    f"{user.name} stops time (sort of)!")
+                                    f"{user.name} stops time!")
             ))
         ),
         EFStartTurn(
@@ -695,6 +699,7 @@ def sidestepFn(controller : CombatController, user : CombatEntity, _2, _3, effec
     effectResult.setGuaranteeDodge(True)
 ActiveSkillDataSelector("Sidestep", AdvancedPlayerClassNames.ACROBAT, 5, False, 25,
     "Select an attack type. If the next attack on you matches, evade it and reduce the time to your next action.",
+    "Select an attack type to react to.",
     MAX_ACTION_TIMER, 0, True,
         lambda parryType: PrepareParrySkillData(f"Sidestep ({parryType[0] + parryType[1:].lower()})", AdvancedPlayerClassNames.ACROBAT, 5, False, 25, "",
             MAX_ACTION_TIMER, AttackType[parryType], [EFOnParry(sidestepFn)], False), [attackType.name for attackType in AttackType]
@@ -758,6 +763,7 @@ PassiveSkillData("Earned Confidence", AdvancedPlayerClassNames.ACROBAT, 8, True,
 
 ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9, True, 15,
     "Decrease DEF/RES by 25%. Increase AVO by 20% and SPD by 7.5%. This can be used up to 3 times simultaneously for greater effect.",
+    "Select how many times you'd like to use this effect at once.",
     MAX_ACTION_TIMER / 10, 0, True,
     lambda amount: ActiveBuffSkillData(f"Insidious Killer x{amount}",
                                          AdvancedPlayerClassNames.ACROBAT, 9, True, 15 * int(amount), "",
@@ -823,10 +829,11 @@ natureBlessingMessage = {
     "WIND": "{}'s attacks are Enchanted with Wind! Their Range increases, and the time between their actions decreases."
 }
 ActiveSkillDataSelector("Nature's Blessing", AdvancedPlayerClassNames.WIZARD, 2, False, 30,
-    "Select an attribute and a target ally; for 8 turns, their attacks will be Enchanted with that attribute. (Only the latest Enchantment's effects are applied to a player.) | " +
-    "FIRE: Increases MAG by 50% of ATK. On hit, attempts to inflict BURN (25% strength) for 3 turns. | " +
-    "ICE: Increases critical hit rate by 10%. On critical hit, decreases the target's SPD/AVO by 7.5%. | " +
-    "WIND: Increases Range by 1. Decreases the time between the ally's actions by 35%.", MAX_ACTION_TIMER / 5, 1, False,
+    "Select an attribute and target an ally; for 8 turns, their attacks will be Enchanted with that attribute.",
+    "(Note: Only the latest Enchantment's effects are applied to a player.)\n"
+    "__FIRE__: Increases MAG by 50% of ATK. On hit, attempts to inflict BURN (DoT based on 25% of MAG) for 3 turns.\n" +
+    "__ICE__: Increases critical hit rate by 10%. On critical hit, decreases the target's SPD/AVO by 7.5%.\n" +
+    "__WIND__: Increases Range by 1. Decreases the time between the ally's actions by 35%.", MAX_ACTION_TIMER / 5, 1, False,
     lambda attribute: ActiveBuffSkillData(f"Nature's Blessing ({attribute[0] + attribute[1:].lower()})",
                     AdvancedPlayerClassNames.WIZARD, 2, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [
                         SkillEffect([EFImmediate(lambda controller, _1, targets, _2: void((
@@ -990,8 +997,9 @@ spiritBlessingMessage = {
     "DARK": "{}'s attacks are Enchanted with Dark! Their ATK, MAG, and ACC increase, and their attacks will restore MP.",
 }
 ActiveSkillDataSelector("Spirits's Blessing", AdvancedPlayerClassNames.SAINT, 5, False, 30,
-    "Select an attribute and a target ally; for 6 turns, their attacks will be Enchanted with that attribute. (Only the latest enchantment's effects are applied to a player.) | " +
-    "LIGHT: Increases DEF, RES, and AVO by 10%. On hit, restores 7% of the ally's max HP. | " +
+    "Select an attribute and a target ally; for 6 turns, their attacks will be Enchanted with that attribute.",
+    "(Note: Only the latest enchantment's effects are applied to a player.)\n" + 
+    "LIGHT: Increases DEF, RES, and AVO by 10%. On hit, restores 7% of the ally's max HP.\n" +
     "DARK: Increases ATK, MAG, and ACC by 10%. On hit, restores 7% of the ally's max MP.", MAX_ACTION_TIMER / 5, 1, False,
     lambda attribute: ActiveBuffSkillData(f"Spirit's Blessing ({attribute[0] + attribute[1:].lower()})",
                     AdvancedPlayerClassNames.SAINT, 5, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [

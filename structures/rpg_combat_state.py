@@ -74,7 +74,8 @@ class EntityCombatState(object):
         return (base + flatMod) * multMod
 
     def getStateOverviewString(self) -> str:
-        return f"{self.entity.name}: {self.currentHP}/{self.getTotalStatValue(BaseStats.HP)} HP, {self.currentMP}/{self.getTotalStatValue(BaseStats.MP)} MP"
+        baseStatusString = f"**{self.entity.name}**: {self.currentHP}/{self.getTotalStatValue(BaseStats.HP)} HP, {self.currentMP}/{self.getTotalStatValue(BaseStats.MP)} MP"
+        return baseStatusString
 
     def getFullStatusString(self) -> str:
         statString = {stat: self.getFullStatusStatString(stat) for stat in BaseStats}
@@ -390,12 +391,18 @@ class CombatController(object):
         actionTimeMap : dict[CombatEntity, float] = {entity : self.combatStateMap[entity].getTimeToFullAction() for entity in self.combatStateMap}
         livingEntities = list(filter(lambda entity: self.combatStateMap[entity].currentHP > 0, self.combatStateMap.keys()))
         nextEntity : CombatEntity = min(livingEntities, key = lambda entity: actionTimeMap[entity])
+
+        # Time-stop consistency
+        if self.previousTurnEntity in livingEntities and actionTimeMap[self.previousTurnEntity] == 0:
+            nextEntity = self.previousTurnEntity
+
         for entity in livingEntities:
             self.combatStateMap[entity].increaseActionTimer(actionTimeMap[nextEntity])
             if self.previousTurnEntity is not None:
                 for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ADVANCE_TURN):
                     assert(isinstance(effectFunction, EFOnAdvanceTurn))
                     effectFunction.applyEffect(self, entity, self.previousTurnEntity, nextEntity)
+
         return nextEntity
 
     """

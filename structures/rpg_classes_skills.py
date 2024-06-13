@@ -228,12 +228,13 @@ class PrepareParrySkillData(SkillData):
         
 class ActiveSkillDataSelector(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
-            actionTime : float, expectedTargets : int | None, targetOpponents : bool, skillGenerator : Callable[[str], SkillData],
-            options : list[str], register : bool = True):
+            optionDescription : str, actionTime : float, expectedTargets : int | None, targetOpponents : bool,
+            skillGenerator : Callable[[str], SkillData], options : list[str], register : bool = True):
         super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False,
                          [], expectedTargets, 0, targetOpponents, register)
         self.skillGenerator = skillGenerator
         self.options = options
+        self.optionDescription = optionDescription
         
     def selectSkill(self, selectorInput : str) -> SkillData:
         if selectorInput not in self.options:

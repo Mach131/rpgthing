@@ -79,7 +79,7 @@ In Combat:
 	Actions
 		Shows HP/MP, your distances to enemies, combat log, currently selected action
 		-Attack
-			-> [target], [Confirm if >1] or Cancel
+			-> [target] or Cancel
 		-Skill
 			-> [skill options] or Cancel
 			-> [skill option selection] or Cancel
@@ -94,8 +94,10 @@ In Combat:
 			-> Confirm or Cancel
 	Party
 		detail subpages, yours is first in allies
+			should also include active effects/stacks (todo: give skilleffects w/ duration names)
 	Enemies
 		detail subpages, also includes distance
+			should also include active effects/stacks (todo: give skilleffects w/ duration names)
 	Escape
 		Confirm dialogue (this will exit the dungeon)
 	

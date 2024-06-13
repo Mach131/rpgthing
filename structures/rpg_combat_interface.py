@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import random
 
-from structures.rpg_classes_skills import ActiveSkillDataSelector, AttackSkillData, SkillData
+from structures.rpg_classes_skills import ActiveSkillDataSelector, ActiveToggleSkillData, AttackSkillData, SkillData
 from structures.rpg_combat_entity import CombatEntity, Enemy, Player
 from structures.rpg_combat_state import ActionResultInfo, CombatController
 from rpg_consts import *
@@ -433,6 +433,8 @@ class CombatInterface(object):
         teamInfoStrings = []
         for member in self.cc.playerTeam:
             overviewString = self.cc.combatStateMap[member].getStateOverviewString()
+            nextActionTime = self.cc.getTimeToFullAction(member) * ACTION_TIME_DISPLAY_MULTIPLIER
+            overviewString += f"\n--*To Next Action: {nextActionTime:.3f}*"
             if member == player:
                 teamInfoStrings.append(f"\\*{overviewString}")
             else:
@@ -445,9 +447,10 @@ class CombatInterface(object):
             overviewString = self.cc.combatStateMap[member].getStateOverviewString()
             distance = self.cc.checkDistance(player, member)
             if distance is not None:
-                teamInfoStrings.append(f"{overviewString} (dist. {distance})")
-            else:
-                teamInfoStrings.append(overviewString)
+                overviewString += f" (dist. {distance})"
+            nextActionTime = self.cc.getTimeToFullAction(member) * ACTION_TIME_DISPLAY_MULTIPLIER
+            overviewString += f"\n*--To Next Action: {nextActionTime:.3f}*"
+            teamInfoStrings.append(overviewString)
         return '\n'.join(teamInfoStrings)
     
     def advancePossible(self, player : Player):
@@ -470,3 +473,19 @@ class CombatInterface(object):
             return self.cc.getTargets(player)
         else:
             return self.cc.opponentTeam
+        
+    def getSkillManaCost(self, player : Player, skillData : SkillData):
+        return self.cc.getSkillManaCost(player, skillData)
+    
+    def isActiveToggle(self, player : Player, skillData : SkillData):
+        isToggle = isinstance(skillData, ActiveToggleSkillData)
+        toggleEnabled = isToggle and skillData in self.cc.combatStateMap[player].activeToggleSkills
+        return toggleEnabled
+        
+    def canPayForSkill(self, player : Player, skillData : SkillData):
+        if self.isActiveToggle(player, skillData):
+            return True
+        manaCost = self.cc.getSkillManaCost(player, skillData)
+        if manaCost is None:
+            return True
+        return self.cc.getCurrentMana(player) >= manaCost
