@@ -12,34 +12,28 @@ def waitSkill(name, timeMult):
 
 def basicDummy() -> Enemy:
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
-        if data["messageIdx"] == 0:
-            controller.logMessage(MessageType.DIALOGUE, "You see a note on the training dummy...\n\"Practice the basics! Get in range of me, then Attack!\"")
-            controller.applyMultStatBonuses(enemy, {BaseStats.SPD: 20/50})
-            data["messageIdx"] = 1
-        else:
-            controller.logMessage(MessageType.DIALOGUE, "The training dummy is chilling.")
+        controller.logMessage(MessageType.DIALOGUE, "The training dummy is chilling.")
         return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
     return Enemy("Basic Dummy", "Dummy", 1, {
         BaseStats.HP: 40, BaseStats.MP: 1,
         BaseStats.ATK: 1, BaseStats.DEF: 5, BaseStats.MAG: 1, BaseStats.RES: 5,
-        BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 50
-    }, {}, {}, [], [waitSkill("", 1)], EnemyAI({"messageIdx": 0}, decisionFn),
+        BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 20
+    }, {}, {}, [], [waitSkill("", 1)],
+    "You see a note on the training dummy...\n\"Practice the basics! Get in range of me, then Attack!\"",
+    EnemyAI({}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))
 
 def skillfulDummy() -> Enemy:
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
-        if data["messageIdx"] == 0:
-            controller.logMessage(MessageType.DIALOGUE, "You see a note on the training dummy...\n\"You've learned an Active Skill! Try it out now!\"")
-            controller.applyMultStatBonuses(enemy, {BaseStats.SPD: 20/50})
-            data["messageIdx"] = 1
-        else:
-            controller.logMessage(MessageType.DIALOGUE, "The training dummy is chilling.")
+        controller.logMessage(MessageType.DIALOGUE, "The training dummy is chilling.")
         return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
     return Enemy("Skillful Dummy", "Dummy", 1, {
         BaseStats.HP: 60, BaseStats.MP: 1,
         BaseStats.ATK: 1, BaseStats.DEF: 5, BaseStats.MAG: 1, BaseStats.RES: 5,
-        BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 50
-    }, {}, {}, [], [waitSkill("", 1)], EnemyAI({"messageIdx": 0}, decisionFn),
+        BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 20
+    }, {}, {}, [], [waitSkill("", 1)],
+    "You see a note on the training dummy...\n\"You've learned an Active Skill! Try it out now!\"",
+    EnemyAI({}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))
 
 def trainingBoss() -> Enemy:
@@ -49,8 +43,11 @@ def trainingBoss() -> Enemy:
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
         playerList = controller.getTargets(enemy)
         if data["aiIdx"] == 0:
-            controller.logMessage(MessageType.DIALOGUE, "Aqi: \"All warmed up now? Just gotta test you before sendin' you off; I'll go easy~\"")
-            controller.applyMultStatBonuses(enemy, {BaseStats.SPD: 30/500})
+            controller.logMessage(MessageType.DIALOGUE, "Aqi: \"Don't worry, I'll go a bit easy on you~\"")
+            controller.applyMultStatBonuses(enemy,
+                                            {BaseStats.ATK: 50/650, BaseStats.DEF: 20/500, BaseStats.RES: 20/500,
+                                             BaseStats.ACC: 50/1200, BaseStats.AVO: 60/1500, BaseStats.SPD: 30/850}
+                                            )
             data["aiIdx"] = 1
             return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
         elif data["aiIdx"] == 1:
@@ -80,11 +77,13 @@ def trainingBoss() -> Enemy:
             return EnemyAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
     return Enemy("Instructor Aqi", "Aqi", 1, {
         BaseStats.HP: 100, BaseStats.MP: 1000,
-        BaseStats.ATK: 50, BaseStats.DEF: 15, BaseStats.MAG: 1, BaseStats.RES: 15,
-        BaseStats.ACC: 50, BaseStats.AVO: 60, BaseStats.SPD: 500
+        BaseStats.ATK: 650, BaseStats.DEF: 500, BaseStats.MAG: 300, BaseStats.RES: 500,
+        BaseStats.ACC: 1200, BaseStats.AVO: 150, BaseStats.SPD: 850
     }, {
         CombatStats.RANGE: 0
     }, {
         CombatStats.REPOSITION_ACTION_TIME_MULT: 0.5
-    }, [], [waitSkill("", 1), waitSkill("", 1.2), attackSkill], EnemyAI({"aiIdx": 0, "target": None}, decisionFn),
+    }, [], [waitSkill("", 1), waitSkill("", 1.2), attackSkill],
+    "Aqi: \"All warmed up now? Just gotta test you before sendin' you out!\"",
+    EnemyAI({"aiIdx": 0, "target": None}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))

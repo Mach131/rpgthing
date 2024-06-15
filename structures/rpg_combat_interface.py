@@ -54,6 +54,9 @@ class CombatInputHandler(object):
     def doDefend(self, combatController : CombatController) -> None:
         combatController.performDefend(self.entity)
 
+    def onPlayerLeaveDungeon(self) -> None:
+        raise NotImplementedError()
+
     async def takeTurn(self, combatController : CombatController) -> None:
         raise NotImplementedError()
     
@@ -384,7 +387,7 @@ class EnemyInputHandler(CombatInputHandler):
 class CombatInterface(object):
     def __init__(self, players : dict[CombatEntity, CombatInputHandler], opponents: dict[CombatEntity, CombatInputHandler],
                  loggers : dict[CombatEntity, MessageCollector], startingPlayerHealth : dict[CombatEntity, int],
-                 startingPlayerMana : dict[CombatEntity, int]):
+                 startingPlayerMana : dict[CombatEntity, int], startingPlayerDistances : dict[CombatEntity, int]):
         self.players : list[CombatEntity] = list(players.keys())
         self.opponents : list[CombatEntity] = list(opponents.keys())
         self.handlerMap : dict[CombatEntity, CombatInputHandler] = players.copy()
@@ -394,12 +397,11 @@ class CombatInterface(object):
         self.activePlayer : CombatEntity | None = None
         
         self.cc : CombatController = CombatController(
-            self.players, self.opponents, {player : DEFAULT_STARTING_DISTANCE for player in self.players}, self.loggers)
+            self.players, self.opponents, startingPlayerDistances.copy(), self.loggers)
         
-        for player in startingPlayerHealth:
+        for player in players:
             healthDelta = self.cc.getCurrentHealth(player) - startingPlayerHealth[player]
             self.cc.applyDamage(player, player, healthDelta, False, True)
-        for player in startingPlayerMana:
             manaDelta = self.cc.getCurrentMana(player) - startingPlayerMana[player]
             self.cc.spendMana(player, manaDelta, True)
         
@@ -428,6 +430,11 @@ class CombatInterface(object):
         else:
             self.cc.logMessage(MessageType.BASIC, f"**Your party is defeated...**\n")
         self.sendAllLatestMessages()
+
+    def removePlayer(self, player : Player):
+        self.cc.applyDamage(player, player, self.cc.getCurrentHealth(player), False, True)
+        if self.activePlayer is not None and self.activePlayer == player:
+            self.handlerMap[self.activePlayer].onPlayerLeaveDungeon()
 
     def getPlayerTeamSummary(self, player : Player):
         teamInfoStrings = []
@@ -489,3 +496,17 @@ class CombatInterface(object):
         if manaCost is None:
             return True
         return self.cc.getCurrentMana(player) >= manaCost
+    
+    def getEntityStatus(self, requester : CombatEntity, entity : CombatEntity):
+        statusString =  self.cc.getFullStatusStringFor(entity)
+
+        distance = self.cc.checkDistance(requester, entity)
+        if distance is not None:
+            statusString += f"\n\nDistance from {requester.name}: {distance}"
+        nextActionTime = self.cc.getTimeToFullAction(entity) * ACTION_TIME_DISPLAY_MULTIPLIER
+        statusString += f"\nTime To Next Action: {nextActionTime:.3f}"
+
+        return statusString
+    
+    def getEntityBuffs(self, entity : CombatEntity):
+        return self.cc.getBuffStatusStringFor(entity)

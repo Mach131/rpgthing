@@ -101,3 +101,12 @@ In Combat:
 	Escape
 		Confirm dialogue (this will exit the dungeon)
 	
+
+Todos:
+
+	- equipment rewards
+
+	- buff/stack display
+	
+	- persistence
+	- parties

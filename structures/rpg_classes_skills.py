@@ -62,6 +62,26 @@ class PlayerClassData(object):
                 return rankSkill
         return None
 
+    """
+        Provides a list of all of this class's free skills, up to the given rank.
+        Does not include skills from required classes.
+    """
+    @staticmethod
+    def getFreeSkillsForRank(className : PlayerClassNames, rank : int, _all : bool = False) -> list[SkillData]:
+        classData : PlayerClassData = PlayerClassData.PLAYER_CLASS_DATA_MAP[className]
+        results : list[SkillData] = []
+
+        maxRank : int = MAX_BASE_CLASS_RANK if classData.isBaseClass else MAX_ADVANCED_CLASS_RANK
+        if _all:
+            rank = maxRank
+        for i in range(1, min(maxRank, rank) + 1):
+            if i in classData.rankSkills:
+                rankSkill = classData.rankSkills[i]
+                if rankSkill.isFreeSkill:
+                    results.append(classData.rankSkills[i])
+
+        return results
+
     """ Gets the skill for a specific rank. Returns None if it does nto exist. """
     @staticmethod
     def getSingleSkillForRank(className : PlayerClassNames, rank : int) -> SkillData | None:

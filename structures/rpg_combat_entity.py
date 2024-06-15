@@ -8,13 +8,15 @@ from structures.rpg_classes_skills import PlayerClassData, SkillData, PassiveSki
 from structures.rpg_items import Item, Equipment, Weapon
 
 class CombatEntity(object):
-    def __init__(self, name : str, level : int, passiveSkills : list[SkillData], activeSkills : list[SkillData], shortName : str = "") -> None:
+    def __init__(self, name : str, level : int, passiveSkills : list[SkillData], activeSkills : list[SkillData],
+                 shortName : str = "", encounterMessage : str = "") -> None:
         self.name = name
         self.shortName = shortName if len(shortName) > 0 else self.name
         self.level = level
         self.baseStats : dict[BaseStats, int] = {}
         self.flatStatMod : dict[Stats, float] = {}
         self.multStatMod : dict[Stats, float] = {}
+        self.encounterMessage = encounterMessage
 
         self.passiveBonusSkills : list[PassiveSkillData] = []
 
@@ -219,7 +221,7 @@ class Player(CombatEntity):
         Returns true if the free skill was successfully added.
     """
     def addFreeSkill(self, freeSkillClass : PlayerClassNames, freeSkillRank : int) -> bool:
-        if len(self.freeSkills) >= MAX_FREE_SKILLS and (freeSkillClass, freeSkillRank) in self.freeSkills:
+        if len(self.freeSkills) >= MAX_FREE_SKILLS or (freeSkillClass, freeSkillRank) in self.freeSkills:
             return False
         
         currentSkillClasses = PlayerClassData.getAllClassDependencies(self.currentPlayerClass)
@@ -372,9 +374,10 @@ class Player(CombatEntity):
 class Enemy(CombatEntity):
     def __init__(self, name : str, shortName : str, level : int, baseStats : dict[BaseStats, int],
                  bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float],
-                 passiveSkills : list[SkillData], activeSkills : list[SkillData], ai : EnemyAI,
+                 passiveSkills : list[SkillData], activeSkills : list[SkillData],
+                 encounterMessage : str, ai : EnemyAI,
                  rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
-        super().__init__(name, level, passiveSkills, activeSkills, shortName)
+        super().__init__(name, level, passiveSkills, activeSkills, shortName, encounterMessage)
         self.baseStats = baseStats
         self.flatStatMod = bonusFlatStats
         self.multStatMod = bonusMultStats

@@ -79,15 +79,19 @@ class EntityCombatState(object):
 
     def getFullStatusString(self) -> str:
         statString = {stat: self.getFullStatusStatString(stat) for stat in BaseStats}
-        stackString = ""
+        return f"{self.currentHP}/{self.getTotalStatValue(BaseStats.HP)} **HP**  \\||  {self.currentMP}/{self.getTotalStatValue(BaseStats.MP)} **MP**\n" + \
+        f"**ATK**: {statString[BaseStats.ATK]}  \\||  **DEF**: {statString[BaseStats.DEF]}  \\||  **MAG**: {statString[BaseStats.MAG]}  \\||  **RES**: {statString[BaseStats.RES]}\n" + \
+        f"**ACC**: {statString[BaseStats.ACC]}  \\||  **AVO**: {statString[BaseStats.AVO]}  \\||  **SPD**: {statString[BaseStats.SPD]}\n" + \
+        f"**Range**: {self.getFullStatusStatString(CombatStats.RANGE)}  \\||  **Crit Rate**: {self.getFullStatusPercentStatString(CombatStats.CRIT_RATE)}  \\||  **Crit Damage**: {self.getFullStatusPercentStatString(CombatStats.CRIT_DAMAGE)}"
+    
+    def getStackBuffString(self) -> str:
         stackStringList = [f"{EFFECT_STACK_NAMES[stack]} x{self.getStack(stack)}" for stack in self.effectStacks
                                 if self.getStack(stack) > 0 and stack in EFFECT_STACK_NAMES]
-        if len(stackStringList) > 0:
-            stackString = f"\nStacks: {', '.join(stackStringList)}"
-        return f"""{self.getStateOverviewString()}
-ATK: {statString[BaseStats.ATK]}, DEF: {statString[BaseStats.DEF]}, MAG: {statString[BaseStats.MAG]}, RES: {statString[BaseStats.RES]}
-ACC: {statString[BaseStats.ACC]}, AVO: {statString[BaseStats.AVO]}, SPD: {statString[BaseStats.SPD]}
-Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFullStatusPercentStatString(CombatStats.CRIT_RATE)}, Crit Damage: {self.getFullStatusPercentStatString(CombatStats.CRIT_DAMAGE)}{stackString}"""
+        stackString = '\n'.join(stackStringList)
+
+        if len(stackString) > 0:
+            stackString += "\n[TODO: add buff names]"
+        return stackString
 
     def getFullStatusStatString(self, stat : Stats) -> str:
         baseStatValue = self.entity.getStatValue(stat)
@@ -95,7 +99,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         if baseStatValue == totalStatValue:
             return str(totalStatValue)
         else:
-            return f"{totalStatValue} ({baseStatValue})"
+            return f"*{totalStatValue}* ({baseStatValue})"
         
     def getFullStatusPercentStatString(self, stat : CombatStats) -> str:
         baseStatValue = self.entity.getStatValueFloat(stat)
@@ -103,7 +107,7 @@ Range: {self.getFullStatusStatString(CombatStats.RANGE)}, Crit Rate: {self.getFu
         if baseStatValue == totalStatValue:
             return f"{totalStatValue*100:.1f}%"
         else:
-            return f"{totalStatValue*100:.1f}% ({baseStatValue*100:.1f}%)"
+            return f"*{totalStatValue*100:.1f}%* ({baseStatValue*100:.1f}%)"
 
     """ Given that action timer fills at a rate speed ** 0.5, gets time until it reaches the maximum. """
     def getTimeToFullAction(self) -> float:
@@ -342,7 +346,11 @@ class CombatController(object):
 
         plural = "" if len(playerTeam) > 1 else "es"
         self.logMessage(MessageType.BASIC,
-                        f"*{makeTeamString(playerTeam)} approach{plural} {makeTeamString(opponentTeam)}.*\n**COMBAT START!**")
+                        f"*{makeTeamString(playerTeam)} approach{plural} {makeTeamString(opponentTeam)}.*")
+        for opponent in self.opponentTeam:
+            if len(opponent.encounterMessage) > 0:
+                self.logMessage(MessageType.DIALOGUE, opponent.encounterMessage)
+        self.logMessage(MessageType.BASIC, "**COMBAT START!**")
 
     def logMessage(self, messageType : MessageType, messageText : str):
         [log.addMessage(messageType, messageText) for log in self.loggers.values()]
@@ -378,6 +386,9 @@ class CombatController(object):
 
     def getFullStatusStringFor(self, target : CombatEntity) -> str:
         return self.combatStateMap[target].getFullStatusString()
+    
+    def getBuffStatusStringFor(self, target : CombatEntity) -> str:
+        return self.combatStateMap[target].getStackBuffString()
 
     def getTimeToFullAction(self, entity : CombatEntity) -> float:
         return self.combatStateMap[entity].getTimeToFullAction()
@@ -576,16 +587,16 @@ class CombatController(object):
             if not silent:
                 critString = " (Critical)" if isCritical else ""
                 self.logMessage(MessageType.DAMAGE_COMBAT,
-                            f"{defender.name} takes {originalHP - newHP} damage{critString}!")
+                            f"{defender.name} takes **{originalHP - newHP} damage{critString}**!")
             
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
                 assert(isinstance(effectFunction, EFOnStatsChange))
                 effectFunction.applyEffect(self, defender, {SpecialStats.CURRENT_HP: originalHP}, {SpecialStats.CURRENT_HP: newHP})
         
-        if newHP == 0:
+        if newHP == 0 and not silent:
             self.logMessage(MessageType.BASIC,
-                            f"{defender.name} is defeated!")
+                            f"**{defender.name} is defeated!**")
 
         return originalHP - self.combatStateMap[defender].currentHP
 
@@ -604,7 +615,7 @@ class CombatController(object):
             if not silent:
                 critString = " (Critical Heal)" if isCritical else ""
                 self.logMessage(MessageType.DAMAGE_COMBAT,
-                                f"{entity.name} restores {healthGained} health{critString}!")
+                                f"{entity.name} **restores {healthGained} health{critString}**!")
 
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
@@ -1166,7 +1177,7 @@ class CombatController(object):
         Should be called when it's a player's turn, unless they are stunned.
     """
     def beginPlayerTurn(self, player) -> None:
-        self.logMessage(MessageType.BASIC, f"--{player.name} turn!--")
+        self.logMessage(MessageType.BASIC, f"--__{player.name} turn!__--")
         self.combatStateMap[player].defendActive = False
         for effectFunction in self.combatStateMap[player].getEffectFunctions(EffectTimings.START_TURN):
             if isinstance(effectFunction, EFStartTurn):

@@ -18,16 +18,19 @@ class GameSession(object):
         self.isActive : bool = False
         self.currentEmbed : discord.Embed = discord.Embed()
         self.currentMessage : discord.Message | None = None
+        self.savedMention : str = ""
         self.currentMenu : InterfaceMenu = NEW_GAME_MENU
         self.currentView : InterfaceView = InterfaceView(self, self.currentMenu.pages, [], {})
 
         self.currentDungeon : DungeonController | None = None
         self.dungeonLoaded : asyncio.Event = asyncio.Event()
         self.unseenCombatLog : str = ""
+        self.defaultFormationDistance : int = DEFAULT_STARTING_DISTANCE
+        self.dungeonFailed : bool = False
 
     async def messageTimeout(self, view):
         if view == self.currentView:
-            print(f"{bot.get_user(self.userId)} message timeout")
+            print(f"{self.userId} message timeout")
             self.isActive = False
             if self.currentMessage is not None:
                 await self.currentMessage.edit(view=None)
@@ -46,10 +49,11 @@ class GameSession(object):
         if self.currentMessage is not None:
             clearOld = self.currentMessage.edit(view=None)
 
+        mentionString = self.savedMention
         oldView = self.currentView
         self.currentView = InterfaceView(self, self.currentMenu.pages, oldView.currentPageStack, oldView.pageData)
-        self.currentMessage = await channel.send(embed=self.currentEmbed, view=self.currentView)
-
+        self.currentMessage = await channel.send(mentionString, embed=self.currentEmbed, view=self.currentView)
+        
         if clearOld is not None:
             await clearOld
 
@@ -64,18 +68,35 @@ class GameSession(object):
         player = self.getPlayer()
         assert(player is not None)
 
-        self.unseenCombatLog = ""
-        self.dungeonLoaded.clear()
         self.currentDungeon = DungeonController(dungeonData, {player: DiscordDungeonInputHandler(player, self)},
-                                                {player: DEFAULT_STARTING_DISTANCE},
+                                                {player: self.defaultFormationDistance},
                                                 {player: DiscordMessageCollector(self)})
         
         asyncio.create_task(self.currentDungeon.runDungeon())
-        await self.currentDungeon.combatReadyFlag.wait()
+        await self.waitForCombatStart()
 
+    async def waitForCombatStart(self):
+        assert(self.currentDungeon is not None)
+
+        self.unseenCombatLog = ""
+        self.dungeonLoaded.clear()
+        await self.currentDungeon.combatReadyFlag.wait()
         # TODO: also load other party sessions, including loading flags
         await self.loadNewMenu(COMBAT_MENU)
+        self.dungeonFailed = False
         self.dungeonLoaded.set()
+
+    async def exitDungeon(self):
+        player = self.getPlayer()
+        assert(player is not None)
+        if self.currentDungeon is None:
+            return
+
+        self.currentDungeon.removePlayer(player)
+
+        self.currentDungeon = None
+        await self.loadNewMenu(MAIN_MENU)
+        self.dungeonFailed = False
 
     async def loadNewMenu(self, newMenu : InterfaceMenu):
         self.currentMenu = newMenu
@@ -192,6 +213,7 @@ async def new_character(ctx : commands.Context, character_name : str):
     else:
         gameSession = GameSession(userId, character_name)
         await ctx.send(f"Opening session for {ctx.author.display_name}...")
+        gameSession.savedMention = ctx.author.mention
         await gameSession.recreateEmbed(ctx.channel)
 @new_character.error
 async def new_character_error(ctx, error):
@@ -203,6 +225,7 @@ async def play(ctx : commands.Context):
     if userId in GLOBAL_STATE.accountDataMap:
         gameSession = GLOBAL_STATE.accountDataMap[userId].session
         await ctx.send(f"Opening session for {ctx.author.display_name}...")
+        gameSession.savedMention = ctx.author.mention
         await gameSession.recreateEmbed(ctx.channel)
     else:
         await ctx.send("You don't have a character yet! Use the 'new_character [character]' command first.")

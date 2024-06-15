@@ -58,6 +58,8 @@ class DungeonController(object):
         self.startingPlayerTeamDistances = startingPlayerTeamDistances
         self.loggers = loggers
 
+        self.playersToRemove : list[Player] = []
+
         self.combatReadyFlag = asyncio.Event()
 
         self.rng = Random()
@@ -90,7 +92,7 @@ class DungeonController(object):
 
             enemyHandlerMap : dict[CombatEntity, CombatInputHandler] = {enemy: EnemyInputHandler(enemy) for enemy in self.currentEnemyTeam}
             self.currentCombatInterface = CombatInterface(playerHandlerMap, enemyHandlerMap, {player : self.loggers[player] for player in self.loggers},
-                                                          self.currentHealth, self.currentMana)
+                                                          self.currentHealth, self.currentMana, self.startingPlayerTeamDistances)
             return self.currentCombatInterface
     
     def completeRoom(self) -> dict[Player, DungeonReward] | None:
@@ -124,10 +126,24 @@ class DungeonController(object):
             [rewards[player].addEnemyReward(self.dungeonData.getReward(self, player)) for player in self.playerTeamHandlers]
             return rewards
         
+    def removePlayer(self, player : Player):
+        if self.combatActive():
+            assert(self.currentCombatInterface is not None)
+            self.currentCombatInterface.removePlayer(player)
+            self.playersToRemove.append(player)
+        else:
+            handler = self.playerTeamHandlers.pop(player, None)
+            if handler is not None:
+                handler.onPlayerLeaveDungeon()
+
+        self.loggers.pop(player, None)
+        self.logMessage(MessageType.BASIC, f"{player.name} escaped from the dungeon.")
+        self.sendAllLatestMessages()
+        
     async def handleRewardsForPlayer(self, player : Player, reward : DungeonReward):
         levelUp, rankUp = player.gainExp(reward.exp)
         self.loggers[player].addMessage(
-            MessageType.BASIC, f"*Gained {reward.exp} EXP!*"
+            MessageType.BASIC, f"*Gained **{reward.exp} EXP!***"
         )
         if levelUp:
             self.loggers[player].addMessage(
@@ -144,10 +160,13 @@ class DungeonController(object):
         
         player.wup += reward.wup
         player.swup += reward.swup
-        swupString = f" and {reward.swup} SWUP" if reward.swup > 0 else ""
-        self.loggers[player].addMessage(
-            MessageType.BASIC, f"*Picked up {reward.wup} WUP{swupString}!*"
-        )
+        wupString = f"**{reward.wup} WUP**" if reward.wup > 0 else ""
+        swupString = f"**{reward.swup} SWUP**" if reward.swup > 0 else ""
+        andString = " and " if reward.wup > 0 and reward.swup > 0 else ""
+        if reward.wup > 0 or reward.swup > 0:
+            self.loggers[player].addMessage(
+                MessageType.BASIC, f"*Picked up {wupString}{andString}{swupString}!*"
+            )
 
         for equip in reward.equips:
             self.loggers[player].addMessage(
@@ -176,15 +195,24 @@ class DungeonController(object):
 
             await self.currentCombatInterface.runCombat(self.combatReadyFlag)
 
+            self.combatReadyFlag.clear()
+            for player in self.playersToRemove:
+                self.playerTeamHandlers.pop(player, None)
+            self.playersToRemove = []
+
             if not self.currentCombatInterface.cc.checkPlayerVictory():
+                confirmRetry = False
                 if self.dungeonData.allowRetryFights:
-                    checkRetries : list[int] = await asyncio.gather(*[handler.makeChoice(self, ["Retry Fight", "Give Up"])
+                    checkRetries : list[int] = await asyncio.gather(*[handler.waitDungeonRetryResponse(self)
                                                                       for handler in self.playerTeamHandlers.values()])
-                    if all([response == 0 for response in checkRetries]):
+                    if len(checkRetries) > 0 and all([response for response in checkRetries]):
+                        confirmRetry = True
                         self.doDungeonRestoration()
                         self.currentCombatInterface = None
-                    else:
-                        return False
+                if not confirmRetry:
+                    [handler.onDungeonFail() for handler in self.playerTeamHandlers.values()]
+                    self.sendAllLatestMessages()
+                    return False
                     
             else:
                 rewardMap = self.completeRoom()
@@ -198,10 +226,9 @@ class DungeonController(object):
         rewardMap = self.completeDungeon()
         assert(rewardMap is not None)
         await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
-        if self.currentRoom < self.totalRooms:
-            await asyncio.gather(*[self.playerTeamHandlers[player].waitReady(self) for player in self.playerTeamHandlers])
-
         self.sendAllLatestMessages()
+        [self.playerTeamHandlers[player].onDungeonComplete() for player in self.playerTeamHandlers]
+
         return True
 
 
@@ -227,6 +254,22 @@ class DungeonInputHandler(object):
 
     def makeCombatInputController(self):
         return self.combatInputControllerClass(self.player)
+    
+    def onPlayerLeaveDungeon(self):
+        raise NotImplementedError()
+    
+    def onDungeonComplete(self):
+        return True
+    
+    def onDungeonFail(self):
+        return True
+    
+    """
+        Promps the player to retry after a failed fight.
+        Returns whether or not the retry is accepted.
+    """
+    async def waitDungeonRetryResponse(self, dungeonController : DungeonController):
+        return True
 
     """
         Waits for the player to be ready for the dungeon rooms.
@@ -236,14 +279,6 @@ class DungeonInputHandler(object):
         # TODO
         # add a "waiting for allies" message before returning
         return True
-    
-    """
-        Allows the player to choose between a set of text options.
-        Returns the index of the selection.
-    """
-    async def makeChoice(self, dungeonController : DungeonController, options : list[str]):
-        # TODO: offer choice of options
-        return 0
     
     """
         Picks up a new equip; if inventory is full, gives the player the option to
