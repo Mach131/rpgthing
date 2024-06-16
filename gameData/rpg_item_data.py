@@ -11,4 +11,4 @@ def makeBeginnerWeapon(playerClass : BasePlayerClassNames):
     }[playerClass]
     weaponClassAttributes = weaponClassAttributeMap[weaponClass]
     return Weapon(weaponName, weaponClassAttributes.weaponType, weaponClassAttributes.baseStats, None,
-                  [luckTrait], 0, 0)
+                  [], 0, 0)

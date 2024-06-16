@@ -9,7 +9,7 @@ from structures.rpg_items import Item, Equipment, Weapon
 
 class CombatEntity(object):
     def __init__(self, name : str, level : int, passiveSkills : list[SkillData], activeSkills : list[SkillData],
-                 shortName : str = "", encounterMessage : str = "") -> None:
+                 shortName : str = "", encounterMessage : str = "", defeatMessage : str = "") -> None:
         self.name = name
         self.shortName = shortName if len(shortName) > 0 else self.name
         self.level = level
@@ -17,6 +17,7 @@ class CombatEntity(object):
         self.flatStatMod : dict[Stats, float] = {}
         self.multStatMod : dict[Stats, float] = {}
         self.encounterMessage = encounterMessage
+        self.defeatMessage = defeatMessage
 
         self.passiveBonusSkills : list[PassiveSkillData] = []
 
@@ -375,9 +376,9 @@ class Enemy(CombatEntity):
     def __init__(self, name : str, shortName : str, level : int, baseStats : dict[BaseStats, int],
                  bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float],
                  passiveSkills : list[SkillData], activeSkills : list[SkillData],
-                 encounterMessage : str, ai : EnemyAI,
+                 encounterMessage : str, defeatMessage : str, ai : EnemyAI,
                  rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
-        super().__init__(name, level, passiveSkills, activeSkills, shortName, encounterMessage)
+        super().__init__(name, level, passiveSkills, activeSkills, shortName, encounterMessage, defeatMessage)
         self.baseStats = baseStats
         self.flatStatMod = bonusFlatStats
         self.multStatMod = bonusMultStats

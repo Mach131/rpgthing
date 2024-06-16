@@ -577,6 +577,9 @@ STAT_POINTS_PER_LEVEL = 4
 class Milestones(Enum):
     TUTORIAL_COMPLETE = auto()
 
+MAX_USER_CHARACTERS = 4
+MAX_NAME_LENGTH = 15
+
 """ Logging """
 
 class MessageType(Enum):
@@ -598,4 +601,4 @@ class MessageType(Enum):
 
 COMBAT_LOG_FILE_PREFIX = "./tmp/combat_log_"
 STATE_FILE_PREFIX = "./saves/saveState_"
-BACKUP_INTERVAL_SECONDS = 60
+BACKUP_INTERVAL_SECONDS = 600

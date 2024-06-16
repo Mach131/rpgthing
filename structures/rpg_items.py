@@ -88,9 +88,11 @@ class Equipment(Item):
         mainLine =  f"{self.name}: {itemRarityStrings[self.rarity]} Rank {self.rank}\n"
         statLine = ", ".join([f"{statMap[stat]} {stat.name}" for stat in statMap]) + "\n"
         curseLine = "" if self.curse is None else f"Curse: {self.curse.getDescription(self.rarity, False)}\n"
-        traitLine = "Traits:\n- " + "\n- ".join([
-            trait.getDescription(self.rarity, i == 0 and self.curse is not None) for i, trait in enumerate(self.traits)
-        ])
+        traitLine = ""
+        if len(self.traits) > 0:
+            traitLine = "Traits:\n- " + "\n- ".join([
+                trait.getDescription(self.rarity, i == 0 and self.curse is not None) for i, trait in enumerate(self.traits)
+            ])
         return mainLine + statLine + curseLine + traitLine
 
     """ Re-creates the list of skills from traits. Any removal of existing skills should be handled before calling. """

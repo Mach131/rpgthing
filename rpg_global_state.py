@@ -22,6 +22,7 @@ class GlobalState(object):
 
         if userId in self.accountDataMap:
             self.accountDataMap[userId].allCharacters.append(player)
+            self.accountDataMap[userId].currentCharacter = player
         else:
             self.accountDataMap[userId] = AccountData(userId, player, session)
 

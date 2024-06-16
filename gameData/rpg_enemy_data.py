@@ -19,7 +19,7 @@ def basicDummy() -> Enemy:
         BaseStats.ATK: 1, BaseStats.DEF: 5, BaseStats.MAG: 1, BaseStats.RES: 5,
         BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 20
     }, {}, {}, [], [waitSkill("", 1)],
-    "You see a note on the training dummy...\n\"Practice the basics! Get in range of me, then Attack!\"",
+    "You see a note on the training dummy...\n\"Practice the basics! Get in range of me, then Attack!\"", "",
     EnemyAI({}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))
 
@@ -32,7 +32,7 @@ def skillfulDummy() -> Enemy:
         BaseStats.ATK: 1, BaseStats.DEF: 5, BaseStats.MAG: 1, BaseStats.RES: 5,
         BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 20
     }, {}, {}, [], [waitSkill("", 1)],
-    "You see a note on the training dummy...\n\"You've learned an Active Skill! Try it out now!\"",
+    "You see a note on the training dummy...\n\"You've learned an Active Skill! Try it out now!\"", "",
     EnemyAI({}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))
 
@@ -85,5 +85,6 @@ def trainingBoss() -> Enemy:
         CombatStats.REPOSITION_ACTION_TIME_MULT: 0.5
     }, [], [waitSkill("", 1), waitSkill("", 1.2), attackSkill],
     "Aqi: \"All warmed up now? Just gotta test you before sendin' you out!\"",
+    "Your form's lookin' good! Remember to check your class n' skills before tryin' the real thing!",
     EnemyAI({"aiIdx": 0, "target": None}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))

@@ -427,6 +427,9 @@ class CombatInterface(object):
         self.sendAllLatestMessages()
         if self.cc.checkPlayerVictory():
             self.cc.logMessage(MessageType.BASIC, f"**Your party is victorious!**\n")
+            for opponent in self.cc.opponentTeam:
+                if len(opponent.defeatMessage) > 0:
+                    self.cc.logMessage(MessageType.DIALOGUE, opponent.defeatMessage)
         else:
             self.cc.logMessage(MessageType.BASIC, f"**Your party is defeated...**\n")
         self.sendAllLatestMessages()

@@ -108,5 +108,4 @@ Todos:
 
 	- buff/stack display
 	
-	- persistence
 	- parties

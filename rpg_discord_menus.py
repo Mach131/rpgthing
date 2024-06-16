@@ -346,7 +346,8 @@ def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
 
     equippedSkillString = "*None Yet*" if len(equippedFreeSkillStrings) == 0 else '\n'.join(equippedFreeSkillStrings)
     availableSkillString = "*None Yet*" if len(availableFreeSkillStrings) == 0 else '\n'.join(availableFreeSkillStrings)
-    embed.add_field(name="__Equipped Free Skills:__", value=equippedSkillString, inline=False)
+    embed.add_field(name=f"__Equipped Free Skills ({len(equippedFreeSkills)}/{MAX_FREE_SKILLS}):__",
+                    value=equippedSkillString, inline=False)
     embed.add_field(name="__Unlocked Free Skills:__", value=availableSkillString, inline=False)
 
     if SCROLL_IDX not in view.pageData:
