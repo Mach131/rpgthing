@@ -166,3 +166,5 @@ cython_debug/
 *.sublime-workspace
 
 secret.txt
+saves/
+tmp/

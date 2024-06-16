@@ -61,6 +61,8 @@ class DungeonController(object):
         self.playersToRemove : list[Player] = []
 
         self.combatReadyFlag = asyncio.Event()
+        self.waitingForReady = False
+        self.waitingForRetry = False
 
         self.rng = Random()
         self.currentRoom = 0
@@ -180,47 +182,75 @@ class DungeonController(object):
         )
         self.sendAllLatestMessages()
 
+    async def _processRetry(self) -> bool:
+        confirmRetry = False
+        self.waitingForRetry = True
+        if self.dungeonData.allowRetryFights:
+            checkRetries : list[int] = await asyncio.gather(*[handler.waitDungeonRetryResponse(self)
+                                                            for handler in self.playerTeamHandlers.values()])
+            if len(checkRetries) > 0 and all([response for response in checkRetries]):
+                confirmRetry = True
+                self.doDungeonRestoration()
+                self.currentCombatInterface = None
+
+        self.waitingForRetry = False
+        if confirmRetry:
+            return True
+        else:
+            [handler.onDungeonFail() for handler in self.playerTeamHandlers.values()]
+            self.sendAllLatestMessages()
+            return False
+        
+    async def _processReady(self):
+        self.waitingForReady = True
+        await asyncio.gather(*[self.playerTeamHandlers[player].waitReady(self) for player in self.playerTeamHandlers])
+        self.waitingForReady = False
+
+    def loadCheckWaiting(self):
+        return self.waitingForReady or self.waitingForRetry
         
     """
         Returns true if the run is successful.
     """
-    async def runDungeon(self) -> bool:
-        plural = "s" if len(self.playerTeamHandlers) == 1 else ""
-        self.logMessage(MessageType.BASIC,
-                        f"*{makeTeamString([player for player in self.playerTeamHandlers])} enter{plural} {self.dungeonData.dungeonName}...*\n")
-        
+    async def runDungeon(self, reload : bool) -> bool:
+        if not reload:
+            plural = "s" if len(self.playerTeamHandlers) == 1 else ""
+            self.logMessage(MessageType.BASIC,
+                            f"*{makeTeamString([player for player in self.playerTeamHandlers])} enter{plural} {self.dungeonData.dungeonName}...*\n")
+
         while self.currentRoom < self.totalRooms:
-            combatInterface = self.beginRoom()
-            assert (self.currentCombatInterface is not None)
+            if not self.loadCheckWaiting():
+                if reload:
+                    self.currentCombatInterface = None
 
-            await self.currentCombatInterface.runCombat(self.combatReadyFlag)
+                self.beginRoom()
+                assert (self.currentCombatInterface is not None)
 
-            self.combatReadyFlag.clear()
-            for player in self.playersToRemove:
-                self.playerTeamHandlers.pop(player, None)
-            self.playersToRemove = []
+                await self.currentCombatInterface.runCombat(self.combatReadyFlag)
 
-            if not self.currentCombatInterface.cc.checkPlayerVictory():
-                confirmRetry = False
-                if self.dungeonData.allowRetryFights:
-                    checkRetries : list[int] = await asyncio.gather(*[handler.waitDungeonRetryResponse(self)
-                                                                      for handler in self.playerTeamHandlers.values()])
-                    if len(checkRetries) > 0 and all([response for response in checkRetries]):
-                        confirmRetry = True
-                        self.doDungeonRestoration()
-                        self.currentCombatInterface = None
-                if not confirmRetry:
-                    [handler.onDungeonFail() for handler in self.playerTeamHandlers.values()]
-                    self.sendAllLatestMessages()
-                    return False
-                    
+                self.combatReadyFlag.clear()
+                for player in self.playersToRemove:
+                    self.playerTeamHandlers.pop(player, None)
+                self.playersToRemove = []
+
+                if not self.currentCombatInterface.cc.checkPlayerVictory():
+                    if not (await self._processRetry()):
+                        return False
+                else:
+                    rewardMap = self.completeRoom()
+                    assert(rewardMap is not None)
+                    await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
+                    if self.currentRoom < self.totalRooms:
+                        await self._processReady()
             else:
-                rewardMap = self.completeRoom()
-                assert(rewardMap is not None)
-                await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
-                if self.currentRoom < self.totalRooms:
-                    await asyncio.gather(*[self.playerTeamHandlers[player].waitReady(self) for player in self.playerTeamHandlers])
-        
+                # Attempt to handle interruptions between rooms
+                assert(reload)
+                if self.waitingForRetry:
+                    if not (await self._processRetry()):
+                        return False
+                else:
+                    await self._processReady()
+
         self.logMessage(MessageType.BASIC,
                         f"**{makeTeamString([player for player in self.playerTeamHandlers])} cleared {self.dungeonData.dungeonName}!**\n")
         rewardMap = self.completeDungeon()

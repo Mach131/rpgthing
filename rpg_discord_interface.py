@@ -1,6 +1,8 @@
 from __future__ import annotations
+import dill as pickle
+import traceback
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from rpg_consts import *
 from rpg_discord_menus import *
@@ -27,6 +29,38 @@ class GameSession(object):
         self.unseenCombatLog : str = ""
         self.defaultFormationDistance : int = DEFAULT_STARTING_DISTANCE
         self.dungeonFailed : bool = False
+
+    """ Returns values to be pickled """
+    def __getstate__(self):
+        return (self.userId, self.newCharacterName, self.savedMention, self.defaultFormationDistance)
+    
+    """ Restore state from unpickled values """
+    def __setstate__(self, state):
+        self.userId, self.newCharacterName, self.savedMention, self.defaultFormationDistance = state
+        GameSession.restoreUnpickledState(self)
+        
+    @staticmethod
+    def restoreUnpickledState(session : GameSession):
+        session.isActive = False
+        session.currentEmbed = discord.Embed()
+        session.currentMessage = None
+        session.currentView = InterfaceView(session, NEW_GAME_MENU.pages, [], {})
+        session.currentMenu = MAIN_MENU
+        session.currentView.availablePages = session.currentMenu.pages
+        session.currentDungeon = None
+        session.dungeonLoaded = asyncio.Event()
+        session.unseenCombatLog = ""
+        session.dungeonFailed = False
+        
+    def onLoadReset(self):
+        # Originally had support for re-loading dungeons here, but too hard to figure out pickling at the moment
+        
+        # if self.currentDungeon is not None:
+        #     # TODO: only the first person in a party this is called for needs to do this
+        #     asyncio.create_task(self.currentDungeon.runDungeon(True))
+        #     if not self.currentDungeon.loadCheckWaiting():
+        #         asyncio.create_task(self.waitForCombatStart())
+        pass
 
     async def messageTimeout(self, view):
         if view == self.currentView:
@@ -72,7 +106,7 @@ class GameSession(object):
                                                 {player: self.defaultFormationDistance},
                                                 {player: DiscordMessageCollector(self)})
         
-        asyncio.create_task(self.currentDungeon.runDungeon())
+        asyncio.create_task(self.currentDungeon.runDungeon(False))
         await self.waitForCombatStart()
 
     async def waitForCombatStart(self):
@@ -202,33 +236,58 @@ bot = commands.Bot(command_prefix='ch.', intents=intents)
 
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
     print(f'Logged in as {bot.user}.')
+    GLOBAL_STATE.loadState()
+    saveLoop.start()
+
+@tasks.loop(seconds = BACKUP_INTERVAL_SECONDS)
+async def saveLoop():
+    if GLOBAL_STATE.loaded:
+        if GLOBAL_STATE.firstSave:
+            try:
+                GLOBAL_STATE.saveState()
+            except TypeError:
+                print(traceback.format_exc())
+                print("failed to save")
+            except pickle.PicklingError:
+                print(traceback.format_exc())
+                print("failed to save")
+        else:
+            GLOBAL_STATE.firstSave = True
+
+async def respondNotLoaded(ctx : commands.Context):
+    await ctx.send(f"Sorry, still setting up; please wait a moment and try again.")
 
 @bot.hybrid_command()
 async def new_character(ctx : commands.Context, character_name : str):
-    userId = ctx.author.id
-    if userId in GLOBAL_STATE.accountDataMap:
-        await ctx.send("You already have a character [support for more characters coming soon]! Use the 'play' command instead.")
+    if GLOBAL_STATE.loaded:
+        userId = ctx.author.id
+        if userId in GLOBAL_STATE.accountDataMap:
+            await ctx.send("You already have a character [support for more characters coming soon]! Use the 'play' command instead.")
+        else:
+            gameSession = GameSession(userId, character_name)
+            await ctx.send(f"Opening session for {ctx.author.display_name}...")
+            gameSession.savedMention = ctx.author.mention
+            await gameSession.recreateEmbed(ctx.channel)
     else:
-        gameSession = GameSession(userId, character_name)
-        await ctx.send(f"Opening session for {ctx.author.display_name}...")
-        gameSession.savedMention = ctx.author.mention
-        await gameSession.recreateEmbed(ctx.channel)
+        await respondNotLoaded(ctx)
 @new_character.error
-async def new_character_error(ctx, error):
+async def new_character_error(ctx, error : Exception):
     await ctx.send("Add a character name using 'new_character [name]'!")
 
 @bot.hybrid_command()
 async def play(ctx : commands.Context):
-    userId = ctx.author.id
-    if userId in GLOBAL_STATE.accountDataMap:
-        gameSession = GLOBAL_STATE.accountDataMap[userId].session
-        await ctx.send(f"Opening session for {ctx.author.display_name}...")
-        gameSession.savedMention = ctx.author.mention
-        await gameSession.recreateEmbed(ctx.channel)
+    if GLOBAL_STATE.loaded:
+        userId = ctx.author.id
+        if userId in GLOBAL_STATE.accountDataMap:
+            gameSession = GLOBAL_STATE.accountDataMap[userId].session
+            await ctx.send(f"Opening session for {ctx.author.display_name}...")
+            gameSession.savedMention = ctx.author.mention
+            await gameSession.recreateEmbed(ctx.channel)
+        else:
+            await ctx.send("You don't have a character yet! Use the 'new_character [character]' command first.")
     else:
-        await ctx.send("You don't have a character yet! Use the 'new_character [character]' command first.")
+        await respondNotLoaded(ctx)
 
 @bot.hybrid_command()
 async def sync(ctx : commands.Context):

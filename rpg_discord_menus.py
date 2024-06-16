@@ -128,6 +128,8 @@ DUNGEON_SUBPAGE = 'dungeonSubpage'
 #### New Character
 
 def newCharacterContent(session : GameSession, view : InterfaceView):
+    showReminder = view.pageData.get("showReminder", False)
+
     classSelector = discord.ui.Select(placeholder="Class", options=[
         discord.SelectOption(label="Warrior", value="WARRIOR", description="Strike opponents face-on!"),
         discord.SelectOption(label="Ranger", value="RANGER", description="Attack safely from afar!"),
@@ -141,9 +143,16 @@ def newCharacterContent(session : GameSession, view : InterfaceView):
     submitButton.callback = lambda interaction: submitNewCharacter(interaction, session, classSelector)
     view.add_item(submitButton)
 
-    description = f"Creating a new character: {session.newCharacterName}\n"
-    description += "Choose a class below to start!"
-    return discord.Embed(title="Welcome to Chatanquest!", description=description)
+    embed = discord.Embed(title="Welcome to Chatanquest!", description=f"Creating a new character: {session.newCharacterName}\n")
+    description = "This is a simple RPG where you can clear dungeons with friends. The classic " + \
+        "'beat enemies to get items to beat stronger enemies' kind of thing.\n" + \
+        "Choose a class below to start!"
+    embed.add_field(name="", value=description, inline=False)
+    
+    if showReminder:
+        embed.add_field(name="", value="(Remember to select a class!)", inline=False)
+
+    return embed
 async def submitNewCharacter(interaction : discord.Interaction, session : GameSession, classSelector : discord.ui.Select):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
@@ -154,8 +163,8 @@ async def submitNewCharacter(interaction : discord.Interaction, session : GameSe
         GLOBAL_STATE.registerNewCharacter(interaction.user.id, session.newCharacterName, chosenClass, session)
         await session.loadNewMenu(MAIN_MENU)
     except IndexError:
-        if session.currentMessage:
-            await session.currentMessage.edit(content="(Remember to select a class!)")
+        session.currentView.pageData['showReminder'] = True
+        await session.currentView.refresh()
 NEW_CHARACTER_PAGE = InterfacePage("hello", discord.ButtonStyle.secondary, [],
                                    newCharacterContent,
                                    lambda session: False,
@@ -1004,9 +1013,8 @@ async def sendCombatLogFn(interaction : discord.Interaction, session : GameSessi
     assert(session.currentMessage is not None)
 
     combatLogFile = f"{COMBAT_LOG_FILE_PREFIX}{session.userId}_{int(datetime.now().timestamp())}.txt"
-    tmp = open(combatLogFile, "w")
-    tmp.write(messageString)
-    tmp.close()
+    with open(combatLogFile, "w") as tmp:
+        tmp.write(messageString)
 
     channel = session.currentMessage.channel
     mentionString = session.savedMention

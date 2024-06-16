@@ -19,7 +19,8 @@ async def simpleCombatSimulation(team1 : list[Player], team2 : list[Player], bot
     loggers : dict[CombatEntity, MessageCollector] = {player : MessageCollector() for player in team1}
     loggers[team1[0]] = mainLogger
     ci = CombatInterface({player: RandomEntityInputHandler(player, sleepTime) if bothRandom else LocalPlayerInputHandler(player) for player in team1},
-                         {opponent: RandomEntityInputHandler(opponent, sleepTime) for opponent in team2}, loggers, {}, {})
+                         {opponent: RandomEntityInputHandler(opponent, sleepTime) for opponent in team2}, loggers, {}, {},
+                         {player : 2 for player in team1})
 
     await ci.runCombat()
 
@@ -28,7 +29,8 @@ async def betterCombatSimulation(players : list[Player], enemies : list[Enemy]) 
     loggers : dict[CombatEntity, MessageCollector] = {player : MessageCollector() for player in players}
     loggers[players[0]] = mainLogger
     ci = CombatInterface({player: LocalPlayerInputHandler(player) for player in players},
-                         {opponent: EnemyInputHandler(opponent) for opponent in enemies}, loggers, {}, {})
+                         {opponent: EnemyInputHandler(opponent) for opponent in enemies}, loggers, {}, {},
+                         {player : 2 for player in players})
 
     await ci.runCombat()
 
@@ -53,7 +55,7 @@ if __name__ == '__main__':
                                           {player: DungeonInputHandler(player, LocalPlayerInputHandler)},
                                           {player: DEFAULT_STARTING_DISTANCE},
                                           {player: LocalMessageCollector()})
-    asyncio.run(dungeonController.runDungeon())
+    asyncio.run(dungeonController.runDungeon(False))
 
     while True:
         inp = input("> ")
