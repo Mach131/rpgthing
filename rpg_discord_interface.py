@@ -30,6 +30,7 @@ class GameSession(object):
         self.unseenCombatLog : str = ""
         self.defaultFormationDistance : int = DEFAULT_STARTING_DISTANCE
         self.dungeonFailed : bool = False
+        self.currentParty : PartyInfo | None = None
 
     """ Returns values to be pickled """
     def __getstate__(self):
@@ -53,6 +54,7 @@ class GameSession(object):
         session.dungeonLoaded = asyncio.Event()
         session.unseenCombatLog = ""
         session.dungeonFailed = False
+        session.currentParty = None
         
     def onLoadReset(self):
         # Originally had support for re-loading dungeons here, but too hard to figure out pickling at the moment
@@ -99,17 +101,27 @@ class GameSession(object):
             return accountData.currentCharacter
 
     async def enterDungeon(self, dungeonData : DungeonData):
-        # TODO: the party leader calling this should set the same dungeonController for teammates, including making handlers & stuff
-        # TODO: formations -> starting distances
         player = self.getPlayer()
         assert(player is not None)
+        sessionPlayerMap : dict[GameSession, Player] = {self: player} if self.currentParty is None else self.currentParty.getSessionPlayerMap()
 
-        self.currentDungeon = DungeonController(dungeonData, {player: DiscordDungeonInputHandler(player, self)},
-                                                {player: self.defaultFormationDistance},
-                                                {player: DiscordMessageCollector(self)})
-        
+        inputHandlerMap : dict[Player, DungeonInputHandler] = {
+            sessionPlayerMap[session]: DiscordDungeonInputHandler(sessionPlayerMap[session], session) for session in sessionPlayerMap}
+        startingDistanceMap : dict[CombatEntity, int] = {
+            sessionPlayerMap[session]: session.defaultFormationDistance for session in sessionPlayerMap}
+        loggerMap : dict[Player, MessageCollector] = {
+            sessionPlayerMap[session]: DiscordMessageCollector(session) for session in sessionPlayerMap}
+
+        newDungeon = DungeonController(dungeonData, inputHandlerMap, startingDistanceMap, loggerMap)
+        if self.currentParty is not None:
+            for session in self.currentParty.allSessions:
+                session.currentDungeon = newDungeon
+        else:
+            self.currentDungeon = newDungeon
+
+        assert(self.currentDungeon is not None)
         asyncio.create_task(self.currentDungeon.runDungeon(False))
-        await self.waitForCombatStart()
+        [await session.waitForCombatStart() for session in sessionPlayerMap]
 
     async def waitForCombatStart(self):
         assert(self.currentDungeon is not None)
@@ -117,7 +129,7 @@ class GameSession(object):
         self.unseenCombatLog = ""
         self.dungeonLoaded.clear()
         await self.currentDungeon.combatReadyFlag.wait()
-        # TODO: also load other party sessions, including loading flags
+        # TODO: also load other party sessions, including loading flags (is this needed?)
         await self.loadNewMenu(COMBAT_MENU)
         self.dungeonFailed = False
         self.dungeonLoaded.set()
@@ -129,6 +141,8 @@ class GameSession(object):
             return
 
         self.currentDungeon.removePlayer(player)
+        if self.currentParty is not None:
+            self.currentParty.leaveParty(self)
 
         self.currentDungeon = None
         await self.loadNewMenu(MAIN_MENU)
@@ -139,8 +153,13 @@ class GameSession(object):
         await self.currentView.loadPages(newMenu.pages)
 
     def safeToSwitch(self):
-        # TODO: also check if in party
-        return self.currentDungeon is None
+        return self.currentDungeon is None and self.currentParty is None
+    
+    def getPartySessions(self):
+        if self.currentParty is None:
+            return [self]
+        else:
+            return self.currentParty.allSessions
 
 class InterfaceView(discord.ui.View):
     def __init__(self, session : GameSession, availablePages : list[InterfacePage],
@@ -238,10 +257,12 @@ class InterfaceView(discord.ui.View):
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 bot = commands.Bot(command_prefix='ch.', intents=intents)
 
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     print(f'Logged in as {bot.user}.')
     GLOBAL_STATE.loadState()
     saveLoop.start()
@@ -315,12 +336,12 @@ async def select_character(ctx : commands.Context, target_character : str):
             charList = accountData.allCharacters
             chosenCharacter = None
             if target_character.isdigit():
-                chosenCharacter = charList[int(target_character)]
+                chosenCharacter = charList[int(target_character) - 1]
             else:
                 for character in charList:
                     if character.name.lower() == target_character.lower():
                         chosenCharacter = character
-                        
+
             if chosenCharacter is None:
                 raise KeyError
             elif chosenCharacter != accountData.currentCharacter:

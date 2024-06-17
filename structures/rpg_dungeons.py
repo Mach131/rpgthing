@@ -32,6 +32,9 @@ class DungeonData(object):
     def getReward(self, controller : DungeonController, player : CombatEntity):
         return self.rewardFn(controller, player)
     
+    def meetsRequirements(self, player : Player) -> bool:
+        return len(self.milestoneRequirements.intersection(player.milestones)) == len(self.milestoneRequirements)
+    
 class DungeonRoomData(object):
     def __init__(self, enemyGroupWeights : list[tuple[list[Callable[[], Enemy]], int]]):
         self.enemyGroups = [egw[0] for egw in enemyGroupWeights]
@@ -61,6 +64,7 @@ class DungeonController(object):
         self.playersToRemove : list[Player] = []
 
         self.combatReadyFlag = asyncio.Event()
+        self.combatIsActive = False
         self.waitingForReady = False
         self.waitingForRetry = False
 
@@ -79,7 +83,7 @@ class DungeonController(object):
         [log.addMessage(messageType, messageText) for log in self.loggers.values()]
 
     def combatActive(self) -> bool:
-        return self.currentCombatInterface is not None
+        return self.combatIsActive
 
     def beginRoom(self) -> CombatInterface | None:
         if self.currentRoom < self.totalRooms and self.currentCombatInterface is None:
@@ -184,16 +188,18 @@ class DungeonController(object):
 
     async def _processRetry(self) -> bool:
         confirmRetry = False
-        self.waitingForRetry = True
         if self.dungeonData.allowRetryFights:
+            self.waitingForRetry = True
             checkRetries : list[int] = await asyncio.gather(*[handler.waitDungeonRetryResponse(self)
                                                             for handler in self.playerTeamHandlers.values()])
-            if len(checkRetries) > 0 and all([response for response in checkRetries]):
+            self.waitingForRetry = False
+            # Previously wanted to end run if anyone declined to retry
+            # Now just continues with remaining party members if anyone leaves
+            if len(checkRetries) > 0: # and all([response for response in checkRetries]):
                 confirmRetry = True
                 self.doDungeonRestoration()
                 self.currentCombatInterface = None
 
-        self.waitingForRetry = False
         if confirmRetry:
             return True
         else:
@@ -226,7 +232,9 @@ class DungeonController(object):
                 self.beginRoom()
                 assert (self.currentCombatInterface is not None)
 
+                self.combatIsActive = True
                 await self.currentCombatInterface.runCombat(self.combatReadyFlag)
+                self.combatIsActive = False
 
                 self.combatReadyFlag.clear()
                 for player in self.playersToRemove:

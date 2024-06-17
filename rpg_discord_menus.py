@@ -89,6 +89,43 @@ class InterfaceConfirmation(object):
             return
         await view.respondConfirm(didConfirm)
 
+class PartyInfo(object):
+    def __init__(self, creatorSession : GameSession, dungeonData : DungeonData):
+        self.creatorSession = creatorSession
+        self.allSessions : list[GameSession] = [creatorSession]
+        self.dungeonData = dungeonData
+        self.maxPartySize = dungeonData.maxPartySize
+
+    """ Returns True if the session was successfully added """
+    def joinParty(self, newSession : GameSession) -> bool:
+        if newSession in self.allSessions:
+            return False
+        if len(self.allSessions) < self.maxPartySize:
+            newSession.currentParty = self
+            self.allSessions.append(newSession)
+            return True
+        return False
+    
+    """ Returns True if the party is now empty """
+    def leaveParty(self, session : GameSession) -> bool:
+        if session not in self.allSessions:
+            return len(self.allSessions) == 0
+        self.allSessions.remove(session)
+        session.currentParty = None
+        if len(self.allSessions) == 0:
+            return True
+        elif self.creatorSession == session:
+            self.creatorSession = self.allSessions[0]
+        return False
+    
+    def getSessionPlayerMap(self) -> dict[GameSession, Player]:
+        result : dict[GameSession, Player] = {}
+        for session in self.allSessions:
+            player = session.getPlayer()
+            assert (player is not None)
+            result[session] = player
+        return result
+    
 async def changePageCallback(session : GameSession, page : InterfacePage, interaction : discord.Interaction):
     await interaction.response.defer()
     await session.currentView.setPage(page)
@@ -96,21 +133,21 @@ async def changePageCallback(session : GameSession, page : InterfacePage, intera
 async def scrollCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, amount : int, bounds : int):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     oldIdx = view.pageData.get(SCROLL_IDX, 0)
     await view.updateData(SCROLL_IDX, (oldIdx + amount) % (bounds + 1))
 
 async def updateDataCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, key : str, val):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     await view.updateData(key, val)
 
 async def updateDataMapCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView,
                                   mapKey : str, key : str, val):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     mapVal = view.pageData.get(mapKey, {})
     mapVal[key] = val
     await view.updateData(mapKey, mapVal)
@@ -124,6 +161,7 @@ ACTION_CHOICE = 'actionChoice'
 ACTION_CHOICE_DATA = 'actionChoiceData'
 DETAIL_FOCUS = 'detailFocus'
 DUNGEON_SUBPAGE = 'dungeonSubpage'
+PARTY_UPDATE = 'partyUpdate'
 
 #### New Character
 
@@ -131,10 +169,8 @@ def newCharacterContent(session : GameSession, view : InterfaceView):
     showReminder = view.pageData.get("showReminder", False)
 
     classSelector = discord.ui.Select(placeholder="Class", options=[
-        discord.SelectOption(label="Warrior", value="WARRIOR", description="Strike opponents face-on!"),
-        discord.SelectOption(label="Ranger", value="RANGER", description="Attack safely from afar!"),
-        discord.SelectOption(label="Rogue", value="ROGUE", description="Dance around enemy attacks!"),
-        discord.SelectOption(label="Mage", value="MAGE", description="Provide arcane support!")
+        discord.SelectOption(label=f"{bc.name[0]}{bc.name[1:].lower()}", value=bc.name, description=CLASS_DESCRIPTION[bc])
+        for bc in BasePlayerClassNames
     ])
     classSelector.callback = lambda interaction: interaction.response.defer() if interaction.user.id == session.userId else asyncio.sleep(0)
     view.add_item(classSelector)
@@ -156,7 +192,7 @@ def newCharacterContent(session : GameSession, view : InterfaceView):
 async def submitNewCharacter(interaction : discord.Interaction, session : GameSession, classSelector : discord.ui.Select):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     try:
         chosenClass = BasePlayerClassNames[classSelector.values[0]]
         assert(session.newCharacterName is not None)
@@ -225,7 +261,7 @@ def characterStatsContent(session : GameSession, view : InterfaceView):
 async def statIncreaseButton(interaction : discord.Interaction, session : GameSession, player : Player, stat : BaseStats, reset : bool):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     if reset:
         player.resetStatPoints()
     else:
@@ -274,7 +310,7 @@ def characterClassesContent(session : GameSession, view : InterfaceView):
 async def changeClassButton(interaction : discord.Interaction, session : GameSession, player : Player, newClass : PlayerClassNames):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     player.changeClass(newClass)
     await session.currentView.refresh()
 CHARACTER_CLASSES_SUBPAGE = InterfacePage("Classes", discord.ButtonStyle.secondary, [],
@@ -392,7 +428,7 @@ async def toggleFreeSkillButton(interaction : discord.Interaction, session : Gam
                                 skill : SkillData, equip : bool):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     if equip:
         player.addFreeSkill(skill.playerClass, skill.rank)
     else:
@@ -482,13 +518,13 @@ def equipMainContentFn(session : GameSession, view : InterfaceView):
 async def equipCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player, item : Equipment):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     player.equipItem(item)
     await view.refresh()
 async def dropEquipCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player, item : Equipment):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     await view.requestConfirm(InterfaceConfirmation(
         f"Are you sure you want to drop {item.name}? You cannot get it back.", "Drop Item", "Cancel", "dropItem"))
 EQUIPMENT_PAGE = InterfacePage("Equipment", discord.ButtonStyle.secondary, [],
@@ -502,7 +538,9 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
     embed = discord.Embed(title="Dungeons", description="Select a dungeon to enter/view details")
 
     focusDungeon : DungeonData | None = view.pageData.get('focusDungeon', None)
-    dungeonSubapge : str = view.pageData.get(DUNGEON_SUBPAGE, '')
+    if session.currentParty is not None:
+        focusDungeon = session.currentParty.dungeonData
+    dungeonSubpage : str = view.pageData.get(DUNGEON_SUBPAGE, '')
 
     if focusDungeon is None:
         view.pageData[DUNGEON_SUBPAGE] = ''
@@ -513,8 +551,7 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
         scrollWindowMin = view.pageData[SCROLL_IDX] * window_size
         scrollWindowMax = scrollWindowMin + window_size
         dungeonStrings = []
-        availableDungeons = [dungeon for dungeon in DungeonData.registeredDungeons
-                            if len(dungeon.milestoneRequirements.intersection(player.milestones)) == len(dungeon.milestoneRequirements)]
+        availableDungeons = [dungeon for dungeon in DungeonData.registeredDungeons if dungeon.meetsRequirements(player)]
         for i in range(scrollWindowMin, scrollWindowMax):
             if i >= len(availableDungeons):
                 break
@@ -543,33 +580,119 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
         if focusDungeon.allowRetryFights:
             dungeonString += " \\|| Can retry fights"
         dungeonString += f"\nRewards: {focusDungeon.rewardDescription}"
-        embed.add_field(name=f"Selected Dungeon: {focusDungeon.dungeonName}", value=dungeonString)
+        embed.add_field(name=f"Selected Dungeon: {focusDungeon.dungeonName}", value=dungeonString, inline=False)
+
+        partyUpdate = view.pageData.get(PARTY_UPDATE, '')
+        if len(partyUpdate) > 0:
+            embed.add_field(name="Party Updated", value=partyUpdate, inline=False)
 
         enterButton = discord.ui.Button(label="Enter (Solo)", style=discord.ButtonStyle.green, row=2)
         enterButton.callback = lambda interaction: enterDungeonFn(interaction, session, focusDungeon)
         view.add_item(enterButton)
 
+        # Party handling
+        inviteToPartyButton = discord.ui.Button(label="Invite Players", style=discord.ButtonStyle.blurple, row=3, disabled=True)
+        inviteToPartyButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, DUNGEON_SUBPAGE, 'invite')
+        view.add_item(inviteToPartyButton)
+
+        if session.currentParty is None:
+            makePartyButton = discord.ui.Button(label="Make Party", style=discord.ButtonStyle.blurple, row=2)
+            makePartyButton.callback = lambda interaction: makePartyFn(interaction, session, view, focusDungeon)
+            if focusDungeon.maxPartySize <= 1:
+                makePartyButton.disabled = True
+            view.add_item(makePartyButton)
+        else:
+            leavePartyButton = discord.ui.Button(label="Leave Party", style=discord.ButtonStyle.red, row=2)
+            leavePartyButton.callback = lambda interaction: leavePartyFn(interaction, session, view)
+            view.add_item(leavePartyButton)
+
+            if session.currentParty.creatorSession == session:
+                enterButton.label = "Enter (Party)"
+                if len(session.currentParty.allSessions) < focusDungeon.maxPartySize:
+                    inviteToPartyButton.disabled = False
+            else:
+                enterButton.label = "Waiting for Leader"
+                enterButton.disabled = True
+
+
         formationButton = discord.ui.Button(label="Formation", style=discord.ButtonStyle.blurple, row=3,
                                             disabled=player.level <= 1)
         formationButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, DUNGEON_SUBPAGE, 'formation')
-        if dungeonSubapge == 'formation':
+        view.add_item(formationButton)
+
+        # Subpages
+        if dungeonSubpage == 'formation':
             formationButton.disabled = True
-            # TODO: include party member starting positions
-            penaltyString = " (initiative penalty)" if session.defaultFormationDistance != DEFAULT_STARTING_DISTANCE else ""
-            startingPositionString = f"**{player.name}**: {session.defaultFormationDistance}{penaltyString}"
+
+            startingPositionStrings = []
+            for partySession in session.getPartySessions():
+                partyPlayer = partySession.getPlayer()
+                assert partyPlayer is not None
+                penaltyString = " (initiative penalty)" if partySession.defaultFormationDistance != DEFAULT_STARTING_DISTANCE else ""
+                startingPositionStrings.append(f"**{partyPlayer.name}**: {partySession.defaultFormationDistance}{penaltyString}")
+            startingPositionString = '\n'.join(startingPositionStrings)
+
             embed.add_field(name="Starting Positions",
                             value=f"You can change the distance at which you start from enemies (default is {DEFAULT_STARTING_DISTANCE}), " +
                             "but doing so will often cause you to lose initiative. Coordinate with teammates to find a balance!\n\n" +
-                            f"__Starting Distances:__\n{startingPositionString}")
+                            f"__Starting Distances:__\n{startingPositionString}", inline=False)
             
             for dist in [1, 2, 3]:
                 distButton = discord.ui.Button(label=f"Start Dist. {dist}", style=discord.ButtonStyle.blurple,
                                                disabled=session.defaultFormationDistance==dist)
                 distButton.callback = (lambda _i: (lambda interaction: updateFormationFn(interaction, session, view, player, _i)))(dist)
                 view.add_item(distButton)
-        view.add_item(formationButton)
 
-        returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
+        if dungeonSubpage == 'invite':
+            inviteToPartyButton.disabled = True
+            assert(session.currentParty is not None)
+
+            embed.add_field(name='Invite Players',
+                            value="You can use the dropdown below to add available players to your party, or you can " +
+                            "use the 'invite [user]' command to invite a player by their discord username. Everyone in " +
+                            "the party will enter the dungeon when you press Enter (Party).", inline=False)
+            
+            foundPlayers : list[Player] = []
+            sessionList : list[GameSession] = []
+            if session.currentMessage is not None:
+                messageGuild = session.currentMessage.guild
+                if messageGuild is not None:
+                    messageMemberIds = [member.id for member in messageGuild.members]
+                    registeredMemberIds = [memberId for memberId in messageMemberIds if memberId in GLOBAL_STATE.accountDataMap]
+                    for memberId in registeredMemberIds:
+                        memberSession = GLOBAL_STATE.accountDataMap[memberId].session
+                        if memberSession in session.currentParty.allSessions:
+                            continue
+                        sessionPlayer = memberSession.getPlayer()
+                        if sessionPlayer is not None and focusDungeon.meetsRequirements(sessionPlayer) and memberSession.safeToSwitch():
+                            foundPlayers.append(sessionPlayer)
+                            sessionList.append(memberSession)
+            inviteOptions = [
+                discord.SelectOption(label=foundPlayer.name, value=str(idx),
+                                     description=f"Level {foundPlayer.level} {foundPlayer.currentPlayerClass.name[0]+foundPlayer.currentPlayerClass.name[1:].lower()}")
+                for idx, foundPlayer in enumerate(foundPlayers)
+            ]
+            view.pageData['inviteOptions'] = sessionList
+
+            partySpace = focusDungeon.maxPartySize - len(session.currentParty.allSessions)
+            placeholderText = "Select Players"
+            canSelectMore = partySpace >= 1
+            if len(inviteOptions) == 0:
+                inviteOptions = [discord.SelectOption(label="-", value="None")]
+                placeholderText = "No other eligible players available"
+                canSelectMore = False
+
+            inviteSelector = discord.ui.Select(placeholder=placeholderText, options=inviteOptions,
+                                               max_values=min(1, partySpace), disabled=not canSelectMore)
+            inviteSelector.callback = lambda interaction: interaction.response.defer() if interaction.user.id == session.userId else asyncio.sleep(0)
+            view.add_item(inviteSelector)
+
+            inviteSendButton = discord.ui.Button(label="Send Invite(s)", style=discord.ButtonStyle.green, disabled=not canSelectMore)
+            inviteSendButton.callback = lambda interaction: partyInviteFn(interaction, session, view, inviteSelector)
+            view.add_item(inviteSendButton)
+
+        returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2,
+                                         disabled=session.currentParty is not None)
         returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusDungeon', None)
         view.add_item(returnButton)
 
@@ -577,7 +700,7 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
 async def updateFormationFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player, newDist : int):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     session.defaultFormationDistance = newDist
     if session.currentDungeon is not None:
         session.currentDungeon.startingPlayerTeamDistances[player] = newDist
@@ -585,8 +708,65 @@ async def updateFormationFn(interaction : discord.Interaction, session : GameSes
 async def enterDungeonFn(interaction : discord.Interaction, session : GameSession, dungeon : DungeonData):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     await session.enterDungeon(dungeon)
+async def makePartyFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, dungeon : DungeonData):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    assert(session.currentParty is None)
+    session.currentParty = PartyInfo(session, dungeon)
+    view.pageData[PARTY_UPDATE] = "Created a new party! Use the Invite Players option or 'invite [user]' command to add players."
+    await view.refresh()
+async def partyInviteFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView,
+                        inviteSelector : discord.ui.Select):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    assert(session.currentParty is not None and session.currentParty.creatorSession == session)
+
+    inviteOptions = view.pageData['inviteOptions']
+    targetSessions = [inviteOptions[int(val)] for val in inviteSelector.values]
+
+    view.pageData[PARTY_UPDATE] = "Sent party invites!"
+
+    for targetSession in targetSessions:
+        # TODO: invite
+        if session.currentParty.joinParty(targetSession):
+            player = targetSession.getPlayer()
+            assert(player is not None)
+            view.pageData[PARTY_UPDATE] += f"\n{player.name} joined the party!"
+            if targetSession.isActive:
+                await targetSession.currentView.refresh()
+
+    await view.refresh()
+async def leavePartyFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    party = session.currentParty
+    assert(party is not None)
+
+    wasPreviousLeader = party.creatorSession == session
+    partyDisbanded = party.leaveParty(session)
+    extraUpdateString = ""
+    if partyDisbanded:
+        extraUpdateString = " The party is empty and has been disbanded."
+    else:
+        newLeaderPlayer = party.creatorSession.getPlayer()
+        if wasPreviousLeader:
+            assert(newLeaderPlayer is not None)
+            extraUpdateString = f" {newLeaderPlayer.name} is now the party leader."
+            party.creatorSession.currentView.pageData[PARTY_UPDATE] = "Control over the party has been passed to you."
+        player = session.getPlayer()
+        assert(player is not None)
+        party.creatorSession.currentView.pageData[PARTY_UPDATE] = f"\n{player.name} left the party."
+        if party.creatorSession.isActive:
+            await party.creatorSession.currentView.refresh()
+    view.pageData[PARTY_UPDATE] = f"Left the party.{extraUpdateString}"
+    view.pageData[DUNGEON_SUBPAGE] = ''
+
+    await view.refresh()
 DUNGEON_PAGE = InterfacePage("Dungeons", discord.ButtonStyle.secondary, [],
                              dungeonListContentFn, lambda session: True, changePageCallback)
 
@@ -616,7 +796,7 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
     combatInterface = session.currentDungeon.currentCombatInterface
 
     player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
-    playerTurnString = f" - *{combatInterface.activePlayer}'s Turn*" if combatInterface.activePlayer is not None else ""
+    playerTurnString = f" - *{combatInterface.activePlayer.name}'s Turn*" if combatInterface.activePlayer is not None else ""
     if combatInterface.activePlayer == player:
         playerTurnString = " - *Your Turn!*"
     embed = discord.Embed(title=f"Combat{playerTurnString}", description="")
@@ -795,7 +975,7 @@ async def submitActionCallbackFn(interaction : discord.Interaction, session : Ga
                                  amount : int = 0, skillData : SkillData | None = None):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     session.unseenCombatLog = ""
 
     if action == CombatActions.ATTACK:
@@ -883,7 +1063,7 @@ def dungeonEscapeFn(session : GameSession, view : InterfaceView):
 async def exitDungeonFn(interaction : discord.Interaction, session : GameSession):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     await session.exitDungeon()
 DUNGEON_LEAVE_PAGE = InterfacePage("Escape", discord.ButtonStyle.red, [],
                                    dungeonEscapeFn, lambda session: True, changePageCallback)
@@ -910,7 +1090,7 @@ def roomReadyFn(session : GameSession, view : InterfaceView):
     else:
         embed.add_field(name="__Combat Log__", value=session.unseenCombatLog, inline=False)
 
-    confirmButton = discord.ui.Button(label="I'm Ready", style=discord.ButtonStyle.green)
+    confirmButton = discord.ui.Button(label="I'm Ready", style=discord.ButtonStyle.green, disabled=dungeonHandler.isReady)
     if session.dungeonFailed:
         confirmButton.label="Retry"
     confirmButton.callback = lambda interaction: markReadyFn(interaction, session, dungeonHandler)
@@ -921,8 +1101,9 @@ def roomReadyFn(session : GameSession, view : InterfaceView):
 async def markReadyFn(interaction : discord.Interaction, session : GameSession, dungeonHandler : DiscordDungeonInputHandler):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     dungeonHandler.markReady()
+    await session.currentView.refresh()
 def pressedReady(session : GameSession):
     assert(session.currentDungeon is not None)
     player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
@@ -936,14 +1117,6 @@ BETWEEN_ROOM_LEAVE_PAGE = InterfacePage("Escape", discord.ButtonStyle.red, [],
                                         dungeonEscapeFn, lambda session: not pressedReady(session),
                                         changePageCallback)
 
-# BETWEEN_ROOM_CHARACTER_STATS_PAGE = InterfacePage("Stats", discord.ButtonStyle.secondary, [],
-#                                                   characterStatsContent, lambda session: True, changePageCallback, statPointStyle)
-# # TODO: free skill display/selection as another subpage
-# BETWEEN_ROOM_CHARACTER_CLASS_SKILLS_SUBPAGE = InterfacePage("Class Skills", discord.ButtonStyle.secondary, [],
-#                                                characterClassSkillsContent,  lambda session: True, changePageCallback)
-# BETWEEN_ROOM_CHARACTER_SKILLS_PAGE = InterfacePage("Skills", discord.ButtonStyle.secondary, [BETWEEN_ROOM_CHARACTER_CLASS_SKILLS_SUBPAGE],
-#                                                    None, lambda session: True, changePageCallback)
-
 BETWEEN_ROOM_STATS_SKILLS_PAGE = InterfacePage("Stats/Skills", discord.ButtonStyle.secondary,
                                                [CHARACTER_STATS_SUBPAGE, CHARACTER_SKILLS_SUBPAGE],
                                                None, lambda session: True, changePageCallback)
@@ -956,9 +1129,14 @@ def roomFormationFn(session : GameSession, view : InterfaceView):
                           description=f"You can change the distance at which you start from enemies (default is {DEFAULT_STARTING_DISTANCE}), " +
                           "but doing so will often cause you to lose initiative. Coordinate with teammates to find a balance!")
     
-    # TODO: include party member starting positions
-    penaltyString = " (initiative penalty)" if session.defaultFormationDistance != DEFAULT_STARTING_DISTANCE else ""
-    startingPositionString = f"**{player.name}**: {session.defaultFormationDistance}{penaltyString}"
+    startingPositionStrings = []
+    for partySession in session.getPartySessions():
+        partyPlayer = partySession.getPlayer()
+        assert partyPlayer is not None
+        penaltyString = " (initiative penalty)" if partySession.defaultFormationDistance != DEFAULT_STARTING_DISTANCE else ""
+        startingPositionStrings.append(f"**{partyPlayer.name}**: {partySession.defaultFormationDistance}{penaltyString}")
+    startingPositionString = '\n'.join(startingPositionStrings)
+
     embed.add_field(name="__Starting Distances:__", value=startingPositionString)
     
     for dist in [1, 2, 3]:
@@ -995,7 +1173,6 @@ def dungeonCompleteFn(session : GameSession, view : InterfaceView):
     confirmButton.callback = lambda interaction: exitDungeonFn(interaction, session)
     view.add_item(confirmButton)
 
-    # TODO: page data state for log sent
     sentLog = view.pageData.get('sentLog', False)
     logger = session.currentDungeon.loggers[player]
     assert isinstance(logger, DiscordMessageCollector)
@@ -1007,7 +1184,7 @@ def dungeonCompleteFn(session : GameSession, view : InterfaceView):
 async def sendCombatLogFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, logger : DiscordMessageCollector):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
-        return asyncio.sleep(0)
+        return await asyncio.sleep(0)
     messages = logger.sendAllMessages(None, False) # TODO: filter settings
     messageString = messages.getMessagesString(None, False)
 
@@ -1044,6 +1221,7 @@ class DiscordDungeonInputHandler(DungeonInputHandler):
         return DiscordCombatInputHandler(self.player, self.session)
     
     def markReady(self):
+        self.isReady = True
         self.readyFlag.set()
     
     def onPlayerLeaveDungeon(self):
@@ -1081,7 +1259,6 @@ class DiscordDungeonInputHandler(DungeonInputHandler):
 
         await self.readyFlag.wait()
         await self.session.currentView.refresh()
-        self.isReady = True
 
         if not self.disabled:
             asyncio.create_task(self.session.waitForCombatStart())
@@ -1155,7 +1332,11 @@ class DiscordCombatInputHandler(CombatInputHandler):
         self.session.currentView.pageData[ACTION_CHOICE_DATA] = {}
         self.controller = combatController
 
-        await self.session.currentView.refresh()
+        if self.session.currentParty is None:
+            await self.session.currentView.refresh()
+        else:
+            await asyncio.gather(*[session.currentView.refresh() for session in self.session.currentParty.allSessions])
+
         self.actionFlag.clear()
         await self.actionFlag.wait()
 
@@ -1182,4 +1363,6 @@ class DiscordMessageCollector(MessageCollector):
     
     def _updateViewLog(self, newLog : str):
         self.session.unseenCombatLog += '\n' + newLog if self.session.unseenCombatLog else newLog
+        if len(self.session.unseenCombatLog) >= DISPLAY_LOG_THRESHOLD:
+            self.session.unseenCombatLog = "(...)" + self.session.unseenCombatLog[4 - DISPLAY_LOG_THRESHOLD:]
 

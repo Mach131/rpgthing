@@ -103,9 +103,32 @@ In Combat:
 	
 
 Todos:
+	- parties
 
-	- equipment rewards
+	- equipment rewards (option to drop built into equip menu, special field in game session; can't click ready until either abandoning it or making space somehow else)
+	- equipment options (drop, give, sell; when space is made, check if pending drop and add/clear if so)
+	- equipment progression (upgrading)
 
 	- buff/stack display
-	
-	- parties
+	- effect debugging (wizard enchantment not working? or maybe it's just a filter thing)
+	- logging filters
+
+
+	- hide advanced classes if not unlocked (show as [LOCKED] in class window)
+	- add description of current class as a separate field there
+Mercenary:
+	Overwhelm enemies with your pure physical power at any cost!
+Knight:
+	Protect your allies with your insurmountable defenses!
+Sniper:
+	Wear down targets from afar to line up your perfect shot!
+Hunter:
+	Incapacitate enemies with status conditions before they can pose a threat!
+Assassin:
+	Use smaller, quick strikes to lower enemies' guards for a big finisher!
+Acrobat:
+	Become untouchable, dodging to draw attention while building momentum!
+Wizard:
+	Enchant your and your party's attacks to magically hammer weak points!
+Saint:
+	Provide allies with an arsenal of offensive and defensive support!

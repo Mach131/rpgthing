@@ -122,6 +122,22 @@ class AdvancedPlayerClassNames(PlayerClassNames):
     WIZARD = auto()
     SAINT = auto()
 
+CLASS_DESCRIPTION : dict[PlayerClassNames, str] = {
+    BasePlayerClassNames.WARRIOR: "Confront opponents face-on!",
+    BasePlayerClassNames.RANGER: "Attack safely from afar!",
+    BasePlayerClassNames.ROGUE: "Dance around enemy attacks!",
+    BasePlayerClassNames.MAGE: "Provide arcane support!",
+
+    AdvancedPlayerClassNames.MERCENARY: "Overwhelm enemies with pure physical power at any cost!",
+    AdvancedPlayerClassNames.KNIGHT: "Protect your allies with an insurmountable defense!",
+    AdvancedPlayerClassNames.SNIPER: "Wear down targets from afar to line up your perfect shot!",
+    AdvancedPlayerClassNames.HUNTER: "Incapacitate enemies with status conditions before they can pose a threat!",
+    AdvancedPlayerClassNames.ASSASSIN: "Use quick strikes to lower enemies' guards for a big finisher!",
+    AdvancedPlayerClassNames.ACROBAT: "Become untouchable, dodging to draw attention while building momentum!",
+    AdvancedPlayerClassNames.WIZARD: "Enchant your and your party's attacks to magically hammer weak points!",
+    AdvancedPlayerClassNames.SAINT: "Provide allies with an arsenal of offensive and defensive support!"
+}
+
 MAX_BASE_CLASS_RANK = 3
 MAX_ADVANCED_CLASS_RANK = 9
 
@@ -596,6 +612,7 @@ class MessageType(Enum):
     EFFECT = auto()
     PROBABILITY = auto()
 
+DISPLAY_LOG_THRESHOLD = 512
 
 """ Data and Persistence """
 
