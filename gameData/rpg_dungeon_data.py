@@ -11,8 +11,7 @@ trainingDungeon = DungeonData("Training Courtyard", "Training",
                               "\"Can't have you divin' in without a quick warm-up!\"",
                               "2 EXP, 3 WUP",
                               set(),
-                              3, #TODO: return to 1
-                              1, True, 1.0, 1.0,
+                              1, 1, True, 1.0, 1.0,
                               [
                                   DungeonRoomData([([basicDummy], 1)]),
                                   DungeonRoomData([([skillfulDummy], 1)]),

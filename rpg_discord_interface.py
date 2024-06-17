@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 import dill as pickle
 import traceback
 import discord
@@ -254,7 +255,6 @@ class InterfaceView(discord.ui.View):
         self.currentConfirmation = None
         await self.refresh()
 
-
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -262,7 +262,6 @@ bot = commands.Bot(command_prefix='ch.', intents=intents)
 
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
     print(f'Logged in as {bot.user}.')
     GLOBAL_STATE.loadState()
     saveLoop.start()
@@ -297,13 +296,13 @@ async def new_character(ctx : commands.Context, character_name : str):
             charList = GLOBAL_STATE.accountDataMap[userId].allCharacters
             if len(charList) > MAX_USER_CHARACTERS:
                 await ctx.send(f"You cannot make more than {MAX_USER_CHARACTERS} characters at the moment. " + \
-                            "Use the 'play' or 'select_character' commands instead.")
+                            "Use the 'play' or 'select_character' commands instead.", ephemeral=True)
                 validated = False
             elif character_name.lower() in [char.name.lower() for char in charList]:
-                await ctx.send(f"You already have a character with this name.")
+                await ctx.send(f"You already have a character with this name.", ephemeral=True)
                 validated = False
         if validated and len(character_name) > MAX_NAME_LENGTH:
-            await ctx.send(f"Please use a name that's less that {MAX_NAME_LENGTH} characters.")
+            await ctx.send(f"Please use a name that's less that {MAX_NAME_LENGTH} characters.", ephemeral=True)
             validated = False
 
         if validated:
@@ -321,7 +320,7 @@ async def new_character(ctx : commands.Context, character_name : str):
         await respondNotLoaded(ctx)
 @new_character.error
 async def new_character_error(ctx, error : Exception):
-    await ctx.send("Add a character name using 'new_character [name]'!")
+    await ctx.send("Add a character name using 'new_character [name]'!", ephemeral=True)
 
 @bot.hybrid_command()
 async def select_character(ctx : commands.Context, target_character : str):
@@ -329,9 +328,9 @@ async def select_character(ctx : commands.Context, target_character : str):
         userId = ctx.author.id
         accountData = GLOBAL_STATE.accountDataMap.get(userId, None)
         if accountData is None:
-            await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.")
+            await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
         elif not accountData.session.safeToSwitch():
-            await ctx.send("You can't switch characters while in a party or dungeon! Leave first, then try again.")
+            await ctx.send("You can't switch characters while in a party or dungeon! Leave first, then try again.", ephemeral=True)
         else:
             charList = accountData.allCharacters
             chosenCharacter = None
@@ -348,20 +347,20 @@ async def select_character(ctx : commands.Context, target_character : str):
                 accountData.currentCharacter = chosenCharacter
                 await ctx.send(f"Selected {chosenCharacter.name} as your current character.")
             else:
-                await ctx.send(f"{chosenCharacter.name} is already your current character!")
+                await ctx.send(f"{chosenCharacter.name} is already your current character!", ephemeral=True)
     else:
         await respondNotLoaded(ctx)
 @select_character.error
 async def select_character_error(ctx, error : Exception):
     userId = ctx.author.id
     if userId not in GLOBAL_STATE.accountDataMap:
-        await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.")
+        await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
     else:
         charList = GLOBAL_STATE.accountDataMap[userId].allCharacters
         response = "You can use 'select_character [character_name]' or 'select_character [index]'.\n"
         response += "__Your characters:__\n"
         response += '\n'.join(f"[{i+1}] {char.name}, Level {char.level}" for i, char in enumerate(charList))
-        await ctx.send(response)
+        await ctx.send(response, ephemeral=True)
 
 @bot.hybrid_command()
 async def play(ctx : commands.Context):
@@ -373,14 +372,74 @@ async def play(ctx : commands.Context):
             gameSession.savedMention = ctx.author.mention
             await gameSession.recreateEmbed(ctx.channel)
         else:
-            await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.")
+            await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
     else:
         await respondNotLoaded(ctx)
 
 @bot.hybrid_command()
+async def invite(ctx : commands.Context, member: discord.Member):
+    if GLOBAL_STATE.loaded:
+        userId = ctx.author.id
+        if userId not in GLOBAL_STATE.accountDataMap:
+            await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
+        else:
+            gameSession = GLOBAL_STATE.accountDataMap[userId].session
+            if gameSession.currentParty is None:
+                await ctx.send("You don't have a party! Use 'play' to select a dungeon and create one first.", ephemeral=True)
+            elif gameSession.currentParty.creatorSession != gameSession:
+                await ctx.send("Only the party creator can invite people.")
+            elif gameSession.currentDungeon is not None:
+                await ctx.send("You can't invite people while in the middle of a dungeon!", ephemeral=True)
+            elif len(gameSession.currentParty.allSessions) >= gameSession.currentParty.dungeonData.maxPartySize:
+                await ctx.send("The party is already full.", ephemeral=True)
+
+            else:
+                invitedData = GLOBAL_STATE.accountDataMap.get(member.id, None)
+                if invitedData is None:
+                    await ctx.send("The user you invited hasn't made any characters!", ephemeral=True)
+                elif not invitedData.session.safeToSwitch():
+                    await ctx.send("The user you invited is already in a party or dungeon.", ephemeral=True)
+                elif invitedData.session in gameSession.currentParty.allSessions:
+                    await ctx.send("The user you invited is already in the party!", ephemeral=True)
+                else:
+                    invitedPlayer = invitedData.session.getPlayer()
+                    if invitedPlayer is None or not gameSession.currentParty.dungeonData.meetsRequirements(invitedPlayer):
+                        await ctx.send("The character you invited does not meet the requirements for this dungeon.", ephemeral=True)
+                    else:
+                        await ctx.send("Sent an invite!", ephemeral=True)
+                        await sendPartyInvite(gameSession, invitedData.session)
+    else:
+        await respondNotLoaded(ctx)
+@invite.error
+async def invite_error(ctx, error : Exception):
+    await ctx.send("Include someone to invite to a party using 'invite [user]'!", ephemeral=True)
+
+
+@bot.hybrid_command()
 async def sync(ctx : commands.Context):
-    await ctx.bot.tree.sync(guild=ctx.guild)
-    await ctx.send("Commands synced!")
+    if ctx.guild is not None:
+        await bot.wait_until_ready()
+        bot.tree.clear_commands(guild=ctx.guild)
+        # bot.tree.copy_global_to(guild=ctx.guild)
+        await bot.tree.sync(guild=ctx.guild)
+        await ctx.send("Commands synced!")
+
+@bot.hybrid_command()
+async def panic(ctx : commands.Context, confirmation : str | None = None):
+    if GLOBAL_STATE.loaded:
+        if confirmation is not None and confirmation.lower() == "saveme":
+            userId = ctx.author.id
+            if userId in GLOBAL_STATE.accountDataMap:
+                gameSession = GLOBAL_STATE.accountDataMap[userId].session
+                await gameSession.exitDungeon()
+                await ctx.send(f"Resetting your session (hopefully this worked...)")
+            else:
+                await ctx.send("You don't have a character yet (which means you're probably not stuck)! Use the 'new_character [name]' command first.")
+        else:
+            await ctx.send("This command will attempt to reset you to the main menu if you get stuck in a dungeon, kicking you out.\n" +
+                        "To confirm this, use '/panic saveme'.")
+    else:
+        await respondNotLoaded(ctx)
 
 @bot.command()
 async def save(ctx : commands.Context):
@@ -388,7 +447,7 @@ async def save(ctx : commands.Context):
         _doSave()
         await ctx.send("saved state")
     else:
-        await ctx.send("dev-only command")
+        await ctx.send("This is a dev-only command; progress should be periodically saved automatically.")
 
 
 secret_file = open("secret.txt", "r")

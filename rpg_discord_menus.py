@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 import os
 import random
-from typing import Callable, Coroutine
+from typing import Any, Callable, Coroutine
 from typing import Callable, TYPE_CHECKING
 import discord
 import asyncio
@@ -89,6 +89,28 @@ class InterfaceConfirmation(object):
             return
         await view.respondConfirm(didConfirm)
 
+class RequestView(discord.ui.View):
+    def __init__(self, userId : int, buttons : list[discord.ui.Button]):
+        super().__init__(timeout=60)
+        self.userId = userId
+        self.buttons = buttons
+        
+        for button in self.buttons:
+            self.add_item(button)
+
+    async def on_timeout(self):
+        self.clear_items()
+
+    async def checkedCallback(self, interaction : discord.Interaction, callback : Callable[[discord.Interaction], Coroutine]):
+        await interaction.response.defer()
+        if interaction.user.id != self.userId:
+            return await asyncio.sleep(0)
+        return await callback(interaction)
+    
+    async def close(self):
+        self.clear_items()
+        self.stop()
+
 class PartyInfo(object):
     def __init__(self, creatorSession : GameSession, dungeonData : DungeonData):
         self.creatorSession = creatorSession
@@ -152,6 +174,23 @@ async def updateDataMapCallbackFn(interaction : discord.Interaction, session : G
     mapVal[key] = val
     await view.updateData(mapKey, mapVal)
 
+async def sendPartyInvite(hostSession : GameSession, targetSession : GameSession):
+    player = hostSession.getPlayer()
+    party = hostSession.currentParty
+    assert(party is not None and party.creatorSession == hostSession and player is not None)
+
+    acceptButton = discord.ui.Button(label="Join Party", style=discord.ButtonStyle.green)
+    requestView = RequestView(targetSession.userId, [acceptButton])
+
+    acceptButton.callback = (lambda _ts, _rv: lambda interaction: partyInviteAcceptFn(
+        interaction, hostSession, targetSession, party, requestView))(targetSession, requestView)
+    
+    assert(hostSession.currentMessage is not None)
+    await hostSession.currentMessage.channel.send(
+        f"{targetSession.savedMention}, you have been invited to a party for {party.dungeonData.dungeonName} by {player.name}! " +
+        "(This invitation will expire in a minute.)",
+        view=requestView)
+    
 class InterfaceMenu(object):
     def __init__(self, pages : list[InterfacePage]):
         self.pages = pages
@@ -723,23 +762,46 @@ async def partyInviteFn(interaction : discord.Interaction, session : GameSession
     await interaction.response.defer()
     if interaction.user.id != session.userId:
         return await asyncio.sleep(0)
-    assert(session.currentParty is not None and session.currentParty.creatorSession == session)
 
     inviteOptions = view.pageData['inviteOptions']
-    targetSessions = [inviteOptions[int(val)] for val in inviteSelector.values]
+    targetSessions : list[GameSession] = [inviteOptions[int(val)] for val in inviteSelector.values]
 
-    view.pageData[PARTY_UPDATE] = "Sent party invites!"
+    view.pageData[PARTY_UPDATE] = "Sending party invites!"
 
     for targetSession in targetSessions:
-        # TODO: invite
-        if session.currentParty.joinParty(targetSession):
-            player = targetSession.getPlayer()
-            assert(player is not None)
-            view.pageData[PARTY_UPDATE] += f"\n{player.name} joined the party!"
-            if targetSession.isActive:
-                await targetSession.currentView.refresh()
+        await sendPartyInvite(session, targetSession)
 
     await view.refresh()
+async def partyInviteAcceptFn(interaction : discord.Interaction, hostSession : GameSession, joiningSession : GameSession,
+                        party : PartyInfo, inviteView : RequestView):
+    await interaction.response.defer()
+    if interaction.user.id != joiningSession.userId:
+        return await asyncio.sleep(0)
+    await inviteView.close()
+
+    joiningPlayer = joiningSession.getPlayer()
+    assert(joiningPlayer is not None)
+    
+    hostParty = hostSession.currentParty
+    failureMessage = ""
+    if hostParty is None or hostParty != party:
+        failureMessage = "The leader of the party you were invited to has changed."
+    elif hostSession.currentDungeon is not None:
+        failureMessage = "The party has already entered the dungeon."
+    elif len(party.allSessions) >= party.dungeonData.maxPartySize:
+        failureMessage = "The party is already full."
+
+    if len(failureMessage) > 0:
+        if joiningSession.currentMessage is not None:
+            await joiningSession.currentMessage.channel.send(f"{joiningPlayer.name} could not join: {failureMessage}")
+    else:
+        assert(hostParty is not None)
+        if hostParty.joinParty(joiningSession):
+            hostSession.currentView.pageData[PARTY_UPDATE] = hostSession.currentView.pageData.get(PARTY_UPDATE, "") + \
+                f"\n{joiningPlayer.name} joined the party!"
+            await hostSession.currentView.refresh()
+            if joiningSession.isActive:
+                await joiningSession.currentView.refresh()
 async def leavePartyFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
@@ -760,10 +822,10 @@ async def leavePartyFn(interaction : discord.Interaction, session : GameSession,
             party.creatorSession.currentView.pageData[PARTY_UPDATE] = "Control over the party has been passed to you."
         player = session.getPlayer()
         assert(player is not None)
-        party.creatorSession.currentView.pageData[PARTY_UPDATE] = f"\n{player.name} left the party."
+        party.creatorSession.currentView.pageData[PARTY_UPDATE] += f"\n{player.name} left the party."
         if party.creatorSession.isActive:
             await party.creatorSession.currentView.refresh()
-    view.pageData[PARTY_UPDATE] = f"Left the party.{extraUpdateString}"
+    view.pageData[PARTY_UPDATE] = f"You left the party.{extraUpdateString}"
     view.pageData[DUNGEON_SUBPAGE] = ''
 
     await view.refresh()
