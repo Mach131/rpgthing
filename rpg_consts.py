@@ -2,6 +2,8 @@ from enum import Enum, auto
 
 def void(x):
     return None
+def enumName(e):
+    return e.name[0] + e.name[1:].lower()
 EPSILON = 0.0001
 
 """ Stats """
@@ -45,6 +47,7 @@ class CombatStats(Stats):
     REPOSITION_ACTION_TIME_MULT = auto()
     OPPORTUNISM = auto()
     INSTANTANEOUS_ETERNITY = auto()
+    BASIC_MP_GAIN_MULT = auto()
 
 class SpecialStats(Stats):
     CURRENT_HP = auto()
@@ -75,7 +78,8 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.ATTACK_SKILL_MANA_COST_MULT: 1,
     CombatStats.REPOSITION_ACTION_TIME_MULT: 1,
     CombatStats.OPPORTUNISM: 0,
-    CombatStats.INSTANTANEOUS_ETERNITY: 0
+    CombatStats.INSTANTANEOUS_ETERNITY: 0,
+    CombatStats.BASIC_MP_GAIN_MULT: 1
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -168,6 +172,7 @@ class EffectStacks(Enum):
     EOTD_CONSUMED = auto()
     UNRELENTING_ASSAULT = auto()
     FIRE_BLESSING = auto()
+    TELEGRAPH_RANGE = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",

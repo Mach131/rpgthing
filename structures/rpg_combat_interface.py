@@ -397,13 +397,23 @@ class CombatInterface(object):
         self.activePlayer : CombatEntity | None = None
         
         self.cc : CombatController = CombatController(
-            self.players, self.opponents, startingPlayerDistances.copy(), self.loggers)
+            self.players, self.opponents, startingPlayerDistances.copy(), self.loggers, self.spawnEntity)
         
-        for player in players:
+        for player in startingPlayerHealth:
             healthDelta = self.cc.getCurrentHealth(player) - startingPlayerHealth[player]
             self.cc.applyDamage(player, player, healthDelta, False, True)
+        for player in startingPlayerMana:
             manaDelta = self.cc.getCurrentMana(player) - startingPlayerMana[player]
             self.cc.spendMana(player, manaDelta, True)
+
+    def spawnEntity(self, entity : CombatEntity, enemyTeam : bool):
+        if not enemyTeam:
+            raise Exception("spawning for player team not supported yet")
+        else:
+            assert isinstance(entity, Enemy)
+            enemyHandler = EnemyInputHandler(entity)
+            self.opponents.append(entity)
+            self.handlerMap[entity] = enemyHandler
         
     def sendAllLatestMessages(self):
         [logger.sendNewestMessages(None, False) for logger in self.loggers.values()]

@@ -374,7 +374,7 @@ def getEquipTraitWeights(equipType : EquipmentSlot, rarity : int, hasCurse : boo
         luckTrait: 2 if rarity >= 2 else 0
     }
 
-def generateEquip(rarity : int, rank : int, equipClass : EquipClass) -> Equipment:
+def generateEquip(rarity : int, rank : int, equipClass : EquipClass, curseProbability : float) -> Equipment:
     equipClassAttributes = getEquipClassAttributes(equipClass)
     equipSlot = equipClassAttributes.equipSlot
 
@@ -383,7 +383,7 @@ def generateEquip(rarity : int, rank : int, equipClass : EquipClass) -> Equipmen
     if equipClassAttributes.bonusTrait:
         numTraits += 1
     
-    if random.random() <= EQUIP_CURSE_CHANCE:
+    if random.random() <= curseProbability:
         curseTrait = random.choice(getCurseTraits(equipSlot))
     traitMap = getEquipTraitWeights(equipSlot, rarity, curseTrait is not None)
     traitList = np.array(list(traitMap.keys()))
@@ -402,22 +402,26 @@ def generateEquip(rarity : int, rank : int, equipClass : EquipClass) -> Equipmen
         return Equipment(fullName, equipSlot, equipClassAttributes.baseStats,
                          curseTrait, traits, rarity, rank)
 
-def generateWeapon(rarity : int, rank : int, weaponClass : None | WeaponClasses = None) -> Equipment:
+def generateWeapon(rarity : int, rank : int, weaponClass : None | WeaponClasses = None,
+                   curseProbability : float = EQUIP_CURSE_CHANCE) -> Equipment:
     if weaponClass is None:
         weaponClass = random.choice([weaponClass for weaponClass in WeaponClasses])
-    return generateEquip(rarity, rank, weaponClass)
+    return generateEquip(rarity, rank, weaponClass, curseProbability)
 
-def generateHat(rarity : int, rank : int, hatClass : None | HatClasses = None) -> Equipment:
+def generateHat(rarity : int, rank : int, hatClass : None | HatClasses = None,
+                   curseProbability : float = EQUIP_CURSE_CHANCE) -> Equipment:
     if hatClass is None:
         hatClass = random.choice([hatClass for hatClass in HatClasses])
-    return generateEquip(rarity, rank, hatClass)
+    return generateEquip(rarity, rank, hatClass, curseProbability)
 
-def generateOverall(rarity : int, rank : int, overallClass : None | OverallClasses = None) -> Equipment:
+def generateOverall(rarity : int, rank : int, overallClass : None | OverallClasses = None,
+                   curseProbability : float = EQUIP_CURSE_CHANCE) -> Equipment:
     if overallClass is None:
         overallClass = random.choice([overallClass for overallClass in OverallClasses])
-    return generateEquip(rarity, rank, overallClass)
+    return generateEquip(rarity, rank, overallClass, curseProbability)
 
-def generateShoes(rarity : int, rank : int, shoeClass : None | ShoeClasses = None) -> Equipment:
+def generateShoes(rarity : int, rank : int, shoeClass : None | ShoeClasses = None,
+                   curseProbability : float = EQUIP_CURSE_CHANCE) -> Equipment:
     if shoeClass is None:
         shoeClass = random.choice([shoeClass for shoeClass in ShoeClasses])
-    return generateEquip(rarity, rank, shoeClass)
+    return generateEquip(rarity, rank, shoeClass, curseProbability)

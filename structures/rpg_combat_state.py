@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 import random
 import math
 
@@ -42,6 +42,8 @@ class EntityCombatState(object):
         self.maxStatusTolerance : dict[StatusConditionNames, float] = {status : defaultStatusTolerance for status in StatusConditionNames}
         self.currentStatusTolerance : dict[StatusConditionNames, float] = {status : defaultStatusTolerance for status in StatusConditionNames}
         self.currentStatusEffects : dict[StatusConditionNames, StatusEffect] = {}
+
+        self.aggroMap : dict[CombatEntity, float] = {}
         
     def addStack(self, stack : EffectStacks, maxStacks : int | None):
         if maxStacks is not None:
@@ -317,10 +319,17 @@ class EntityCombatState(object):
 
 class CombatController(object):
     def __init__(self, playerTeam : list[CombatEntity], opponentTeam : list[CombatEntity],
-                startingPlayerTeamDistances : dict[CombatEntity, int], loggers : dict[CombatEntity, MessageCollector]) -> None:
+                startingPlayerTeamDistances : dict[CombatEntity, int], loggers : dict[CombatEntity, MessageCollector],
+                spawnerCallback : Callable[[CombatEntity, bool], None]) -> None:
         self.playerTeam : list[CombatEntity] = playerTeam[:]
         self.opponentTeam : list[CombatEntity] = opponentTeam[:]
         self.loggers : dict[CombatEntity, MessageCollector] = loggers
+        self.spawnerCallback : Callable[[CombatEntity, bool], None] = spawnerCallback
+
+        self.opponentNameCount = {}
+        self.namedOpponentMemory = {}
+        for opponent in self.opponentTeam:
+            self._removeDuplicateOpponentNames(opponent)
 
         self.distanceMap : dict[CombatEntity, dict[CombatEntity, int]] = {}
         for player in self.playerTeam:
@@ -350,10 +359,41 @@ class CombatController(object):
         for opponent in self.opponentTeam:
             if len(opponent.encounterMessage) > 0:
                 self.logMessage(MessageType.DIALOGUE, opponent.encounterMessage)
+                break
         self.logMessage(MessageType.BASIC, "**COMBAT START!**")
+
+    def _removeDuplicateOpponentNames(self, newOpponent : CombatEntity):
+        opponentName = newOpponent.name
+        nameCount = self.opponentNameCount.get(opponentName, 0)
+        if nameCount > 0:
+            newOpponent.name += f" ({nameCount+1})"
+            newOpponent.shortName += f" ({nameCount+1})"
+            if nameCount == 1:
+                self.namedOpponentMemory[opponentName].name += " (1)"
+                self.namedOpponentMemory[opponentName].shortName += " (1)"
+        self.opponentNameCount[opponentName] = nameCount + 1
+        self.namedOpponentMemory[opponentName] = newOpponent
 
     def logMessage(self, messageType : MessageType, messageText : str):
         [log.addMessage(messageType, messageText) for log in self.loggers.values()]
+    
+    def spawnNewEntity(self, entity : CombatEntity, enemyTeam : bool):
+        self.spawnerCallback(entity, enemyTeam)
+        if enemyTeam:
+            self.opponentTeam.append(entity)
+            for player in self.playerTeam:
+                self.distanceMap[player][entity] = DEFAULT_STARTING_DISTANCE
+            self._removeDuplicateOpponentNames(entity)
+        else:
+            self.playerTeam.append(entity)
+            for opponent in self.opponentTeam:
+                self.distanceMap[entity][opponent] = DEFAULT_STARTING_DISTANCE
+
+        self.combatStateMap[entity] = EntityCombatState(entity)
+        for skill in entity.availablePassiveSkills:
+            self._activateImmediateEffects(entity, [], skill)
+            [self.addSkillEffect(entity, skillEffect) for skillEffect in skill.skillEffects]
+        self.logMessage(MessageType.BASIC, f"*{entity.name} joins the battle!*")
 
     # Internal function; figures out which of two given entities expected to belong to separate teams is which
     def _separateTeamValidator(self, entity1 : CombatEntity, entity2 : CombatEntity) -> tuple[CombatEntity, CombatEntity] | None:
@@ -587,7 +627,11 @@ class CombatController(object):
             if not silent:
                 critString = " (Critical)" if isCritical else ""
                 self.logMessage(MessageType.DAMAGE_COMBAT,
-                            f"{defender.name} takes **{originalHP - newHP} damage{critString}**!")
+                            f"{defender.name} takes **{damageTaken} damage{critString}**!")
+                
+            aggroMult = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.AGGRO_MULT)
+            self.combatStateMap[defender].aggroMap[attacker] = self.combatStateMap[defender].aggroMap.get(attacker, 0) + \
+                                                                damageTaken * aggroMult
             
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
@@ -747,6 +791,40 @@ class CombatController(object):
         if isinstance(skillEffect, EnchantmentSkillEffect):
             self.combatStateMap[entity].removeEnchantmentEffect(skillEffect, self)
 
+    """
+        Gets the targetable opponent that the entity currently has the greatest aggro towards.
+        In case of a tie, makes a selection and slightly boosts the winner (to prevent alternating).
+    """
+    def getAggroTarget(self, entity : CombatEntity) -> CombatEntity:
+        aggroMap = self.combatStateMap[entity].aggroMap
+        opponents = self.getTargets(entity)
+
+        maxAggro = 0
+        targetOptions = []
+        for opponent in opponents:
+            aggro = aggroMap.get(opponent, 0)
+            if aggro > maxAggro:
+                maxAggro = aggro
+                targetOptions = [opponent]
+            elif aggro == maxAggro:
+                targetOptions.append(opponent)
+
+        assert(len(targetOptions) > 0)
+        if len(targetOptions) > 1:
+            chosenTarget = self.rng.choice(targetOptions)
+            aggroMap[chosenTarget] = maxAggro + 1
+            targetOptions = [chosenTarget]
+        return targetOptions[0]
+    
+    """
+        Applies aggro decay multipliers. Intended to be called at the end of the entity's turn.
+    """
+    def _applyAggroDecay(self, entity : CombatEntity) -> None:
+        aggroMap = self.combatStateMap[entity].aggroMap
+        aggroFactor = entity.aggroDecayFactor
+        for target in aggroMap:
+            aggroMap[target] *= aggroFactor
+            
     """
         Checks to see if all entities have been defeated.
         Returns None if not; otherwise, returns true iff the player team was victorious.
@@ -1136,7 +1214,9 @@ class CombatController(object):
                 effectFunction.applyEffect(self, defender, attacker, attackResultInfo)
 
         if isBasic:
-            self.gainMana(attacker, BASIC_ATTACK_MP_GAIN)
+            basicMpGain = math.ceil(
+                BASIC_ATTACK_MP_GAIN * self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.BASIC_MP_GAIN_MULT))
+            self.gainMana(attacker, basicMpGain)
             self.spendActionTimer(attacker, actionTimerUsage * actionTimeMult)
 
         return attackResultInfo
@@ -1204,7 +1284,7 @@ class CombatController(object):
     """
         Cleanup for end of turn. At the moment, mostly just decreases effect durations.
     """
-    def _endPlayerTurn(self, player, skipDurationTick : bool = False) -> None:
+    def _endPlayerTurn(self, player : CombatEntity, skipDurationTick : bool = False) -> None:
         for effectFunction in self.combatStateMap[player].getEffectFunctions(EffectTimings.END_TURN):
             if isinstance(effectFunction, EFEndTurn):
                 effectFunction.applyEffect(self, player, skipDurationTick)
@@ -1215,6 +1295,7 @@ class CombatController(object):
                 if expiredEffect.expirationMessage is not None:
                     self.logMessage(MessageType.EFFECT, f"{player.name}'s {expiredEffect.expirationMessage}")
 
+        self._applyAggroDecay(player)
         self.previousTurnEntity = player
 
 class ActionResultInfo(object):

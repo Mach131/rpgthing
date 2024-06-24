@@ -1,5 +1,6 @@
+import random
 from rpg_consts import *
-from structures.rpg_items import Weapon, luckTrait
+from structures.rpg_items import *
 
 ## Special item generators definitions
 def makeBeginnerWeapon(playerClass : BasePlayerClassNames):
@@ -12,3 +13,18 @@ def makeBeginnerWeapon(playerClass : BasePlayerClassNames):
     weaponClassAttributes = weaponClassAttributeMap[weaponClass]
     return Weapon(weaponName, weaponClassAttributes.weaponType, weaponClassAttributes.baseStats, None,
                   [], 0, 0)
+
+def makeBasicCommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponPossible : bool):
+    possibleEquipSlots = [EquipmentSlot.HAT, EquipmentSlot.OVERALL, EquipmentSlot.SHOES]
+    if weaponPossible:
+        possibleEquipSlots.append(EquipmentSlot.WEAPON)
+    equipSlot = rng.choice(possibleEquipSlots)
+
+    generatorFn = {
+        EquipmentSlot.WEAPON: generateWeapon,
+        EquipmentSlot.HAT: generateHat,
+        EquipmentSlot.OVERALL: generateOverall,
+        EquipmentSlot.SHOES: generateShoes
+    }[equipSlot]
+    chosenRank = rng.randint(minRank, maxRank)
+    return generatorFn(0, chosenRank, None, 0)

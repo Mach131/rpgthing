@@ -137,3 +137,35 @@ bgp_warrior = beginnerPlayer("warrior", BasePlayerClassNames.WARRIOR)
 bgp_ranger = beginnerPlayer("bowman", BasePlayerClassNames.RANGER)
 bgp_rogue = beginnerPlayer("thief", BasePlayerClassNames.ROGUE)
 bgp_mage = beginnerPlayer("magician", BasePlayerClassNames.MAGE)
+
+def postTutorialPlayer(name, baseClass, advanceClass, statList):
+    ptp = beginnerPlayer(name, baseClass)
+    ptp.gainExp(EXP_TO_NEXT_PLAYER_LEVEL[0])
+    ptp.assignStatPoints(statList)
+    ptp.changeClass(advanceClass)
+    return ptp
+
+ptp_merc = postTutorialPlayer("mercenary", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.MERCENARY,
+                              [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.HP,
+                               BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.MP])
+ptp_knight = postTutorialPlayer("knight", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.KNIGHT,
+                              [BaseStats.ATK, BaseStats.DEF, BaseStats.ACC, BaseStats.HP,
+                               BaseStats.ATK, BaseStats.DEF, BaseStats.SPD, BaseStats.HP])
+ptp_sniper = postTutorialPlayer("sniper", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.SNIPER,
+                              [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.MP,
+                               BaseStats.ATK, BaseStats.HP, BaseStats.SPD, BaseStats.MP])
+ptp_hunter = postTutorialPlayer("hunter", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.HUNTER,
+                              [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.MP,
+                               BaseStats.ATK, BaseStats.HP, BaseStats.SPD, BaseStats.MP])
+ptp_sin = postTutorialPlayer("assassin", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ASSASSIN,
+                              [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.AVO,
+                               BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP])
+ptp_acro = postTutorialPlayer("acrobat", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ACROBAT,
+                              [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.AVO,
+                               BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.ACC])
+ptp_wiz = postTutorialPlayer("wizard", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.WIZARD,
+                              [BaseStats.MAG, BaseStats.SPD, BaseStats.ACC, BaseStats.MP,
+                               BaseStats.MAG, BaseStats.MP, BaseStats.SPD, BaseStats.ACC])
+ptp_saint = postTutorialPlayer("saint", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.SAINT,
+                              [BaseStats.MAG, BaseStats.RES, BaseStats.ACC, BaseStats.MP,
+                               BaseStats.MAG, BaseStats.MP, BaseStats.SPD, BaseStats.RES])

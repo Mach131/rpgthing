@@ -13,7 +13,7 @@ class DungeonData(object):
 
     def __init__(self, dungeonName : str, shortDungeonName : str, description : str, rewardDescription : str, milestoneRequirements : set[Milestones],
                  maxPartySize : int, recLevel : int, allowRetryFights : bool, hpBetweenRooms : float, mpBetweenRooms : float,
-                dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, CombatEntity], EnemyReward]):
+                dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, Player], EnemyReward]):
         self.dungeonName = dungeonName
         self.shortDungeonName = shortDungeonName
         self.description = description
@@ -29,17 +29,18 @@ class DungeonData(object):
 
         DungeonData.registeredDungeons.append(self)
 
-    def getReward(self, controller : DungeonController, player : CombatEntity):
+    def getReward(self, controller : DungeonController, player : Player):
         return self.rewardFn(controller, player)
     
     def meetsRequirements(self, player : Player) -> bool:
         return len(self.milestoneRequirements.intersection(player.milestones)) == len(self.milestoneRequirements)
     
 class DungeonRoomData(object):
-    def __init__(self, enemyGroupWeights : list[tuple[list[Callable[[], Enemy]], int]]):
+    def __init__(self, enemyGroupWeights : list[tuple[list[Callable[[dict], Enemy]], int]], params : dict):
         self.enemyGroups = [egw[0] for egw in enemyGroupWeights]
         self.weights = [egw[1] for egw in enemyGroupWeights]
-        self.previousSpawners : list[Callable[[], Enemy]] = []
+        self.previousSpawners : list[Callable[[dict], Enemy]] = []
+        self.params = params
 
     def spawnEnemies(self, controller : DungeonController, retry : bool) -> list[Enemy]:
         if not retry:
@@ -51,7 +52,7 @@ class DungeonRoomData(object):
             
             self.previousSpawners = self.enemyGroups[groupIndex]
 
-        return [spawner() for spawner in self.previousSpawners]
+        return [spawner(self.params) for spawner in self.previousSpawners]
     
 class DungeonController(object):
     def __init__(self, dungeonData : DungeonData, playerTeamHandlers : dict[Player, DungeonInputHandler],

@@ -22,8 +22,8 @@ PassiveSkillData("Warrior's Resolution", BasePlayerClassNames.WARRIOR, 1, False,
     {BaseStats.HP: 50, BaseStats.ATK: 10, BaseStats.DEF: 5}, {}, [])
 
 AttackSkillData("Great Swing", BasePlayerClassNames.WARRIOR, 2, False, 20,
-    "Attack with 1.5x ATK.",
-    True, AttackType.MELEE, 1.5, DEFAULT_ATTACK_TIMER_USAGE, [])
+    "Perform a slower attack with 1.5x ATK.",
+    True, AttackType.MELEE, 1.5, DEFAULT_ATTACK_TIMER_USAGE * 1.2, [])
 
 PassiveSkillData("Endurance", BasePlayerClassNames.WARRIOR, 3, True,
     "Recovers 2% HP at the end of your turn.",
@@ -838,7 +838,9 @@ ActiveSkillDataSelector("Nature's Blessing", AdvancedPlayerClassNames.WIZARD, 2,
                     AdvancedPlayerClassNames.WIZARD, 2, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [
                         SkillEffect([EFImmediate(lambda controller, _1, targets, _2: void((
                             controller.logMessage(MessageType.EFFECT, natureBlessingMessage[attribute].format(targets[0].name)),
-                            targets[0], natureBlessingEnchantments[attribute]
+                            controller.addSkillEffect(
+                                targets[0], natureBlessingEnchantments[attribute]
+                            )
                         )))], 0)], 1, 0, False, False), ["FIRE", "ICE", "WIND"])
 
 PassiveSkillData("Serendipity", AdvancedPlayerClassNames.WIZARD, 3, True,

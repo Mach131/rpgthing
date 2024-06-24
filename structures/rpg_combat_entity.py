@@ -8,14 +8,17 @@ from structures.rpg_classes_skills import PlayerClassData, SkillData, PassiveSki
 from structures.rpg_items import Item, Equipment, Weapon
 
 class CombatEntity(object):
-    def __init__(self, name : str, level : int, passiveSkills : list[SkillData], activeSkills : list[SkillData],
-                 shortName : str = "", encounterMessage : str = "", defeatMessage : str = "") -> None:
+    def __init__(self, name : str, level : int, aggroDecayFactor : float,
+                 passiveSkills : list[SkillData], activeSkills : list[SkillData],
+                 shortName : str = "", description = "", encounterMessage : str = "", defeatMessage : str = "") -> None:
         self.name = name
         self.shortName = shortName if len(shortName) > 0 else self.name
         self.level = level
+        self.aggroDecayFactor = aggroDecayFactor
         self.baseStats : dict[BaseStats, int] = {}
         self.flatStatMod : dict[Stats, float] = {}
         self.multStatMod : dict[Stats, float] = {}
+        self.description = description
         self.encounterMessage = encounterMessage
         self.defeatMessage = defeatMessage
 
@@ -57,7 +60,7 @@ ACC: {self.baseStats[BaseStats.ACC]}, AVO: {self.baseStats[BaseStats.AVO]}, SPD:
 class Player(CombatEntity):
     """Initializes the Player at level 1"""
     def __init__(self, name : str, playerClass : PlayerClassNames) -> None:
-        super().__init__(name, 1, [], [])
+        super().__init__(name, 1, 0, [], [])
 
         self.playerExp : int = 0
 
@@ -119,7 +122,15 @@ class Player(CombatEntity):
             else:
                 skillData.enablePassiveBonuses(self)
                 self.availablePassiveSkills.append(skillData)
-
+    
+    def getTotalStatString(self) -> str:
+        statStrings = {}
+        for stat in BaseStats:
+            statStrings[stat] = f"**{stat.name}**: {self.getStatValue(stat)} ({self.statLevels[stat]} pts)"
+        statString = f"{statStrings[BaseStats.HP]}  \\||  {statStrings[BaseStats.MP]}\n" + \
+                     f"{statStrings[BaseStats.ATK]}  \\||  {statStrings[BaseStats.DEF]}  \\||  {statStrings[BaseStats.MAG]}  \\||  {statStrings[BaseStats.RES]}\n" + \
+                     f"{statStrings[BaseStats.ACC]}  \\||  {statStrings[BaseStats.AVO]}  \\||  {statStrings[BaseStats.SPD]}"
+        return statString
 
     """
         Increases the player's base stat levels once for each stat that appears in increasedStats, updating
@@ -348,8 +359,9 @@ class Player(CombatEntity):
         if self.level < MAX_PLAYER_LEVEL:
             self.playerExp += expAmount
             expToNextLevel = self.getExpToNextLevel()
-            if expToNextLevel is not None and self.playerExp >= expToNextLevel:
+            while expToNextLevel is not None and self.playerExp >= expToNextLevel:
                 levelUp = self._levelUp()
+                expToNextLevel = self.getExpToNextLevel()
 
         classData = PlayerClassData.PLAYER_CLASS_DATA_MAP[self.currentPlayerClass]
         maxRank = MAX_BASE_CLASS_RANK if classData.isBaseClass else MAX_ADVANCED_CLASS_RANK
@@ -357,8 +369,9 @@ class Player(CombatEntity):
         if classRank < maxRank:
             self.classExp[self.currentPlayerClass] += expAmount
             nextRankExp = self.getExpToNextRank()
-            if nextRankExp is not None and self.classExp[self.currentPlayerClass] >= nextRankExp:
+            while nextRankExp is not None and self.classExp[self.currentPlayerClass] >= nextRankExp:
                 rankUp = self._rankUp()
+                nextRankExp = self.getExpToNextRank()
 
         return (levelUp, rankUp)
     
@@ -373,12 +386,13 @@ class Player(CombatEntity):
     
 
 class Enemy(CombatEntity):
-    def __init__(self, name : str, shortName : str, level : int, baseStats : dict[BaseStats, int],
-                 bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float],
+    def __init__(self, name : str, shortName : str, description : str, level : int, baseStats : dict[BaseStats, int],
+                 bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float], aggroDecayFactor : float,
                  passiveSkills : list[SkillData], activeSkills : list[SkillData],
                  encounterMessage : str, defeatMessage : str, ai : EnemyAI,
                  rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
-        super().__init__(name, level, passiveSkills, activeSkills, shortName, encounterMessage, defeatMessage)
+        super().__init__(name, level, aggroDecayFactor, passiveSkills, activeSkills,
+                         shortName, description, encounterMessage, defeatMessage)
         self.baseStats = baseStats
         self.flatStatMod = bonusFlatStats
         self.multStatMod = bonusMultStats

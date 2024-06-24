@@ -254,18 +254,12 @@ def characterDetailContent(session : GameSession, view : InterfaceView):
     currentClass = player.currentPlayerClass
     embed = discord.Embed(title="Character Info", description=f"{player.name}: Level {player.level}  \\||  " +
                           f"{currentClass.name[0] + currentClass.name[1:].lower()} Rank {player.classRanks[currentClass]}")
-    
-    statStrings = {}
-    for stat in BaseStats:
-        statStrings[stat] = f"**{stat.name}**: {player.getStatValue(stat)} ({player.statLevels[stat]} pts)"
-    statString = f"{statStrings[BaseStats.HP]}  \\||  {statStrings[BaseStats.MP]}\n" + \
-                 f"{statStrings[BaseStats.ATK]}  \\||  {statStrings[BaseStats.DEF]}  \\||  {statStrings[BaseStats.MAG]}  \\||  {statStrings[BaseStats.RES]}\n" + \
-                 f"{statStrings[BaseStats.ACC]}  \\||  {statStrings[BaseStats.AVO]}  \\||  {statStrings[BaseStats.SPD]}"
-    embed.add_field(name="Stats:", value=statString, inline=False)
+
+    embed.add_field(name="Stats:", value=player.getTotalStatString(), inline=False)
     
     levelExpString = f"{player.playerExp}/{player.getExpToNextLevel()}" if player.getExpToNextLevel() else "(MAX)"
     rankExpString = f"{player.classExp[currentClass]}/{player.getExpToNextRank()}" if player.getExpToNextRank() else "(MAX)"
-    embed.add_field(name="EXP:", value=f"To next Level: {levelExpString}\nTo next Rank: {rankExpString}")
+    embed.add_field(name="EXP:", value=f"Player Level: {levelExpString}\nClass Rank: {rankExpString}")
     
     equipString = "\n".join(["- " + equip.getShortDescription() for equip in player.equipment.values()])
     embed.add_field(name="Equipped:", value=equipString)
@@ -319,7 +313,7 @@ CHARACTER_STATS_SUBPAGE = InterfacePage("Stats", discord.ButtonStyle.secondary, 
 def characterClassesContent(session : GameSession, view : InterfaceView):
     player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
     currentClass = player.currentPlayerClass
-    rankExpString = f"EXP to next rank: {player.classExp[currentClass]}/{player.getExpToNextRank()}" if player.getExpToNextRank() else "MAX"
+    rankExpString = f"Class Rank EXP: {player.classExp[currentClass]}/{player.getExpToNextRank()}" if player.getExpToNextRank() else "MAX"
     embed = discord.Embed(title="Classes",
                           description=f"Current Class: {currentClass.name[0] + currentClass.name[1:].lower()} Rank {player.classRanks[currentClass]} " +
                           f"({rankExpString})")
@@ -601,7 +595,7 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
             dungeonStrings.append(dungeonString)
 
             dungeonButton = discord.ui.Button(label=f"{dungeon.shortDungeonName}", style=discord.ButtonStyle.blurple)
-            dungeonButton.callback = (lambda j: lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusDungeon', dungeon))(i)
+            dungeonButton.callback = (lambda _dungeon: lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusDungeon', _dungeon))(dungeon)
             view.add_item(dungeonButton)
 
         embed.add_field(name="", value='\n\n'.join(dungeonStrings))
@@ -852,6 +846,24 @@ MAIN_MENU = InterfaceMenu([CHARACTER_PAGE, EQUIPMENT_PAGE, DUNGEON_PAGE])
 
 #### Dungeon Combat
 
+def _abridgeCombatLog(logString : str):
+    if len(logString) >= DISPLAY_LOG_THRESHOLD:
+        logString = '\n'.join(logString[4 - DISPLAY_LOG_THRESHOLD:].split('\n')[1:])
+        logString = "(...)" + logString[4 - DISPLAY_LOG_THRESHOLD:]
+    return logString
+async def expandLogFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, logger : MessageCollector):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    logString = session.unseenCombatLog
+
+    assert(session.currentMessage is not None)
+    channel = session.currentMessage.channel
+    mentionString = session.savedMention
+    await channel.send(f"{mentionString} Log since last turn:\n{logString}")
+    view.pageData['sentLog'] = True
+    await view.refresh()
+
 def combatMainContentFn(session : GameSession, view : InterfaceView):
     assert(session.currentDungeon is not None)
     assert(session.currentDungeon.currentCombatInterface is not None)
@@ -863,7 +875,13 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
         playerTurnString = " - *Your Turn!*"
     embed = discord.Embed(title=f"Combat{playerTurnString}", description="")
 
-    combatLog : str = session.unseenCombatLog
+    combatLog : str = _abridgeCombatLog(session.unseenCombatLog)
+    if len(session.unseenCombatLog) > DISPLAY_LOG_THRESHOLD:
+        logger = session.currentDungeon.loggers[player]
+        logButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple,
+                                      disabled=view.pageData.get('sentLog', False), row=4)
+        logButton.callback = lambda interaction: expandLogFn(interaction, session, view, logger)
+        view.add_item(logButton)
 
     embed.add_field(name="__Player Team__", value=combatInterface.getPlayerTeamSummary(player))
     embed.add_field(name="__Opponent Team__", value=combatInterface.getEnemyTeamSummary(player))
@@ -978,6 +996,14 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                 buttonMap[CombatActions.APPROACH].disabled = True
             if not combatInterface.retreatPossible(player):
                 buttonMap[CombatActions.RETREAT].disabled = True
+
+            targets = combatInterface.getOpponents(player, True)
+            if len(targets) == 1:
+                target = targets[0]
+                buttonMap[CombatActions.ATTACK].style = discord.ButtonStyle.green
+                buttonMap[CombatActions.ATTACK].callback = (lambda _targ: lambda interaction:
+                                                            submitActionCallbackFn(interaction, session, view, combatHandler,
+                                                                                   CombatActions.ATTACK, [_targ]))(target)
             [view.add_item(buttonMap[option]) for option in CombatActions]
 
         if actionChoice is not None:
@@ -995,14 +1021,21 @@ def repositionHandler(isApproach : bool, session : GameSession, view : Interface
     targetKey = 'approachTargets' if isApproach else 'retreatTargets'
     combatAction = CombatActions.APPROACH if isApproach else CombatActions.RETREAT
     amount = -1 if isApproach else 1
+    opponents = combatInterface.getOpponents(player, True)
 
+    targetConfirm : bool = actionChoiceData.get('targetConfirm', False)
     selectedTargets : set[CombatEntity] = actionChoiceData.get(targetKey, set())
+
+    if not targetConfirm and len(opponents) == 1:
+        targetConfirm = True
+        selectedTargets = set([opponents[0]])
+
     if len(selectedTargets) > 0:
         embed.description = f"**{actionName}**: {changeString} distance from {', '.join([st.shortName for st in selectedTargets])}."
     else:
         embed.description = f"**{actionName}**: Select targets, then amount to move by."
 
-    if not actionChoiceData.get('targetConfirm', False):
+    if not targetConfirm:
         targets = combatInterface.getOpponents(player, True)
         for target in targets:
             targetButton = discord.ui.Button(label=target.shortName)
@@ -1096,7 +1129,7 @@ def partyDetailContent(session : GameSession, view : InterfaceView, playerTeam :
             targetButtons.append(targetButton)
     [view.add_item(button) for button in targetButtons]
 
-    embed = discord.Embed(title=f"**{focusEntity.name}**: Level {player.level}", description="")
+    embed = discord.Embed(title=f"**{focusEntity.name}**: Level {player.level}", description=focusEntity.description)
     statusString = combatInterface.getEntityStatus(player, focusEntity)
     embed.add_field(name="Combat Status:", value=statusString, inline=False)
 
@@ -1150,7 +1183,12 @@ def roomReadyFn(session : GameSession, view : InterfaceView):
     if dungeonHandler.isReady:
         embed.description = "Waiting for teammates..."
     else:
-        embed.add_field(name="__Combat Log__", value=session.unseenCombatLog, inline=False)
+        embed.add_field(name="__Combat Log__", value=_abridgeCombatLog(session.unseenCombatLog), inline=False)
+        if len(session.unseenCombatLog) > DISPLAY_LOG_THRESHOLD:
+            logger = session.currentDungeon.loggers[player]
+            logButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple,
+                                        disabled=view.pageData.get('sentLog', False), row=4)
+            logButton.callback = lambda interaction: expandLogFn(interaction, session, view, logger)
 
     confirmButton = discord.ui.Button(label="I'm Ready", style=discord.ButtonStyle.green, disabled=dungeonHandler.isReady)
     if session.dungeonFailed:
@@ -1229,7 +1267,12 @@ def dungeonCompleteFn(session : GameSession, view : InterfaceView):
         embed.title = "Dungeon Failed..."
     else:
         embed.title = "Dungeon Cleared!"
-    embed.add_field(name="__Combat Log__", value=session.unseenCombatLog, inline=False)
+    embed.add_field(name="__Combat Log__", value=_abridgeCombatLog(session.unseenCombatLog), inline=False)
+    if len(session.unseenCombatLog) > DISPLAY_LOG_THRESHOLD:
+        logger = session.currentDungeon.loggers[player]
+        logButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple,
+                                      disabled=view.pageData.get('sentLog', False), row=4)
+        logButton.callback = lambda interaction: expandLogFn(interaction, session, view, logger)
 
     confirmButton = discord.ui.Button(label="Exit Dungeon", style=discord.ButtonStyle.green)
     confirmButton.callback = lambda interaction: exitDungeonFn(interaction, session)
@@ -1425,6 +1468,3 @@ class DiscordMessageCollector(MessageCollector):
     
     def _updateViewLog(self, newLog : str):
         self.session.unseenCombatLog += '\n' + newLog if self.session.unseenCombatLog else newLog
-        if len(self.session.unseenCombatLog) >= DISPLAY_LOG_THRESHOLD:
-            self.session.unseenCombatLog = "(...)" + self.session.unseenCombatLog[4 - DISPLAY_LOG_THRESHOLD:]
-
