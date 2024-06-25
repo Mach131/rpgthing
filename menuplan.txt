@@ -103,14 +103,10 @@ In Combat:
 	
 
 Todos:
-	- equipment rewards (option to drop built into equip menu, special field in game session; can't click ready until either abandoning it or making space somehow else)
 	- equipment options (drop, give, sell; when space is made, check if pending drop and add/clear if so)
 	- equipment progression (upgrading)
 
 	- buff/stack display
-	- effect debugging (wizard enchantment not working? or maybe it's just a filter thing)
 	- logging filters
 
-
-	- hide advanced classes if not unlocked (show as [LOCKED] in class window)
-	- add description of current class as a separate field there
+	- add description of current class as a separate field in class window

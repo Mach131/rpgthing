@@ -46,7 +46,7 @@ class DungeonRoomData(object):
         if not retry:
             roll = controller.rng.randrange(sum(self.weights))
             groupIndex = 0
-            while roll > self.weights[groupIndex] and groupIndex <= len(self.enemyGroups) - 1:
+            while roll >= self.weights[groupIndex] and groupIndex <= len(self.enemyGroups) - 1:
                 roll -= self.weights[groupIndex]
                 groupIndex += 1
             
@@ -251,6 +251,8 @@ class DungeonController(object):
                     await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
                     if self.currentRoom < self.totalRooms:
                         await self._processReady()
+                        if len(self.playerTeamHandlers) == 0:
+                            return False
             else:
                 # Attempt to handle interruptions between rooms
                 assert(reload)

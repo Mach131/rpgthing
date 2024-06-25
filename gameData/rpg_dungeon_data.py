@@ -10,7 +10,7 @@ from gameData.rpg_enemy_data import *
 trainingDungeon = DungeonData("Training Yard", "Training",
                               "A small yard outside an unassuming building, with some training dummies set up.\n" +
                               "You were pointed here when getting your dungeon license, but is there anyone else around...?",
-                              "Clear Bonus: 2 EXP, 3 WUP",
+                              "Enough EXP to learn a Base Class",
                               set(),
                               1, 1, True, 1.0, 1.0,
                               [
@@ -24,8 +24,9 @@ trainingDungeon = DungeonData("Training Yard", "Training",
 
 # TODO: for field, use 'roomNumber' param
 fieldDungeon = DungeonData("Fresh Fields", "Field",
-                           "",
-                           "",
+                           "An easily-accessed open field, suitable for any new party.\n" +
+                           "Despite the name, it's not uncommon for allergies to act up as you get further in.",
+                           "30~40 EXP, 3~5 WUP, Common Equipment",
                            set([Milestones.TUTORIAL_COMPLETE]),
                            3, 2, False, 0.5, 0.65,
                            [
@@ -53,6 +54,6 @@ fieldDungeon = DungeonData("Fresh Fields", "Field",
                                    ([ffPlantBoss, ffPlant, ffPlant], 1)], {'roomNumber': 3})
                            ],
                            lambda _1, player: (
-                               EnemyReward(5, 2,
-                                           1 if random.random() < 0.15 else 0,
+                               EnemyReward(10, 2,
+                                           1 if random.random() < 0.3 else 0,
                                            None),)[-1])

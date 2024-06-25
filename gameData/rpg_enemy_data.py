@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Callable
 import random
 
-from gameData.rpg_item_data import makeBasicCommonDrop
+from gameData.rpg_item_data import makeBasicCommonDrop, makeBasicUncommonDrop
 from structures.rpg_classes_skills import ActiveBuffSkillData, AttackSkillData, EFAfterNextAttack, EFBeforeNextAttack, EFImmediate, EffectFunctionResult, SkillEffect
 from rpg_consts import *
 from structures.rpg_combat_entity import *
@@ -106,7 +106,7 @@ def trainingBoss(params : dict) -> Enemy:
         CombatStats.REPOSITION_ACTION_TIME_MULT: 0.5
     }, 0, [], [waitSkill("", 1), waitSkill("", 1.2), attackSkill],
     "Aqi: \"All warmed up now? Just gotta test you before sendin' you out!\"",
-    "Your form's lookin' good! Remember to check your class n' skills before tryin' the real thing!",
+    "Aqi: \"Your form's lookin' good! Remember to check your class n' skills before tryin' the real thing!\"",
     EnemyAI({"aiIdx": 0, "target": None}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))
 
@@ -372,7 +372,9 @@ def ffSlimeBoss(params : dict) -> Enemy:
     "The large slime roars a noble 'blurble'!", "",
     EnemyAI({"aiIdx": 0, "cannonCd": 0, "slamCd": 2, "splitCd": 2}, decisionFn),
     lambda controller, entity:
-        EnemyReward(5, 3, 0, rollEquip(controller, entity, 1,
+        EnemyReward(6, 3, 0, rollEquip(controller, entity, 1,
+                                       makeBasicUncommonDrop(controller.rng, 0, 1, True)
+                                            if controller._randomRoll(None, entity) <= 0.05 else
                                        makeBasicCommonDrop(controller.rng, 5, 8, True))))
 
 
@@ -480,5 +482,7 @@ def ffPlantBoss(params : dict) -> Enemy:
     "The flower unit prepares to mobilize!", "",
     EnemyAI({"aiIdx": 0, "gardenCd": 2, "swingCd": 0}, decisionFn),
     lambda controller, entity:
-        EnemyReward(5, 2, 0, rollEquip(controller, entity, 1,
+        EnemyReward(6, 2, 0, rollEquip(controller, entity, 1,
+                                       makeBasicUncommonDrop(controller.rng, 0, 1, True)
+                                            if controller._randomRoll(None, entity) <= 0.05 else
                                        makeBasicCommonDrop(controller.rng, 6, 8, True))))

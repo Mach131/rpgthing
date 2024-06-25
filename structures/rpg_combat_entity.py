@@ -5,7 +5,7 @@ from gameData.rpg_item_data import makeBeginnerWeapon
 from structures.rpg_combat_state import CombatController
 from rpg_consts import *
 from structures.rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
-from structures.rpg_items import Item, Equipment, Weapon
+from structures.rpg_items import EquipmentTrait, Item, Equipment, Weapon
 
 class CombatEntity(object):
     def __init__(self, name : str, level : int, aggroDecayFactor : float,
@@ -114,6 +114,7 @@ class Player(CombatEntity):
             if freeSkill is not None:
                 allSkills.append(freeSkill)
         for equip in self.equipment.values():
+            equip.reloadTraitSkills()
             allSkills += equip.currentTraitSkills
 
         for skillData in allSkills:
@@ -383,6 +384,73 @@ class Player(CombatEntity):
             self.inventory.append(equip)
             return True
         return False
+    
+    """
+        Attempts to pay for and increase the rank of an item. Updates trait skills if equipped.
+        Returns true if successful.
+    """
+    def increaseItemRank(self, equip : Equipment) -> bool:
+        rankIncreaseCost = equip.getRankIncreaseCost()
+        if rankIncreaseCost is None:
+            return False
+        
+        wupCost, swupCost = rankIncreaseCost
+        if self.wup < wupCost or self.swup < swupCost:
+            return False
+        self.wup -= wupCost
+        self.swup -= swupCost
+
+        currentlyEquipped = self.equipment.get(equip.equipSlot, None) == equip
+        if currentlyEquipped:
+            self.unequipItem(equip.equipSlot)
+        equip.increaseRank()
+        if currentlyEquipped:
+            self.equipItem(equip)
+        return True
+    
+    """
+        Attempts to pay for and increase the rarity of an item. Updates trait skills if equipped.
+        Returns true if successful.
+    """
+    def increaseItemRarity(self, equip : Equipment) -> bool:
+        rarityIncreaseCost = equip.getRarityIncreaseCost()
+        if rarityIncreaseCost is None:
+            return False
+        
+        wupCost, swupCost = rarityIncreaseCost
+        if self.wup < wupCost or self.swup < swupCost:
+            return False
+        self.wup -= wupCost
+        self.swup -= swupCost
+
+        currentlyEquipped = self.equipment.get(equip.equipSlot, None) == equip
+        if currentlyEquipped:
+            self.unequipItem(equip.equipSlot)
+        equip.increaseRarity()
+        if currentlyEquipped:
+            self.equipItem(equip)
+        return True
+    
+    """
+        Attempts to change a trait on an item. Updates trait skills if equipped.
+        Returns true if successful.
+    """
+    def adaptItem(self, equip : Equipment, traitIndex : int, newTrait : EquipmentTrait) -> bool:
+        adaptCost = equip.getTraitAdaptSwupCost(newTrait)
+        if adaptCost is None:
+            return False
+        
+        if self.swup < adaptCost:
+            return False
+        self.swup -= adaptCost
+
+        currentlyEquipped = self.equipment.get(equip.equipSlot, None) == equip
+        if currentlyEquipped:
+            self.unequipItem(equip.equipSlot)
+        equip.adaptTrait(traitIndex, newTrait)
+        if currentlyEquipped:
+            self.equipItem(equip)
+        return True
     
 
 class Enemy(CombatEntity):

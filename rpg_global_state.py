@@ -17,6 +17,9 @@ class GlobalState(object):
         self.loaded = False
         self.firstSave = False
 
+    def idRegistered(self, id : int) -> bool:
+        return id in self.accountDataMap and len(self.accountDataMap[id].allCharacters) > 0
+
     def registerNewCharacter(self, userId : int, characterName : str, playerClass : BasePlayerClassNames, session : GameSession):
         player : Player = Player(characterName, playerClass)
 
@@ -64,6 +67,15 @@ class GlobalState(object):
             print("unable to load previous state")
 
         self.loaded = True
+
+    def deleteCharacter(self, userId, character):
+        if userId not in self.accountDataMap:
+            return
+        accountData = self.accountDataMap[userId]
+        accountData.allCharacters.remove(character)
+        if accountData.currentCharacter == character:
+            if len(accountData.allCharacters) > 0:
+                accountData.currentCharacter = accountData.allCharacters[0]
 
 class AccountData(object):
     def __init__(self, userId : int, character : Player, session : GameSession):

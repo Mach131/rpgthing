@@ -32,6 +32,7 @@ class GameSession(object):
         self.defaultFormationDistance : int = DEFAULT_STARTING_DISTANCE
         self.dungeonFailed : bool = False
         self.currentParty : PartyInfo | None = None
+        self.pendingItems : list[Equipment] = []
 
     """ Returns values to be pickled """
     def __getstate__(self):
@@ -56,6 +57,7 @@ class GameSession(object):
         session.unseenCombatLog = ""
         session.dungeonFailed = False
         session.currentParty = None
+        session.pendingItems = []
         
     def onLoadReset(self):
         # Originally had support for re-loading dungeons here, but too hard to figure out pickling at the moment
@@ -74,12 +76,15 @@ class GameSession(object):
             if self.currentMessage is not None:
                 await self.currentMessage.edit(view=None)
 
-    async def updateEmbed(self):
-        assert(self.currentMessage is not None)
+    async def updateEmbed(self, channel : Channel | None = None):
         if self.isActive:
+            assert(self.currentMessage is not None)
             self.currentMessage = await self.currentMessage.edit(embed=self.currentEmbed, view=self.currentView)
         else:
-            await self.recreateEmbed(self.currentMessage.channel)
+            if channel is None:
+                assert(self.currentMessage is not None)
+                channel = self.currentMessage.channel
+            await self.recreateEmbed(channel)
 
     async def recreateEmbed(self, channel : Channel):
         self.isActive = True
@@ -149,9 +154,9 @@ class GameSession(object):
         await self.loadNewMenu(MAIN_MENU)
         self.dungeonFailed = False
 
-    async def loadNewMenu(self, newMenu : InterfaceMenu):
+    async def loadNewMenu(self, newMenu : InterfaceMenu, channel : Channel | None = None):
         self.currentMenu = newMenu
-        await self.currentView.loadPages(newMenu.pages)
+        await self.currentView.loadPages(newMenu.pages, None, channel)
 
     def safeToSwitch(self):
         return self.currentDungeon is None and self.currentParty is None
@@ -172,6 +177,7 @@ class InterfaceView(discord.ui.View):
         self.pageData : dict = pageData
 
         self.indexMap : dict[InterfacePage, int] = {}
+        self.rowMap : dict[int, int] = {}
         self.currentConfirmation : InterfaceConfirmation | None = None
 
         self.refreshButtons()
@@ -181,6 +187,7 @@ class InterfaceView(discord.ui.View):
         self.indexMap = {}
         self.clear_items()
         if self.currentConfirmation is None:
+            self.rowMap = {}
             self._addButtons(self.availablePages, 0)
         else:
             for button in self.currentConfirmation.getButtons(self.session, self):
@@ -195,6 +202,13 @@ class InterfaceView(discord.ui.View):
             button.callback = page.getCallback(self.session)
             if idx == self.currentPageStack[depth]:
                 button.disabled = True
+            
+            if button.row is not None:
+                if self.rowMap.get(button.row, 0) >= 5:
+                    button.row = None
+                else:
+                    self.rowMap[button.row] = self.rowMap.get(button.row, 0) + 1
+
             self.add_item(button)
 
         subPages = pageList[self.currentPageStack[depth]].subPages
@@ -233,7 +247,7 @@ class InterfaceView(discord.ui.View):
         self.pageData[key] = value
         await self.refresh()
 
-    async def loadPages(self, newPages : list[InterfacePage], pageStack : list[int] | None = None):
+    async def loadPages(self, newPages : list[InterfacePage], pageStack : list[int] | None = None, channel : Channel | None = None):
         self.availablePages = newPages
 
         self.currentPageStack = [0]
@@ -242,7 +256,7 @@ class InterfaceView(discord.ui.View):
         self.pageData = {}
         self.refreshButtons()
         self.session.currentEmbed = self.availablePages[0].getContent(self.session, self)
-        await self.session.updateEmbed()
+        await self.session.updateEmbed(channel)
 
     async def requestConfirm(self, confirmDialogue : InterfaceConfirmation):
         self.currentConfirmation = confirmDialogue
@@ -254,6 +268,97 @@ class InterfaceView(discord.ui.View):
             self.pageData[self.currentConfirmation.dataKey] = True
         self.currentConfirmation = None
         await self.refresh()
+
+class CharacterDeletionPrompt(object):
+    def __init__(self, channel : Channel, userId : int, character : Player):
+        self.channel = channel
+        self.userId = userId
+        self.character = character
+
+        self.session = GLOBAL_STATE.accountDataMap[userId].session
+        self.state = 0
+        self.embed = discord.Embed(title=f"DELETING CHARACTER: {character.name}")
+        self.view = discord.ui.View()
+        self.message : discord.Message | None = None
+
+    async def _confirmCallback(self, interaction : discord.Interaction):
+        await interaction.response.defer()
+        if interaction.user.id != self.userId:
+            return
+        self.state += 1
+        await self.updateMessage()
+
+    async def _cancelCallback(self, interaction : discord.Interaction):
+        await interaction.response.defer()
+        if interaction.user.id != self.userId:
+            return
+        self.view.clear_items()
+        self.view.stop()
+        self.embed.clear_fields()
+        self.embed.title="Deletion Cancelled!"
+        if self.message is not None:
+            await self.message.edit(embed=self.embed, view=self.view)
+
+    async def updateMessage(self):
+        self.embed.clear_fields()
+        self.view.clear_items()
+
+        if self.state == 0:
+            charDescription = f"Level {self.character.level} {enumName(self.character.currentPlayerClass)}"
+            self.embed.add_field(name=f"Are you sure you want to delete {self.character.name}?",
+                                 value=f"They are currently a **{charDescription}**. There is no way to restore a deleted character, and all of their items will be lost as well.")
+
+            confirmButton = discord.ui.Button(label="Delete Character", style=discord.ButtonStyle.red)
+            confirmButton.callback = self._confirmCallback
+            cancelButton = discord.ui.Button(label="Do Not Delete", style=discord.ButtonStyle.blurple)
+            cancelButton.callback = self._cancelCallback
+            self.view.add_item(confirmButton).add_item(cancelButton)
+
+            self.message = await self.channel.send(self.session.savedMention, embed=self.embed, view=self.view)
+
+        elif self.state == 1:
+            self.embed.add_field(name=f"Are you REALLY sure you want to delete {self.character.name}??",
+                                 value=f"Remember that you can create up to {MAX_USER_CHARACTERS} characters currently, and that each character can change class at any time outside of a dungeon.")
+
+            confirmButton = discord.ui.Button(label="Yes, Delete Character", style=discord.ButtonStyle.red)
+            confirmButton.callback = self._confirmCallback
+            cancelButton = discord.ui.Button(label="No, whoops", style=discord.ButtonStyle.blurple)
+            cancelButton.callback = self._cancelCallback
+            self.view.add_item(confirmButton).add_item(cancelButton)
+
+            assert self.message is not None
+            await self.message.edit(embed=self.embed, view=self.view)
+
+        elif self.state == 2:
+            self.embed.add_field(name=f"Are you *REALLY REALLY REALLY* sure you want to delete {self.character.name}?????",
+                                 value=f"**This is your last warning.**")
+
+            confirmButton = discord.ui.Button(label="YES!!!!!", style=discord.ButtonStyle.red)
+            confirmButton.callback = self._confirmCallback
+            cancelButtonTextOptions = ["no", "not anymore", "my b", "whoops", "cancel", "oh no", "not really", "uhhh", "hmm"]
+            cancelButtons = [discord.ui.Button(label=random.choice(cancelButtonTextOptions),
+                                               style=discord.ButtonStyle.blurple) for i in range(14)]
+            for cancelButton in cancelButtons:
+                cancelButton.callback = self._cancelCallback
+
+            allButtons = cancelButtons + [confirmButton]
+            random.shuffle(allButtons)
+            for button in allButtons:
+                self.view.add_item(button)
+
+            assert self.message is not None
+            await self.message.edit(embed=self.embed, view=self.view)
+        
+        else:
+            GLOBAL_STATE.deleteCharacter(self.userId, self.character)
+
+            self.embed.add_field(name="It is done.", value="")
+            self.view.stop()
+            assert self.message is not None
+            await self.message.edit(embed=self.embed, view=self.view)
+
+
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -292,7 +397,7 @@ async def new_character(ctx : commands.Context, character_name : str):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
         validated = True
-        if userId in GLOBAL_STATE.accountDataMap:
+        if GLOBAL_STATE.idRegistered(userId):
             charList = GLOBAL_STATE.accountDataMap[userId].allCharacters
             if len(charList) > MAX_USER_CHARACTERS:
                 await ctx.send(f"You cannot make more than {MAX_USER_CHARACTERS} characters at the moment. " + \
@@ -306,11 +411,11 @@ async def new_character(ctx : commands.Context, character_name : str):
             validated = False
 
         if validated:
-            if userId in GLOBAL_STATE.accountDataMap:
+            if GLOBAL_STATE.idRegistered(userId):
                 gameSession = GLOBAL_STATE.accountDataMap[userId].session
                 gameSession.newCharacterName = character_name
                 await ctx.send(f"Creating new character for {ctx.author.display_name}...")
-                await gameSession.loadNewMenu(NEW_GAME_MENU)
+                await gameSession.loadNewMenu(NEW_GAME_MENU, ctx.channel)
             else:
                 gameSession = GameSession(userId, character_name)
                 await ctx.send(f"Opening session for {ctx.author.display_name}...")
@@ -353,7 +458,7 @@ async def select_character(ctx : commands.Context, target_character : str):
 @select_character.error
 async def select_character_error(ctx, error : Exception):
     userId = ctx.author.id
-    if userId not in GLOBAL_STATE.accountDataMap:
+    if not GLOBAL_STATE.idRegistered(userId):
         await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
     else:
         charList = GLOBAL_STATE.accountDataMap[userId].allCharacters
@@ -366,7 +471,7 @@ async def select_character_error(ctx, error : Exception):
 async def play(ctx : commands.Context):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
-        if userId in GLOBAL_STATE.accountDataMap:
+        if GLOBAL_STATE.idRegistered(userId):
             gameSession = GLOBAL_STATE.accountDataMap[userId].session
             await ctx.send(f"Opening session for {ctx.author.display_name}...")
             gameSession.savedMention = ctx.author.mention
@@ -380,7 +485,7 @@ async def play(ctx : commands.Context):
 async def invite(ctx : commands.Context, member: discord.Member):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
-        if userId not in GLOBAL_STATE.accountDataMap:
+        if not GLOBAL_STATE.idRegistered(userId):
             await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
         else:
             gameSession = GLOBAL_STATE.accountDataMap[userId].session
@@ -395,7 +500,7 @@ async def invite(ctx : commands.Context, member: discord.Member):
 
             else:
                 invitedData = GLOBAL_STATE.accountDataMap.get(member.id, None)
-                if invitedData is None:
+                if invitedData is None or not GLOBAL_STATE.idRegistered(member.id):
                     await ctx.send("The user you invited hasn't made any characters!", ephemeral=True)
                 elif not invitedData.session.safeToSwitch():
                     await ctx.send("The user you invited is already in a party or dungeon.", ephemeral=True)
@@ -429,7 +534,7 @@ async def panic(ctx : commands.Context, confirmation : str | None = None):
     if GLOBAL_STATE.loaded:
         if confirmation is not None and confirmation.lower() == "saveme":
             userId = ctx.author.id
-            if userId in GLOBAL_STATE.accountDataMap:
+            if GLOBAL_STATE.idRegistered(userId):
                 gameSession = GLOBAL_STATE.accountDataMap[userId].session
                 await gameSession.exitDungeon()
                 await ctx.send(f"Resetting your session (hopefully this worked...)")
@@ -440,6 +545,44 @@ async def panic(ctx : commands.Context, confirmation : str | None = None):
                         "To confirm this, use '/panic saveme'.")
     else:
         await respondNotLoaded(ctx)
+
+@bot.hybrid_command()
+async def delete_character(ctx : commands.Context, target_character : str):
+    if GLOBAL_STATE.loaded:
+        userId = ctx.author.id
+        accountData = GLOBAL_STATE.accountDataMap.get(userId, None)
+        if accountData is None:
+            await ctx.send("You don't have a character yet (why are you trying to delete one?)! Use the 'new_character [name]' command first.", ephemeral=True)
+        elif not accountData.session.safeToSwitch():
+            await ctx.send("You can't delete characters while in a party or dungeon! Leave first, then try again. (You can use the 'panic' command if you're stuck.)", ephemeral=True)
+        else:
+            charList = accountData.allCharacters
+            chosenCharacter = None
+            if target_character.isdigit():
+                chosenCharacter = charList[int(target_character) - 1]
+            else:
+                for character in charList:
+                    if character.name.lower() == target_character.lower():
+                        chosenCharacter = character
+
+            if chosenCharacter is None:
+                raise KeyError
+            else:
+                await ctx.send(f"Opening deletion prompt for {chosenCharacter.name}...")
+                await CharacterDeletionPrompt(ctx.channel, userId, chosenCharacter).updateMessage()
+    else:
+        await respondNotLoaded(ctx)
+@delete_character.error
+async def delete_character_error(ctx, error : Exception):
+    userId = ctx.author.id
+    if not GLOBAL_STATE.idRegistered(userId):
+        await ctx.send("You don't have a character yet (why are you trying to delete one?)! Use the 'new_character [name]' command first.", ephemeral=True)
+    else:
+        charList = GLOBAL_STATE.accountDataMap[userId].allCharacters
+        response = "You can use 'delete_character [character_name]' or 'delete_character [index]'.\n"
+        response += "__Your characters:__\n"
+        response += '\n'.join(f"[{i+1}] {char.name}, Level {char.level}" for i, char in enumerate(charList))
+        await ctx.send(response, ephemeral=True)
 
 @bot.command()
 async def save(ctx : commands.Context):

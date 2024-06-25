@@ -300,7 +300,7 @@ itemRarityStrings = [
     "Legendary"
 ]
 MAX_ITEM_RARITY = 4
-MAX_ITEM_RANK = 10
+MAX_ITEM_RANK = 9
 MAX_RANK_STAT_SCALING = 0.75
 
 class WeaponTypeAttributes(object):
@@ -575,7 +575,7 @@ def getEquipClassAttributes(equipClass: EquipClass) -> EquipAttributes:
 
 EQUIP_CURSE_CHANCE = 0.15
 
-MAX_INVENTORY = 8
+MAX_INVENTORY = 12
 
 """ Progression """
 
@@ -600,6 +600,23 @@ class Milestones(Enum):
 
 MAX_USER_CHARACTERS = 4
 MAX_NAME_LENGTH = 15
+
+ITEM_RANK_INCREASE_COST = [
+    [(1, 0), (1, 0), (1, 0), (2, 0), (2, 0), (2, 0), (3, 0), (3, 0), (3, 0)],
+    [(3, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0), (8, 0), (9, 0), (10, 0)],
+    [(10, 0), (12, 0), (14, 0), (16, 0), (18, 0), (20, 0), (22, 0), (24, 0), (26, 0)],
+    [(30, 0), (35, 0), (40, 0), (45, 0), (50, 0), (55, 0), (60, 0), (65, 0), (70, 0)],
+    [(100, 5), (125, 5), (150, 10), (200, 10), (250, 15), (300, 15), (400, 20), (500, 20), (600, 25)]
+]
+ITEM_RARITY_INCREASE_COST = [(10, 1), (40, 5), (100, 10), (300, 30)]
+BASE_TRAIT_CHANGE_SWUP_COST = 10
+TRAIT_CHANGE_COST_MULT = 1.6
+BASE_RARITY_SALE_PRICE = [(1, 0), (5, 1), (20, 3), (50, 6), (200, 18)]
+CURSE_SALE_BONUS_MULT = 1.25
+ADAPTABLE_SALE_BONUS_MULT = 1.1
+
+WEAPON_BONUS_TRAIT_LEVELS = [0, 2, 4]
+NONWEAPON_BONUS_TRAIT_LEVELS = [0, 3]
 
 """ Logging """
 
