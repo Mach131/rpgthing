@@ -208,7 +208,7 @@ class AttackSkillData(SkillData):
         self.attackStatMultiplier = attackStatMultiplier
 
         attackingStat = BaseStats.ATK if isPhysical else BaseStats.MAG
-        basicAttackSkillEffects = SkillEffect([
+        basicAttackSkillEffects = SkillEffect("", [
             EFBeforeNextAttack({}, {attackingStat : attackStatMultiplier}, None, None)
             # EFAfterNextAttack(lambda _1, _2, _3, _4, result: result.setActionTime(actionTime))
         ], 0)
@@ -239,7 +239,7 @@ class CounterSkillData(AttackSkillData):
 class PrepareParrySkillData(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
             actionTime : float, parryType : AttackType, parryEffectFunctions : list[EFOnParry], register : bool = True):
-        fullParryEffect = SkillEffect([ef for ef in parryEffectFunctions], None)
+        fullParryEffect = SkillEffect(skillName, [ef for ef in parryEffectFunctions], None)
         fullParryEffect.effectFunctions.append(EFImmediate(lambda controller, user, _1, result: (
             controller.combatStateMap[user].setParryType(parryType, fullParryEffect)
         )))
@@ -262,15 +262,17 @@ class ActiveSkillDataSelector(SkillData):
         return self.skillGenerator(selectorInput)
 
 class SkillEffect(object):
-    def __init__(self, effectFunctions : list[EffectFunction], effectDuration : int | None, expirationMessage : str | None = None):
+    def __init__(self, effectName : str, effectFunctions : list[EffectFunction], effectDuration : int | None,
+                 expirationMessage : str | None = None):
+        self.effectName : str = effectName
         self.effectFunctions : list[EffectFunction] = effectFunctions[:]
         self.effectDuration : int | None = effectDuration
         self.expirationMessage : str | None = expirationMessage
 
 class EnchantmentSkillEffect(SkillEffect):
-    def __init__(self, enchantmentAttribute : AttackAttribute, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
-                 effectFunctions : list[EffectFunction], effectDuration : int | None):
-        super().__init__(effectFunctions, effectDuration)
+    def __init__(self, effectName : str, enchantmentAttribute : AttackAttribute, flatStatBonuses : dict[Stats, float],
+                 multStatBonuses : dict[Stats, float], effectFunctions : list[EffectFunction], effectDuration : int | None):
+        super().__init__(effectName, effectFunctions, effectDuration)
         self.enchantmentAttribute : AttackAttribute = enchantmentAttribute
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
@@ -319,7 +321,7 @@ class EFBeforeNextAttack(EffectFunction):
 
         if self.applyFunc is not None:
             self.applyFunc(controller, user, target)
-        revertEffect : SkillEffect = SkillEffect([EFBeforeNextAttack_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
+        revertEffect : SkillEffect = SkillEffect("", [EFBeforeNextAttack_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
         controller.addSkillEffect(user, revertEffect)
 
         return EffectFunctionResult(self)
@@ -360,7 +362,7 @@ class EFBeforeAttacked(EffectFunction):
 
         if self.applyFunc is not None:
             self.applyFunc(controller, user, attacker)
-        revertEffect : SkillEffect = SkillEffect([EFBeforeAttacked_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
+        revertEffect : SkillEffect = SkillEffect("", [EFBeforeAttacked_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
         controller.addSkillEffect(attacker, revertEffect)
 
         return EffectFunctionResult(self)

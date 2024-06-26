@@ -523,6 +523,19 @@ async def invite(ctx : commands.Context, member: discord.Member):
 async def invite_error(ctx, error : Exception):
     await ctx.send("Include someone to invite to a party using 'invite [user]'!", ephemeral=True)
 
+@bot.hybrid_command()
+async def options(ctx : commands.Context):
+    if GLOBAL_STATE.loaded:
+        userId = ctx.author.id
+        if GLOBAL_STATE.idRegistered(userId):
+            await ctx.send(f"Opening options for {ctx.author.display_name}...")
+            optionSession = GameSession(userId)
+            optionSession.savedMention = ctx.author.mention
+            await optionSession.loadNewMenu(OPTIONS_MENU, ctx.channel)
+        else:
+            await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
+    else:
+        await respondNotLoaded(ctx)
 
 @bot.hybrid_command()
 async def sync(ctx : commands.Context):

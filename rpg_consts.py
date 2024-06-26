@@ -177,7 +177,8 @@ class EffectStacks(Enum):
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
     EffectStacks.SUPPRESSIVE_FIRE: "Suppressive Fire",
-    EffectStacks.EYES_OF_THE_DARK: "Eyes of the Dark"
+    EffectStacks.EYES_OF_THE_DARK: "Eyes of the Dark",
+    EffectStacks.UNRELENTING_ASSAULT: "Unrelenting Assault"
 }
 
 """ Combat """
@@ -234,8 +235,8 @@ class StatusConditionNames(Enum):
     PERPLEXITY = auto()
     FEAR = auto()
 
-BASE_DEFAULT_STATUS_TOLERANCE = 20
-PER_LEVEL_DEFAULT_STATUS_TOLERANCE = 4
+BASE_DEFAULT_STATUS_TOLERANCE = 15
+PER_LEVEL_DEFAULT_STATUS_TOLERANCE = 3
 
 STATUS_TOLERANCE_RESIST_DECREASE = 15
 STATUS_TOLERANCE_RECOVERY_INCREASE_FACTOR = 1.5
@@ -626,13 +627,24 @@ class MessageType(Enum):
     DIALOGUE = auto()
     TELEGRAPH = auto()
     ACTION = auto()
-    DAMAGE_COMBAT = auto()
+    DAMAGE = auto()
     MANA = auto()
     POSITIONING = auto()
-    STAT_CHANGE = auto()
     EXPIRATION = auto()
     EFFECT = auto()
     PROBABILITY = auto()
+
+TOGGLE_LOG_FILTER_DEFAULTS : dict[MessageType, bool] = {
+    MessageType.DEBUG: False,
+    MessageType.DIALOGUE: True,
+    MessageType.ACTION: True,
+    MessageType.DAMAGE: True,
+    MessageType.MANA: False,
+    MessageType.POSITIONING: True,
+    MessageType.EXPIRATION: True,
+    MessageType.EFFECT: True,
+    MessageType.PROBABILITY: False
+}
 
 DISPLAY_LOG_THRESHOLD = 512
 

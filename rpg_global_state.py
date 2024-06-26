@@ -83,6 +83,11 @@ class AccountData(object):
         self.currentCharacter = character
         self.session = session
 
+        self.enabledLogFilters : set[MessageType] = set()
+        for logFilter in TOGGLE_LOG_FILTER_DEFAULTS:
+            if TOGGLE_LOG_FILTER_DEFAULTS.get(logFilter, True):
+                self.enabledLogFilters.add(logFilter)
+
         self.allCharacters = [self.currentCharacter]
 
 GLOBAL_STATE = GlobalState()

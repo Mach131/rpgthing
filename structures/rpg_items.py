@@ -277,13 +277,13 @@ def makeStatDownTrait(stat: Stats, scaling : int):
 def makeWeaknessTrait(attribute : AttackAttribute):
     attributeString = attribute.name[0] + attribute.name[1:].lower()
     return EquipmentTrait(f"{attributeString} Weakness", lambda r, c: f"Gain {r+1} stack(s) of {attributeString}-attribute weakness.",
-                    lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect(
+                    lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect("",
                         [EFImmediate(lambda controller, user, _1, _2: controller.addWeaknessStacks(user, attribute, r+1))], None)], False))
 
 def makeResistanceTrait(attribute : AttackAttribute):
     attributeString = attribute.name[0] + attribute.name[1:].lower()
     return EquipmentTrait(f"{attributeString} Resistance", lambda r, c: f"Gain {r+1+(1 if c else 0)} stack(s) of {attributeString}-attribute resistance.",
-                    lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect(
+                    lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect("",
                         [EFImmediate(lambda controller, user, _1, _2: controller.addResistanceStacks(user, attribute, r+1+(1 if c else 0)))],
                         None)], False))
 
@@ -338,7 +338,7 @@ def makeStatusEffectTrait(statusName : StatusConditionNames, procScaling : int, 
     statusSummary = f"Chance to Apply {statusName.name}"
     return EquipmentTrait(statusSummary, lambda r, c: description.format(abs(procScaling*(r+1)*(1.5 if c else 1)), duration + (1 if c else 0)),
                             lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {},
-            [SkillEffect([EFAfterNextAttack(
+            [SkillEffect("", [EFAfterNextAttack(
                 lambda controller, user, target, attackInfo, _: void(
                     controller.applyStatusCondition(target, statusClass(user, target, duration + (1 if c else 0)) if valMethod is None else
                                                     statusClass(user, target, duration + (1 if c else 0), valMethod(controller, user, target)))
@@ -375,12 +375,12 @@ fearEffectTrait = makeStatusEffectTrait(StatusConditionNames.FEAR, 2, 5,
 
 healthDrainTrait = EquipmentTrait("Attacks Restore HP", lambda r, c: f"Restore {r+1}% of the damage you deal as HP.",
                                   lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {},
-    [SkillEffect([EFAfterNextAttack(
+    [SkillEffect("", [EFAfterNextAttack(
         lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * ((r+1) * 0.01))))
     )], None)], False))
 manaGainTrait = EquipmentTrait("Attacks Restore MP", lambda r, c: f"When you hit the opponent, restore {(2*r)-3}% of your MP.",
                                   lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {},
-    [SkillEffect([EFAfterNextAttack(
+    [SkillEffect("", [EFAfterNextAttack(
         lambda controller, user, _1, attackInfo, _2:
             void(controller.gainMana(user, math.ceil(controller.getMaxMana(user) * (((2*r)-3) * 0.01)))) if attackInfo.attackHit else None
     )], None)], False))
@@ -392,12 +392,12 @@ luckTrait = EquipmentTrait("Lucky", lambda r, c: f"Become{','.join([' much' for 
 
 healthCostCurse = EquipmentTrait("Attacks Cost HP", lambda r, c: f"When attacking, spend {r+1}% of your total HP. (Cannot kill you.)",
                                   lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {},
-    [SkillEffect([EFBeforeNextAttack({}, {},
+    [SkillEffect("", [EFBeforeNextAttack({}, {},
         lambda controller, user, _1: void(controller.applyDamage(user, user,
             min(math.ceil(controller.getMaxHealth(user) * ((r+1)*0.01)), controller.getCurrentHealth(user)-1))), None)], None)], False))
 manaCostCurse = EquipmentTrait("Attacks Cost MP", lambda r, c: f"When attacking, spend {r+1}% of your total MP.",
                                   lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {},
-    [SkillEffect([EFBeforeNextAttack({}, {},
+    [SkillEffect("", [EFBeforeNextAttack({}, {},
         lambda controller, user, _1:
             void(controller.spendMana(user, math.ceil(controller.getMaxMana(user) * ((r+1)*0.01)))), None)], None)], False))
 
@@ -406,7 +406,7 @@ def makeStatusEffectCurse(statusName : StatusConditionNames, procScaling : float
     statusSummary = f"Attacks May Self-Inflict {statusName}"
     return EquipmentTrait(statusSummary, lambda r, c: description.format(abs(procScaling*(r+1)), duration),
                             lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {},
-            [SkillEffect([EFAfterNextAttack(
+            [SkillEffect("", [EFAfterNextAttack(
                 lambda controller, user, _1, attackInfo, _2: void(
                     controller.applyStatusCondition(user, statusClass(user, user, duration+1) if valMethod is None else
                                                     statusClass(user, user, duration+1, valMethod(controller, user)))

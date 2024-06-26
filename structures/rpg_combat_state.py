@@ -87,13 +87,23 @@ class EntityCombatState(object):
         f"**Range**: {self.getFullStatusStatString(CombatStats.RANGE)}  \\||  **Crit Rate**: {self.getFullStatusPercentStatString(CombatStats.CRIT_RATE)}  \\||  **Crit Damage**: {self.getFullStatusPercentStatString(CombatStats.CRIT_DAMAGE)}"
     
     def getStackBuffString(self) -> str:
+        durationBuffList = []
+        noDurationBuffList = []
+        for skillEffect in self.activeSkillEffects:
+            if len(skillEffect.effectName) == 0:
+                continue
+            if skillEffect.effectDuration is None:
+                noDurationBuffList.append(skillEffect.effectName)
+            else:
+                durationBuffList.append(f"{skillEffect.effectName}: {self.activeSkillEffects[skillEffect]}/{skillEffect.effectDuration}")
+        for toggleEffect in self.activeToggleSkills:
+            noDurationBuffList.append(f"{toggleEffect.skillName} Enabled")
+
         stackStringList = [f"{EFFECT_STACK_NAMES[stack]} x{self.getStack(stack)}" for stack in self.effectStacks
                                 if self.getStack(stack) > 0 and stack in EFFECT_STACK_NAMES]
-        stackString = '\n'.join(stackStringList)
 
-        if len(stackString) > 0:
-            stackString += "\n[TODO: add buff names]"
-        return stackString
+        stackBuffString = '\n'.join(durationBuffList + noDurationBuffList + stackStringList) 
+        return stackBuffString
 
     def getFullStatusStatString(self, stat : Stats) -> str:
         baseStatValue = self.entity.getStatValue(stat)
@@ -626,7 +636,7 @@ class CombatController(object):
         if originalHP != newHP:
             if not silent:
                 critString = " (Critical)" if isCritical else ""
-                self.logMessage(MessageType.DAMAGE_COMBAT,
+                self.logMessage(MessageType.DAMAGE,
                             f"{defender.name} takes **{damageTaken} damage{critString}**!")
                 
             aggroMult = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.AGGRO_MULT)
@@ -658,7 +668,7 @@ class CombatController(object):
         if healthGained > 0:
             if not silent:
                 critString = " (Critical Heal)" if isCritical else ""
-                self.logMessage(MessageType.DAMAGE_COMBAT,
+                self.logMessage(MessageType.DAMAGE,
                                 f"{entity.name} **restores {healthGained} health{critString}**!")
 
             # TODO: may need to do something with result
@@ -1145,7 +1155,7 @@ class CombatController(object):
         originalDistance = self.checkDistanceStrict(attacker, defender)
         inRange = self.checkInRange(attacker, defender)
         if not inRange:
-            self.logMessage(MessageType.DAMAGE_COMBAT,
+            self.logMessage(MessageType.DAMAGE,
                             f"{attacker.name} is out of range of {defender.name}!")
 
         parryBonusAttacks = None
@@ -1186,7 +1196,7 @@ class CombatController(object):
                 damage = math.ceil(damage * parryDamageMultiplier)
                 damageDealt = self.applyDamage(attacker, defender, damage, isCritical)
             else:
-                self.logMessage(MessageType.DAMAGE_COMBAT,
+                self.logMessage(MessageType.DAMAGE,
                                 f"{attacker.name}'s attack misses {defender.name}!")
 
         attackResultInfo = AttackResultInfo(attacker, defender, originalDistance, inRange, checkHit, damageDealt,

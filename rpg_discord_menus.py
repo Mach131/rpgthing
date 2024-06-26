@@ -334,6 +334,8 @@ def characterClassesContent(session : GameSession, view : InterfaceView):
         advancedClassString = '\n'.join(advancedClassStrings)
     embed.add_field(name="Advanced Classes:", value=advancedClassString)
 
+    embed.add_field(name=enumName(currentClass), value=CLASS_DESCRIPTION[currentClass], inline=False)
+
     # TODO: may need scrolling options
     for classGroup in (BasePlayerClassNames, availableAdvancedClasses):
         for availableClass in classGroup:
@@ -1594,7 +1596,8 @@ async def sendCombatLogFn(interaction : discord.Interaction, session : GameSessi
     await interaction.response.defer()
     if interaction.user.id != session.userId:
         return await asyncio.sleep(0)
-    messages = logger.sendAllMessages(None, False) # TODO: filter settings
+    filterSettings = list(GLOBAL_STATE.accountDataMap[session.userId].enabledLogFilters)
+    messages = logger.sendAllMessages(filterSettings, False)
     messageString = messages.getMessagesString(None, False)
 
     assert(session.currentMessage is not None)
@@ -1614,6 +1617,54 @@ DUNGEON_COMPLETE_PAGE = InterfacePage("Exit", discord.ButtonStyle.green, [],
                                       dungeonCompleteFn, lambda session: True,
                                       changePageCallback)
 DUNGEON_COMPLETE_MENU = InterfaceMenu([DUNGEON_COMPLETE_PAGE])
+
+
+#### Options
+def optionsMainContent(session : GameSession, view : InterfaceView):
+    embed = discord.Embed(title="Game Options",
+                          description="This command gives a few settings you can change that affect all of your characters " + \
+                            "(or it will, when I think of some).")
+    embed.add_field(name="General Information",
+                    value="idk what to put here yet, but if anything breaks reach out to Serp")
+    return embed
+OPTIONS_MAIN_PAGE = InterfacePage("Info", discord.ButtonStyle.secondary, [],
+                                  optionsMainContent, lambda session: True, changePageCallback)
+
+def optionsLogContent(session : GameSession, view : InterfaceView):
+    embed = discord.Embed(title="Logging Settings",
+                          description="Enable or disable certain parts of the Combat Log.")
+    embed.add_field(name="",
+                    value="Use the buttons to configure the types of lines that will be printed to your Combat Log in dungeons.")
+    
+    enabledFilters = GLOBAL_STATE.accountDataMap[session.userId].enabledLogFilters
+    for messageType in TOGGLE_LOG_FILTER_DEFAULTS:
+        filterOn = messageType in enabledFilters
+        filterButton = discord.ui.Button()
+        if filterOn:
+            filterButton.label = f"'{enumName(messageType)}' is ON"
+            filterButton.style = discord.ButtonStyle.green
+        else:
+            filterButton.label = f"'{enumName(messageType)}' is OFF"
+            filterButton.style = discord.ButtonStyle.gray
+        filterButton.callback = (lambda _fil: lambda interaction:
+                                 toggleFilterFn(interaction, session, enabledFilters, _fil))(messageType)
+        view.add_item(filterButton)
+    
+    return embed
+async def toggleFilterFn(interaction : discord.Interaction, session : GameSession,
+                         enabledFilterSet : set[MessageType], newFilter : MessageType):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    if newFilter in enabledFilterSet:
+        enabledFilterSet.remove(newFilter)
+    else:
+        enabledFilterSet.add(newFilter)
+    await session.currentView.refresh()
+OPTIONS_LOG_PAGE = InterfacePage("Combat Log Filters", discord.ButtonStyle.secondary, [],
+                                  optionsLogContent, lambda session: True, changePageCallback)
+
+OPTIONS_MENU = InterfaceMenu([OPTIONS_MAIN_PAGE, OPTIONS_LOG_PAGE])
 
 
 #### Dungeon/Combat Interaction
@@ -1756,14 +1807,22 @@ class DiscordMessageCollector(MessageCollector):
         super().__init__()
         self.session = session
         self.pendingMessages = {}
+        
+        self.defaultFilters = GLOBAL_STATE.accountDataMap[session.userId].enabledLogFilters
 
     def sendAllMessages(self, filters : list[MessageType] | None, includeTypes : bool) -> LogMessageCollection:
+        if filters is None:
+            filters = list(self.defaultFilters)
+
         result = super().sendAllMessages(filters, includeTypes)
         resultString = result.getMessagesString(filters, includeTypes)
         # self._updateViewLog(resultString)
         return result
     
     def sendNewestMessages(self, filters : list[MessageType] | None, includeTypes : bool) -> LogMessageCollection:
+        if filters is None:
+            filters = list(self.defaultFilters)
+
         result = super().sendNewestMessages(filters, includeTypes)
         resultString = result.getMessagesString(filters, includeTypes)
         self._updateViewLog(resultString)

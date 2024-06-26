@@ -20,7 +20,7 @@ def rollEquip(controller : CombatController, entity : CombatEntity, dropChance :
 def weaknessEffect(attribute : AttackAttribute, stacks : int) -> SkillData:
     return PassiveSkillData(f"{enumName(attribute)} Weakness x{stacks}", BasePlayerClassNames.WARRIOR, 0, False, "",
                             {}, {}, [
-                                SkillEffect([EFImmediate(
+                                SkillEffect(f"{enumName(attribute)} Weakness", [EFImmediate(
                                     lambda controller, user, _1, _2: controller.addWeaknessStacks(user, attribute, stacks))], None)
                             ], False)
 
@@ -214,7 +214,7 @@ def ffPlant(params : dict, rng : random.Random | None = None) -> Enemy:
 
     attackSkill = AttackSkillData("Petal Popper", BasePlayerClassNames.WARRIOR, 0, False, 10, "",
                                   False, AttackType.MAGIC, 1, DEFAULT_ATTACK_TIMER_USAGE, [
-                                      SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)
+                                      SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)
                                   ], False)
 
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
@@ -269,7 +269,7 @@ def ffSlimeBoss(params : dict) -> Enemy:
 
     aimSkill = ActiveBuffSkillData("Glob Lob", BasePlayerClassNames.WARRIOR, 0, False, 30, "",
                                    MAX_ACTION_TIMER * 1.2, {}, {}, [
-                                       SkillEffect([
+                                       SkillEffect("Slime Cannon Incoming!", [
                                            EFImmediate(lambda controller, slime, _1, _2: void((
                                                [controller.combatStateMap[target].setStack(
                                                    EffectStacks.TELEGRAPH_RANGE, controller.checkDistanceStrict(slime, target)+1)
@@ -281,14 +281,14 @@ def ffSlimeBoss(params : dict) -> Enemy:
                                    ], None, 0, True, False)
     cannonSkill = AttackSkillData("Slime Cannon!", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
                                   False, AttackType.MAGIC, 1.5, 0, [
-                                      SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {},
+                                      SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {},
                                                                       slimeCannonApply, slimeCannonRevert)], 0)
                                   ], False)
     slamSkill = AttackSkillData("Slime Slam!", BasePlayerClassNames.WARRIOR, 0, False, 15, "",
                                   True, AttackType.MELEE, 2, 0, [], False)
     splitSkill = ActiveBuffSkillData("Slime Division!", BasePlayerClassNames.WARRIOR, 0, False, 20, "",
                                    MAX_ACTION_TIMER, {}, {}, [
-                                       SkillEffect([
+                                       SkillEffect("", [
                                            EFImmediate(lambda controller, slime, _1, _2: void((
                                                controller.spawnNewEntity(ffSlime(params, controller.rng), True),
                                                controller.spawnNewEntity(ffSlime(params, controller.rng), True),
@@ -389,7 +389,7 @@ def ffPlantBoss(params : dict) -> Enemy:
             [result.setBonusAttack(*reactionAttack) for reactionAttack in reactionAttackData]
     vengeanceSkill = PassiveSkillData("Aromatic Avenger", BasePlayerClassNames.WARRIOR, 0, False, "",
                                       {}, {}, [
-                                          SkillEffect([
+                                          SkillEffect("", [
                                               EFBeforeNextAttack({}, {},
                                                   lambda controller, attacker, _: controller.applyMultStatBonuses(
                                                       attacker, { BaseStats.MAG: 1.25 }
@@ -401,11 +401,11 @@ def ffPlantBoss(params : dict) -> Enemy:
                                       ], False)
     shootSkill = AttackSkillData("Blossom Blaster", BasePlayerClassNames.WARRIOR, 0, False, 15, "",
                                   False, AttackType.MAGIC, 1, MAX_ACTION_TIMER, [
-                                      SkillEffect([EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)
+                                      SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)
                                   ], False)
     healSkill = ActiveBuffSkillData("Gardening", BasePlayerClassNames.WARRIOR, 0, False, 30, "",
                                      DEFAULT_ATTACK_TIMER_USAGE * 0.75, {}, {}, [
-                                         SkillEffect([EFImmediate(
+                                         SkillEffect("", [EFImmediate(
                                              lambda controller, enemy, targets, _: void((
                                                  controller.applyDamage(enemy, enemy, min(50, controller.getCurrentHealth(enemy))),
                                                  [controller.doHealSkill(enemy, target, 0.5) for target in targets],
@@ -414,7 +414,7 @@ def ffPlantBoss(params : dict) -> Enemy:
                                      ], None, 0, False, False)
     swingSkill = AttackSkillData("Thorny Thrash", BasePlayerClassNames.WARRIOR, 0, False, 30, "",
                                   True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE, [
-                                      SkillEffect([EFAfterNextAttack(thrashKnockbackFn)], 0)
+                                      SkillEffect("", [EFAfterNextAttack(thrashKnockbackFn)], 0)
                                   ], False)
     
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:

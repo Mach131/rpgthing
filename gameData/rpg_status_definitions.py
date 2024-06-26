@@ -20,7 +20,7 @@ def amplifyExtensionChance(newDuration : int):
 class StatusEffect(SkillEffect):
     def __init__(self, statusName : StatusConditionNames, inflicter : CombatEntity, duration : int,
                  effectFunctions : list[EffectFunction]):
-        super().__init__(effectFunctions, duration)
+        super().__init__(statusName.name, effectFunctions, duration)
         self.statusName : StatusConditionNames = statusName
         self.inflicter : CombatEntity = inflicter
         self.effectFunctions : list[EffectFunction] = effectFunctions
@@ -83,7 +83,7 @@ class TargetStatusEffect(StatusEffect):
     
 class BlindStatusEffect(StatusEffect):
     def __init__(self, inflicter: CombatEntity, target : CombatEntity, duration : int):
-        self.blindStacks = 0
+        self.blindStacks = 1
         self.currentAppliedMultiplier = 1
         blindEffectFunction : EffectFunction = EFBeforeNextAttack({
             CombatStats.ACC_EFFECTIVE_DISTANCE_MOD: 1}, {}, self._applyBlindAccPenalty, self._revertBlindAccPenalty)
