@@ -150,7 +150,7 @@ def ffSlime(params : dict, rng : random.Random | None = None) -> Enemy:
     EnemyAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(2, 0, 0, rollEquip(controller, entity, 0.2,
-                                       makeBasicCommonDrop(controller.rng, 0, 2, False))))
+                                       makeBasicCommonDrop(controller.rng, 0, 2, 0))))
 
 def ffRat(params : dict, rng : random.Random | None = None) -> Enemy:
     if rng is None:
@@ -189,7 +189,7 @@ def ffRat(params : dict, rng : random.Random | None = None) -> Enemy:
     EnemyAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(2, 0, 0, rollEquip(controller, entity, 0.2,
-                                       makeBasicCommonDrop(controller.rng, 0, 2, False))))
+                                       makeBasicCommonDrop(controller.rng, 0, 2, 0))))
 
 def ffPlant(params : dict, rng : random.Random | None = None) -> Enemy:
     if rng is None:
@@ -243,7 +243,7 @@ def ffPlant(params : dict, rng : random.Random | None = None) -> Enemy:
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
-                                       makeBasicCommonDrop(controller.rng, 1, 4, False))))
+                                       makeBasicCommonDrop(controller.rng, 1, 4, 0))))
 
 
 def ffSlimeBoss(params : dict) -> Enemy:
@@ -373,9 +373,9 @@ def ffSlimeBoss(params : dict) -> Enemy:
     EnemyAI({"aiIdx": 0, "cannonCd": 0, "slamCd": 2, "splitCd": 2}, decisionFn),
     lambda controller, entity:
         EnemyReward(6, 3, 0, rollEquip(controller, entity, 1,
-                                       makeBasicUncommonDrop(controller.rng, 0, 1, True)
-                                            if controller._randomRoll(None, entity) <= 0.05 else
-                                       makeBasicCommonDrop(controller.rng, 5, 8, True))))
+                                       makeBasicUncommonDrop(controller.rng, 0, 1, 0.5)
+                                            if controller._randomRoll(None, entity) <= 0.1 else
+                                       makeBasicCommonDrop(controller.rng, 5, 8, 0.5))))
 
 
 def ffPlantBoss(params : dict) -> Enemy:
@@ -483,6 +483,6 @@ def ffPlantBoss(params : dict) -> Enemy:
     EnemyAI({"aiIdx": 0, "gardenCd": 2, "swingCd": 0}, decisionFn),
     lambda controller, entity:
         EnemyReward(6, 2, 0, rollEquip(controller, entity, 1,
-                                       makeBasicUncommonDrop(controller.rng, 0, 1, True)
-                                            if controller._randomRoll(None, entity) <= 0.05 else
-                                       makeBasicCommonDrop(controller.rng, 6, 8, True))))
+                                       makeBasicUncommonDrop(controller.rng, 0, 1, 0.5)
+                                            if controller._randomRoll(None, entity) <= 0.1 else
+                                       makeBasicCommonDrop(controller.rng, 6, 8, 0.5))))

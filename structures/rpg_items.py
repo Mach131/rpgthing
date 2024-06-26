@@ -92,14 +92,14 @@ class Equipment(Item):
         return f"({self.equipSlot.name[0] + self.equipSlot.name[1:].lower()}) {self.name} ({itemRarityStrings[self.rarity]})"
 
     def getDescription(self) -> str:
-        adaptableStar = "(+)" if self.isAdaptable() else ""
+        adaptableStar = "**(+)**" if self.isAdaptable() else ""
         statMap = self.getStatMap()
         mainLine =  f"{self.name}{adaptableStar}: {itemRarityStrings[self.rarity]} Rank {self.rank + 1}\n"
         statLine = ", ".join([f"{statMap[stat]} {stat.name}" for stat in statMap]) + "\n"
-        curseLine = "" if self.curse is None else f"Curse: {self.curse.getDescription(self.rarity, False)}\n"
+        curseLine = "" if self.curse is None else f"Curse: {self.curse.getDescription(self.rarity, False)}"
         traitLine = ""
         if len(self.traits) > 0:
-            traitLine = "Traits:\n- " + "\n- ".join([
+            traitLine = "\nTraits:\n- " + "\n- ".join([
                 trait.getDescription(self.rarity, i == 0 and self.curse is not None) for i, trait in enumerate(self.traits)
             ])
         return mainLine + statLine + curseLine + traitLine
@@ -504,6 +504,10 @@ def getEquipTraitWeights(equipType : EquipmentSlot, rarity : int, hasCurse : boo
         luckTrait: 2 if rarity >= 2 else 0
     }
 
+def getAdaptOptionsForEquip(equip : Equipment):
+    traitWeights = getEquipTraitWeights(equip.equipSlot, equip.rarity, equip.curse is not None)
+    return [trait for trait in traitWeights if traitWeights[trait] > 0]
+
 equipAdaptBonusCosts = {
     bonusWeaknessTrait: 1,
     ignoreResistanceTrait: 2,
@@ -513,7 +517,13 @@ equipAdaptBonusCosts = {
     manaGainTrait: 5,
     stunEffectTrait: 4,
     fearEffectTrait: 4,
-    luckTrait: 4
+    luckTrait: 4,
+    poisonEffectTrait: 2,
+    burnEffectTrait: 2,
+    misfortuneEffectTrait: 1,
+    perplexityEffectTrait: 1,
+    restrictEffectTrait: 2,
+    exhaustionEffectTrait: 2
 }
 
 def generateEquip(rarity : int, rank : int, equipClass : EquipClass, curseProbability : float) -> Equipment:

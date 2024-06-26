@@ -14,11 +14,11 @@ def makeBeginnerWeapon(playerClass : BasePlayerClassNames):
     return Weapon(weaponName, weaponClassAttributes.weaponType, weaponClassAttributes.baseStats, None,
                   [], 0, 0, True, (0, 0))
 
-def makeBasicCommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponPossible : bool):
+def _makeBasicDrop(rng : random.Random, rarity : int, minRank : int, maxRank : int, weaponChance : float):
     possibleEquipSlots = [EquipmentSlot.HAT, EquipmentSlot.OVERALL, EquipmentSlot.SHOES]
-    if weaponPossible:
-        possibleEquipSlots.append(EquipmentSlot.WEAPON)
     equipSlot = rng.choice(possibleEquipSlots)
+    if weaponChance > 0 and rng.random() < weaponChance:
+        equipSlot = EquipmentSlot.WEAPON
 
     generatorFn = {
         EquipmentSlot.WEAPON: generateWeapon,
@@ -27,19 +27,10 @@ def makeBasicCommonDrop(rng : random.Random, minRank : int, maxRank : int, weapo
         EquipmentSlot.SHOES: generateShoes
     }[equipSlot]
     chosenRank = rng.randint(minRank, maxRank)
-    return generatorFn(0, chosenRank, None, 0)
+    return generatorFn(rarity, chosenRank, None, 0)
 
-def makeBasicUncommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponPossible : bool):
-    possibleEquipSlots = [EquipmentSlot.HAT, EquipmentSlot.OVERALL, EquipmentSlot.SHOES]
-    if weaponPossible:
-        possibleEquipSlots.append(EquipmentSlot.WEAPON)
-    equipSlot = rng.choice(possibleEquipSlots)
+def makeBasicCommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponChance : float):
+    return _makeBasicDrop(rng, 0, minRank, maxRank, weaponChance)
 
-    generatorFn = {
-        EquipmentSlot.WEAPON: generateWeapon,
-        EquipmentSlot.HAT: generateHat,
-        EquipmentSlot.OVERALL: generateOverall,
-        EquipmentSlot.SHOES: generateShoes
-    }[equipSlot]
-    chosenRank = rng.randint(minRank, maxRank)
-    return generatorFn(1, chosenRank, None, 0)
+def makeBasicUncommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponChance : float):
+    return _makeBasicDrop(rng, 1, minRank, maxRank, weaponChance)

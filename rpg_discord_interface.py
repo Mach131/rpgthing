@@ -78,11 +78,15 @@ class GameSession(object):
 
     async def updateEmbed(self, channel : Channel | None = None):
         if self.isActive:
-            assert(self.currentMessage is not None)
+            if self.currentMessage is None:
+                print("warning: message to update not found")
+                return
             self.currentMessage = await self.currentMessage.edit(embed=self.currentEmbed, view=self.currentView)
         else:
             if channel is None:
-                assert(self.currentMessage is not None)
+                if self.currentMessage is None:
+                    print("warning: message to update not found")
+                    return
                 channel = self.currentMessage.channel
             await self.recreateEmbed(channel)
 

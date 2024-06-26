@@ -296,23 +296,32 @@ AttackSkillData("Target Lock", AdvancedPlayerClassNames.SNIPER, 2, False, 10,
     ], 0)])
 
 PassiveSkillData("Steady Hand", AdvancedPlayerClassNames.SNIPER, 3, True,
-    "Gain 5% ATK at the end of every turn, up to a maximum of 50%. This bonus resets if you reposition.",
+    "Gain 5% ATK and MAG at the end of every turn, up to a maximum of 50%. This bonus resets if you reposition.",
     {}, {}, [SkillEffect([
         EFImmediate(lambda controller, user, _1, _2: void((
             controller.combatStateMap[user].setStack(EffectStacks.STEADY_HAND, 0),
         ))),
         EFEndTurn(lambda controller, user, skipDurationTick, _2: void((
-            controller.logMessage(MessageType.EFFECT, f"{user.name}'s ATK is increased by Steady Hand!")
+            controller.logMessage(MessageType.EFFECT, f"{user.name}'s ATK and MAG are increased by Steady Hand!")
                 if controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) < 10 else None,
-            controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)}),
+            controller.revertMultStatBonuses(user, {
+                BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05),
+                BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)
+                }),
             controller.combatStateMap[user].addStack(EffectStacks.STEADY_HAND, 10),
-            controller.applyMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)})
+            controller.applyMultStatBonuses(user, {
+                BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05),
+                BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)
+                })
         )) if not skipDurationTick else None),
         EFOnDistanceChange(lambda controller, user, _1, userMoved, oldDist, newDist, _3: void((
-            controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)}),
+            controller.revertMultStatBonuses(user, {
+                BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05),
+                BaseStats.MAG: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05)
+                }),
             controller.combatStateMap[user].setStack(EffectStacks.STEADY_HAND, 0),
             controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s Steady Hand ATK bonus is reset.")
+                                  f"{user.name}'s Steady Hand ATK/MAG bonus is reset.")
         )) if userMoved and oldDist != newDist else None)
     ], None)])
 

@@ -55,7 +55,7 @@ class SpecialStats(Stats):
 
 baseCombatStats : dict[CombatStats, float] = {
     CombatStats.CRIT_RATE: 0.1,
-    CombatStats.CRIT_DAMAGE: 2.5,
+    CombatStats.CRIT_DAMAGE: 2.0,
     CombatStats.AGGRO_MULT: 1,
     CombatStats.RANGE: 0,
     CombatStats.IGNORE_RANGE_CHECK: 0,
@@ -198,7 +198,7 @@ DEFEND_DAMAGE_MULTIPLIER = 0.75
 BASIC_ATTACK_MP_GAIN = 4
 REPOSITION_MP_GAIN = 2
 DEFEND_MP_GAIN = 4
-DEFEND_HIT_MP_GAIN = 2
+DEFEND_HIT_MP_GAIN = 3
 
 DAMAGE_FORMULA_K = 0.5 # ratio when attack = defense
 DAMAGE_FORMULA_C = 2.0 # scaling, higher means a steeper dropoff/alignment as ratio increases/decreases
@@ -609,7 +609,7 @@ ITEM_RANK_INCREASE_COST = [
     [(100, 5), (125, 5), (150, 10), (200, 10), (250, 15), (300, 15), (400, 20), (500, 20), (600, 25)]
 ]
 ITEM_RARITY_INCREASE_COST = [(10, 1), (40, 5), (100, 10), (300, 30)]
-BASE_TRAIT_CHANGE_SWUP_COST = 10
+BASE_TRAIT_CHANGE_SWUP_COST = 8
 TRAIT_CHANGE_COST_MULT = 1.6
 BASE_RARITY_SALE_PRICE = [(1, 0), (5, 1), (20, 3), (50, 6), (200, 18)]
 CURSE_SALE_BONUS_MULT = 1.25

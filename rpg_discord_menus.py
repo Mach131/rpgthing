@@ -14,7 +14,7 @@ from structures.rpg_combat_entity import CombatEntity, Player
 from structures.rpg_combat_interface import CombatInputHandler, CombatInterface
 from structures.rpg_combat_state import CombatController
 from structures.rpg_dungeons import DungeonController, DungeonData, DungeonInputHandler
-from structures.rpg_items import Equipment, Weapon
+from structures.rpg_items import Equipment, EquipmentTrait, Weapon, getAdaptOptionsForEquip
 import gameData.rpg_dungeon_data
 from structures.rpg_messages import LogMessageCollection, MessageCollector
 
@@ -152,12 +152,15 @@ async def changePageCallback(session : GameSession, page : InterfacePage, intera
     await interaction.response.defer()
     await session.currentView.setPage(page)
 
-async def scrollCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, amount : int, bounds : int):
+async def scrollCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, amount : int, bounds : int,
+                           scrollIdxKey : str | None = None):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
         return await asyncio.sleep(0)
-    oldIdx = view.pageData.get(SCROLL_IDX, 0)
-    await view.updateData(SCROLL_IDX, (oldIdx + amount) % (bounds + 1))
+    if scrollIdxKey is None:
+        scrollIdxKey = SCROLL_IDX
+    oldIdx = view.pageData.get(scrollIdxKey, 0)
+    await view.updateData(scrollIdxKey, (oldIdx + amount) % (bounds + 1))
 
 async def updateDataCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, key : str, val):
     await interaction.response.defer()
@@ -196,6 +199,7 @@ class InterfaceMenu(object):
         self.pages = pages
 
 SCROLL_IDX = 'scrollIdx'
+TRAIT_SCROLL_IDX = 'traitScrollIdx'
 ACTION_CHOICE = 'actionChoice'
 ACTION_CHOICE_DATA = 'actionChoiceData'
 DETAIL_FOCUS = 'detailFocus'
@@ -360,7 +364,7 @@ def characterClassSkillsContent(session : GameSession, view : InterfaceView):
     passiveSkillStrings = []
     for skill in PlayerClassData.getSkillsForRank(currentClass, player.classRanks[currentClass]):
         targetArray = activeSkillStrings if skill.isActiveSkill else passiveSkillStrings
-        targetArray.append(getSkillDescription(skill))
+        targetArray.append(getSkillDescription(skill, True))
 
     activeSkillString = "*None Yet*" if len(activeSkillStrings) == 0 else '\n\n'.join(activeSkillStrings)
     passiveSkillString = "*None Yet*" if len(passiveSkillStrings) == 0 else '\n\n'.join(passiveSkillStrings)
@@ -368,13 +372,15 @@ def characterClassSkillsContent(session : GameSession, view : InterfaceView):
     embed.add_field(name="__Passive Skills:__", value=passiveSkillString)
 
     return embed
-def getSkillDescription(skill : SkillData) -> str:
+def getSkillDescription(skill : SkillData, includeFreeSkillTag : bool) -> str:
     skillString = f"**{skill.skillName}** ({skill.playerClass.name[0] + skill.playerClass.name[1:].lower()} Rank {skill.rank})\n"
     skillString += f"{skill.description}"
     if skill.isActiveSkill:
         skillString += f"\nMP Cost: {skill.mpCost} \\|| Speed: {getSkillSpeed(skill)}"
-        if skill.isFreeSkill:
+        if skill.isFreeSkill and includeFreeSkillTag:
             skillString += " \\|| **Free Skill**"
+    elif skill.isFreeSkill and includeFreeSkillTag:
+        skillString += "\n**Free Skill**"
     return skillString
 def getSkillSpeed(skill : SkillData) -> str:
     skillSpeed = skill.actionTime
@@ -401,22 +407,29 @@ def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
     
     equippedFreeSkills : list[SkillData] = []
     equippedFreeSkillStrings : list[str]  = []
+    activeFreeSkillStrings : list[str]  = []
     availableFreeSkills : list[SkillData]  = []
     availableFreeSkillStrings : list[str]  = []
+    currentSkillClasses = PlayerClassData.getAllClassDependencies(player.currentPlayerClass)
     
     for playerClass in player.classRanks:
         for skill in PlayerClassData.getFreeSkillsForRank(playerClass, player.classRanks[playerClass]):
             if (playerClass, skill.rank) in player.freeSkills:
                 equippedFreeSkills.append(skill)
-                equippedFreeSkillStrings.append(getSkillDescription(skill))
+                equippedFreeSkillStrings.append(getSkillDescription(skill, False))
             else:
                 availableFreeSkills.append(skill)
-                availableFreeSkillStrings.append(getSkillDescription(skill))
+                if skill.playerClass in currentSkillClasses:
+                    activeFreeSkillStrings.append(getSkillDescription(skill, False))
+                else:
+                    availableFreeSkillStrings.append(getSkillDescription(skill, False))
 
     equippedSkillString = "*None Yet*" if len(equippedFreeSkillStrings) == 0 else '\n'.join(equippedFreeSkillStrings)
+    activeSkillString = "*None Yet*" if len(activeFreeSkillStrings) == 0 else '\n'.join(activeFreeSkillStrings)
     availableSkillString = "*None Yet*" if len(availableFreeSkillStrings) == 0 else '\n'.join(availableFreeSkillStrings)
     embed.add_field(name=f"__Equipped Free Skills ({len(equippedFreeSkills)}/{MAX_FREE_SKILLS}):__",
                     value=equippedSkillString, inline=False)
+    embed.add_field(name="__Current Class Free Skills:__", value=activeSkillString, inline=False)
     embed.add_field(name="__Unlocked Free Skills:__", value=availableSkillString, inline=False)
 
     if SCROLL_IDX not in view.pageData:
@@ -434,7 +447,6 @@ def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
                 view.add_item(skillButton)
 
     atFreeSkillCapacity = len(player.freeSkills) >= MAX_FREE_SKILLS
-    currentSkillClasses = PlayerClassData.getAllClassDependencies(player.currentPlayerClass)
     scrollWindowMin = view.pageData[SCROLL_IDX] * window_size - equippedSkillOffset
     scrollWindowMax = scrollWindowMin + window_size
     for i in range(scrollWindowMin, scrollWindowMax):
@@ -450,9 +462,11 @@ def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
     totalSkills = len(availableFreeSkills) + len(equippedFreeSkills)
     if totalSkills > window_size:
         backButton = discord.ui.Button(emoji="⬅️", style=discord.ButtonStyle.green, row=2)
-        backButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, -1, totalSkills // window_size)
+        backButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, -1,
+                                                                   (totalSkills-1) // window_size)
         forwardButton = discord.ui.Button(emoji="➡️", style=discord.ButtonStyle.green, row=2)
-        forwardButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, 1, totalSkills // window_size)
+        forwardButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, 1,
+                                                                      (totalSkills-1) // window_size)
         view.add_item(backButton)
         view.add_item(forwardButton)
 
@@ -503,17 +517,22 @@ def equipMainContentFn(session : GameSession, view : InterfaceView):
         else:
             focusItemIdx -= len(session.pendingItems)
 
-    if 'dropItem' in view.pageData and view.pageData['dropItem']:
+    tradeItem = view.pageData.get('tradeItem', False)
+    dropItem = view.pageData.get('dropItem', False)
+    if tradeItem or dropItem:
         if inPending:
-            session.pendingItems.pop(focusItemIdx)
+           focusItem = session.pendingItems.pop(focusItemIdx)
         else:
-            focusItem : Equipment = itemList[focusItemIdx]
+            focusItem = itemList[focusItemIdx]
             player.dropItem(focusItem)
 
-        salePrice = focusItem.getSalePrice()
-        player.wup += salePrice[0]
-        player.swup += salePrice[1]
-        view.pageData.pop('dropItem')
+        if dropItem:
+            salePrice = focusItem.getSalePrice()
+            player.wup += salePrice[0]
+            player.swup += salePrice[1]
+            view.pageData.pop('dropItem')
+        else:
+            view.pageData.pop('tradeItem')
         view.pageData['focusItemIdx'] = None
         focusItemIdx = None
 
@@ -544,6 +563,8 @@ def equipMainContentFn(session : GameSession, view : InterfaceView):
             equipStrings.append(equipString)
             if scrollWindowMin <= i + idxOffset and i + idxOffset < scrollWindowMax:
                 itemButton = discord.ui.Button(label=f"{i+1}", style=discord.ButtonStyle.blurple, custom_id=item.name)
+                if item in player.equipment.values():
+                    itemButton.style = discord.ButtonStyle.green
                 itemButton.callback = (lambda j: lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusItemIdx', j))(i + idxOffset)
                 view.add_item(itemButton)
 
@@ -553,78 +574,217 @@ def equipMainContentFn(session : GameSession, view : InterfaceView):
         if len(player.inventory)+idxOffset > window_size:
             backButton = discord.ui.Button(emoji="⬅️", style=discord.ButtonStyle.green, row=2)
             backButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, -1,
-                                                                       (len(player.inventory)+idxOffset) // window_size)
+                                                                       (len(player.inventory)+idxOffset-1) // window_size)
             forwardButton = discord.ui.Button(emoji="➡️", style=discord.ButtonStyle.green, row=2)
             forwardButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, 1,
-                                                                          (len(player.inventory)+idxOffset)  // window_size)
+                                                                          (len(player.inventory)+idxOffset-1)  // window_size)
             view.add_item(backButton)
             view.add_item(forwardButton)
     else:
-        focusItem = itemList[focusItemIdx]
-        currentlyEquipped = not inPending and (focusItem in player.equipment.values())
-        canEquip = player.canEquipWeapon(focusItem) if isinstance(focusItem, Weapon) else True
+        focusItem : Equipment = itemList[focusItemIdx]
+        adaptMenu = view.pageData.get('adaptMenu', False)
+        giveMenu = view.pageData.get('giveMenu', False)
 
-        equippedString = "(Currently Equipped)" if currentlyEquipped else ""
-        if inPending:
-            equippedString = "(Pending Drop; decide what to do with this)"
+        if not adaptMenu and not giveMenu:
+            currentlyEquipped = not inPending and (focusItem in player.equipment.values())
+            canEquip = player.canEquipWeapon(focusItem) if isinstance(focusItem, Weapon) else True
 
-        embed.add_field(name=equippedString, value=focusItem.getDescription(), inline=False)
-        if inPending:
-            keepButton = discord.ui.Button(label="Keep", style=discord.ButtonStyle.green, disabled=len(player.inventory)>=MAX_INVENTORY)
-            keepButton.callback = lambda interaction: keepCallbackFn(interaction, session, view, player, focusItem)
-            view.add_item(keepButton)
-        else:
-            rankIncreasePrice = focusItem.getRankIncreaseCost()
-            rarityIncreasePrice = focusItem.getRarityIncreaseCost()
-            salePrice = focusItem.getSalePrice()
+            equippedString = " (Currently Equipped)" if currentlyEquipped else ""
+            if inPending:
+                equippedString = " (Pending Drop)"
 
-            equipButton = discord.ui.Button(label="Equip", style=discord.ButtonStyle.blurple, disabled=(currentlyEquipped or not canEquip))
-            equipButton.callback = lambda interaction: equipCallbackFn(interaction, session, view, player, focusItem)
-            view.add_item(equipButton)
+            if not currentlyEquipped:
+                compareItem = player.equipment.get(focusItem.equipSlot, None)
+                if compareItem is not None:
+                    embed.add_field(name=f"*Currently Equipped {enumName(focusItem.equipSlot)}:*",
+                                    value=f"*{compareItem.getDescription()}*", inline=False)
+            embed.add_field(name=f"Selected Item{equippedString}:", value=focusItem.getDescription(), inline=False)
 
-            if rankIncreasePrice is not None:
-                costString = f"Cost: {rankIncreasePrice[0]} WUP"
-                if rankIncreasePrice[1] > 0:
-                    costString += f", {rankIncreasePrice[1]} SWUP"
-                embed.add_field(name="Rank Increase Available", value=f"{costString}\nYou have: {player.wup} WUP, {player.swup} SWUP")
+            if inPending:
+                keepButton = discord.ui.Button(label="Keep", style=discord.ButtonStyle.green, disabled=len(player.inventory)>=MAX_INVENTORY)
+                keepButton.callback = lambda interaction: keepCallbackFn(interaction, session, view, player, focusItem)
+                view.add_item(keepButton)
+            else:
+                rankIncreasePrice = focusItem.getRankIncreaseCost()
+                rarityIncreasePrice = focusItem.getRarityIncreaseCost()
+                salePrice = focusItem.getSalePrice()
 
-                canAfford = player.wup >= rankIncreasePrice[0] and player.swup >= rankIncreasePrice[1]
-                rankUpButton = discord.ui.Button(label="Increase Rank", style=discord.ButtonStyle.green, disabled=not canAfford)
-                rankUpButton.callback = lambda interaction: rankUpCallbackFn(interaction, session, view, player, focusItem)
-                view.add_item(rankUpButton)
-            if rarityIncreasePrice is not None:
-                costString = f"Cost: {rarityIncreasePrice[0]} WUP"
-                if rarityIncreasePrice[1] > 0:
-                    costString += f", {rarityIncreasePrice[1]} SWUP"
-                embed.add_field(name="Rarity Increase Available", value=f"{costString}\nYou have:{player.wup} WUP, {player.swup} SWUP")
+                if not currentlyEquipped:
+                    equipButton = discord.ui.Button(label="Equip", style=discord.ButtonStyle.blurple, disabled=not canEquip)
+                    equipButton.callback = lambda interaction: equipCallbackFn(interaction, session, view, player, focusItem)
+                    view.add_item(equipButton)
+                else:
+                    unequipButton = discord.ui.Button(label="Unequip", style=discord.ButtonStyle.gray, disabled=False)
+                    unequipButton.callback = lambda interaction: unequipCallbackFn(interaction, session, view, player, focusItem)
+                    view.add_item(unequipButton)
 
-                canAfford = player.wup >= rarityIncreasePrice[0] and player.swup >= rarityIncreasePrice[1]
-                rarityUpButton = discord.ui.Button(label="Increase Rarity", style=discord.ButtonStyle.green, disabled=not canAfford)
-                rarityUpButton.callback = lambda interaction: rarityUpCallbackFn(interaction, session, view, player, focusItem)
-                view.add_item(rarityUpButton)
+                if rankIncreasePrice is not None:
+                    costString = f"Cost: {rankIncreasePrice[0]} WUP"
+                    if rankIncreasePrice[1] > 0:
+                        costString += f", {rankIncreasePrice[1]} SWUP"
+                    embed.add_field(name="Rank Increase Available", value=f"{costString}\nYou have: {player.wup} WUP, {player.swup} SWUP")
 
-            saleString = f"{salePrice[0]} WUP"
-            if salePrice[1] > 0:
-                saleString += f", {salePrice[1]} SWUP"
-            embed.add_field(name="Sale Value", value=saleString)
+                    canAfford = player.wup >= rankIncreasePrice[0] and player.swup >= rankIncreasePrice[1]
+                    rankUpButton = discord.ui.Button(label="Increase Rank", style=discord.ButtonStyle.green, disabled=not canAfford)
+                    rankUpButton.callback = lambda interaction: rankUpCallbackFn(interaction, session, view, player, focusItem)
+                    view.add_item(rankUpButton)
+                if rarityIncreasePrice is not None:
+                    costString = f"Cost: {rarityIncreasePrice[0]} WUP"
+                    if rarityIncreasePrice[1] > 0:
+                        costString += f", {rarityIncreasePrice[1]} SWUP"
+                    embed.add_field(name="Rarity Increase Available", value=f"{costString}\nYou have: {player.wup} WUP, {player.swup} SWUP")
 
-            if focusItem.isAdaptable():
-                embed.add_field(name="Adaptation Available", value=f"Adaptations Applied: {focusItem.timesTraitsAdapted}")
-                # TODO
+                    canAfford = player.wup >= rarityIncreasePrice[0] and player.swup >= rarityIncreasePrice[1]
+                    rarityUpButton = discord.ui.Button(label="Increase Rarity", style=discord.ButtonStyle.green, disabled=not canAfford)
+                    rarityUpButton.callback = lambda interaction: rarityUpCallbackFn(interaction, session, view, player, focusItem)
+                    view.add_item(rarityUpButton)
 
-        dropButton = discord.ui.Button(label="Sell", style=discord.ButtonStyle.red)
-        dropButton.callback = lambda interaction: dropEquipCallbackFn(interaction, session, view, player, focusItem)
-        view.add_item(dropButton)
+                saleString = f"{salePrice[0]} WUP"
+                if salePrice[1] > 0:
+                    saleString += f", {salePrice[1]} SWUP"
+                embed.add_field(name="Sale Value", value=saleString)
 
-        returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
-        returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusItemIdx', None)
-        view.add_item(returnButton)
+                if focusItem.isAdaptable():
+                    embed.add_field(name="Adaptation Available", value=f"Adaptations Applied: {focusItem.timesTraitsAdapted}")
+                    adaptButton = discord.ui.Button(label="Adaptation", style=discord.ButtonStyle.blurple)
+                    adaptButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'adaptMenu', True)
+                    view.add_item(adaptButton)
+
+            if session.currentParty is not None:
+                dropButton = discord.ui.Button(label="Give To Ally", style=discord.ButtonStyle.blurple)
+                dropButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'giveMenu', True)
+                view.add_item(dropButton)
+
+            dropButton = discord.ui.Button(label="Sell", style=discord.ButtonStyle.red)
+            dropButton.callback = lambda interaction: dropEquipCallbackFn(interaction, session, view, player, focusItem)
+            view.add_item(dropButton)
+
+            returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
+            returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusItemIdx', None)
+            view.add_item(returnButton)
+        elif adaptMenu:
+            embed.add_field(name=f"Equipment Adaptation: {focusItem.name}",
+                            value="Adaptation allows you to change the traits on an item. " + \
+                                "Beware, it becomes more expensive every time it's performed on the same item.",
+                            inline=False)
+            
+            errorMessage = view.pageData.get('')
+
+            selectedTrait : EquipmentTrait | None = view.pageData.get('selectedTrait', None)
+            if selectedTrait is None:
+                if TRAIT_SCROLL_IDX not in view.pageData:
+                    view.pageData[TRAIT_SCROLL_IDX] = 0
+                window_size = 5
+
+                scrollWindowMin = view.pageData[TRAIT_SCROLL_IDX] * window_size
+                scrollWindowMax = scrollWindowMin + window_size
+                traitOptionStrings = []
+                traitOptions = getAdaptOptionsForEquip(focusItem)
+                for i in range(len(traitOptions)):
+                    trait = traitOptions[i]
+                    adaptPrice = focusItem.getTraitAdaptSwupCost(trait)
+                    assert adaptPrice is not None
+                    traitOptionStrings.append(f"**[{i+1}]** {trait.summary} - *{adaptPrice} SWUP*")
+
+                    if scrollWindowMin <= i and i < scrollWindowMax:
+                        canAfford = player.swup >= adaptPrice
+                        traitButton = discord.ui.Button(label=f"{i+1}", style=discord.ButtonStyle.blurple,
+                                                        disabled=trait in focusItem.traits or not canAfford)
+                        traitButton.callback = (lambda _t: lambda interaction:
+                                                updateDataCallbackFn(interaction, session, view, 'selectedTrait', _t))(trait)
+                        view.add_item(traitButton)
+
+                traitOptionHalfIdx = len(traitOptionStrings) // 2
+                embed.add_field(name="Select New Trait:", value='\n'.join(traitOptionStrings[:traitOptionHalfIdx]))
+                embed.add_field(name="\n", value='\n'.join(traitOptionStrings[traitOptionHalfIdx:]))
+                if len(traitOptions) > window_size:
+                    backButton = discord.ui.Button(emoji="⬅️", style=discord.ButtonStyle.green, row=2)
+                    backButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, -1,
+                                                                            (len(traitOptions)-1) // window_size, TRAIT_SCROLL_IDX)
+                    forwardButton = discord.ui.Button(emoji="➡️", style=discord.ButtonStyle.green, row=2)
+                    forwardButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, 1,
+                                                                                (len(traitOptions)-1)  // window_size, TRAIT_SCROLL_IDX)
+                    view.add_item(backButton)
+                    view.add_item(forwardButton)
+
+                returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
+                returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'adaptMenu', False)
+                view.add_item(returnButton)
+            else:
+                selectedSlot = view.pageData.get('selectedSlot', None)
+                if len(focusItem.traits) == 1:
+                    selectedSlot = 0
+                
+                if selectedSlot is None:
+                    embed.add_field(name="Choose Trait to Replace",
+                                    value=f"**Selected New Trait:** {selectedTrait.summary}", inline=False)
+                    traitStrings = []
+                    for i in range(len(focusItem.traits)):
+                        trait = focusItem.traits[i]
+                        traitStrings.append(f"**[{i+1}]** {trait.summary}")
+
+                        traitButton = discord.ui.Button(label=f"{i+1}", style=discord.ButtonStyle.blurple)
+                        traitButton.callback = (lambda j: lambda interaction:
+                                                updateDataCallbackFn(interaction, session, view, 'selectedSlot', j))(i)
+                        view.add_item(traitButton)
+                    embed.add_field(name="**Current Item Traits:**",
+                                    value='\n'.join(traitStrings), inline=False)
+
+                    returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
+                    returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'selectedTrait', None)
+                    view.add_item(returnButton)
+                else:
+                    embed.add_field(name="Confirmation",
+                                    value=f"**Replacing:** {focusItem.traits[selectedSlot].summary}\n" + \
+                                            f"**With:** {selectedTrait.summary}\n" + \
+                                            f"**Cost: {focusItem.getTraitAdaptSwupCost(selectedTrait)} SWUP**")
+                    embed.add_field(name="Reminder:", value="Adapting this item further in the future will have an increased cost. " + \
+                                        "Once you replace the old trait, it may be difficult and/or expensive to get it back.")
+                    
+                    confirmButton = discord.ui.Button(label="Confirm Adaptation", style=discord.ButtonStyle.green)
+                    confirmButton.callback = lambda interaction: adaptCallbackFn(interaction, session, view, player,
+                                                                                 focusItem, selectedTrait, selectedSlot)
+                    view.add_item(confirmButton)
+
+                    returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
+                    returnButton.callback = lambda interaction: adaptBackFn(interaction, session, view)
+                    view.add_item(returnButton)
+        elif giveMenu:
+            embed.add_field(name=f"Give To Party Member: {focusItem.name}",
+                            value="Choose a party member to give this item to.\n" + \
+                                "Note that the item will be sent immediately upon selecting a party member, but they can always just give it back to you (right...?).",
+                            inline=False)
+            
+            errorMessage = view.pageData.get('sendItemError', '')
+            if len(errorMessage) > 0:
+                embed.add_field(name="Error:", value=errorMessage)
+            
+            assert session.currentParty is not None
+            for partySession in session.currentParty.allSessions:
+                partyPlayer = partySession.getPlayer()
+                if partyPlayer is None or partyPlayer == player:
+                    continue
+                sendButton = discord.ui.Button(label=f"{partyPlayer.name}", style=discord.ButtonStyle.green)
+                sendButton.callback = (lambda _tp: lambda interaction: sendItemCallbackFn(
+                    interaction, session, view, player, focusItem, _tp, partySession))(partyPlayer)
+                view.add_item(sendButton)
+
+            returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
+            returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'giveMenu', False)
+            view.add_item(returnButton)
+
     return embed
 async def equipCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player, item : Equipment):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
         return await asyncio.sleep(0)
     player.equipItem(item)
+    await view.refresh()
+async def unequipCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player, item : Equipment):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    player.unequipItem(item.equipSlot)
     await view.refresh()
 async def rankUpCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player, item : Equipment):
     await interaction.response.defer()
@@ -637,6 +797,39 @@ async def rarityUpCallbackFn(interaction : discord.Interaction, session : GameSe
     if interaction.user.id != session.userId:
         return await asyncio.sleep(0)
     player.increaseItemRarity(item)
+    await view.refresh()
+async def adaptCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player,
+                          item : Equipment, newTrait : EquipmentTrait, replaceTraitIdx : int):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    player.adaptItem(item, replaceTraitIdx, newTrait)
+    view.pageData['adaptMenu'] = False
+    view.pageData['selectedTrait'] = None
+    view.pageData['selectedSlot'] = None
+    await view.refresh()
+async def sendItemCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView,
+                             player : Player, item : Equipment, target : Player, targetSession : GameSession):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    if not target.storeEquipItem(item):
+        view.pageData['sendItemError'] = f"{target.name}'s inventory is full! Have them drop or send something away before trying again."
+    else:
+        if session.currentMessage is not None:
+            await session.currentMessage.channel.send(
+                f"{targetSession.savedMention}, you have recieved **{item.name}** from {player.name}!")
+        
+        view.pageData['giveMenu'] = False
+        view.pageData['sendItemError'] = ''
+        view.pageData['tradeItem'] = True
+    await view.refresh()
+async def adaptBackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    view.pageData['selectedTrait'] = None
+    view.pageData['selectedSlot'] = None
     await view.refresh()
 async def dropEquipCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player, item : Equipment):
     await interaction.response.defer()
@@ -703,9 +896,11 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
         embed.add_field(name="", value='\n\n'.join(dungeonStrings))
         if len(availableDungeons) > window_size:
             backButton = discord.ui.Button(emoji="⬅️", style=discord.ButtonStyle.green, row=2)
-            backButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, -1, len(availableDungeons) // window_size)
+            backButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, -1,
+                                                                       (len(availableDungeons)-1) // window_size)
             forwardButton = discord.ui.Button(emoji="➡️", style=discord.ButtonStyle.green, row=2)
-            forwardButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, 1, len(availableDungeons) // window_size)
+            forwardButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, 1,
+                                                                          (len(availableDungeons)-1) // window_size)
             view.add_item(backButton)
             view.add_item(forwardButton)
     else:
@@ -954,15 +1149,13 @@ def _abridgeCombatLog(logString : str):
         logString = "(...)" + logString[4 - DISPLAY_LOG_THRESHOLD:]
     return logString
 async def expandLogFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, logger : MessageCollector):
-    await interaction.response.defer()
     if interaction.user.id != session.userId:
+        await interaction.response.defer()
         return await asyncio.sleep(0)
     logString = session.unseenCombatLog
 
-    assert(session.currentMessage is not None)
-    channel = session.currentMessage.channel
     mentionString = session.savedMention
-    await channel.send(f"{mentionString} Log since last turn:\n{logString}")
+    await interaction.response.send_message(f"{mentionString} Log since last turn:\n{logString}", ephemeral=True)
     view.pageData['sentLog'] = True
     await view.refresh()
 
@@ -1329,7 +1522,7 @@ BETWEEN_ROOM_LEAVE_PAGE = InterfacePage("Escape", discord.ButtonStyle.red, [],
 
 BETWEEN_ROOM_STATS_SKILLS_PAGE = InterfacePage("Stats/Skills", discord.ButtonStyle.secondary,
                                                [CHARACTER_STATS_SUBPAGE, CHARACTER_SKILLS_SUBPAGE],
-                                               None, lambda session: True, changePageCallback)
+                                               None, lambda session: True, changePageCallback, statPointStyle)
 
 def roomFormationFn(session : GameSession, view : InterfaceView):
     assert(session.currentDungeon is not None)

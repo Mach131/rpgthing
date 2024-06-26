@@ -103,9 +103,6 @@ In Combat:
 	
 
 Todos:
-	- equipment options (drop, give, sell; when space is made, check if pending drop and add/clear if so)
-	- equipment progression (upgrading)
-
 	- buff/stack display
 	- logging filters
 

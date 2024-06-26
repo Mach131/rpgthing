@@ -20,13 +20,12 @@ trainingDungeon = DungeonData("Training Yard", "Training",
                               ],
                               lambda _1, player: (
                                   player.milestones.add(Milestones.TUTORIAL_COMPLETE),
-                                  EnemyReward(2, 3, 0, None))[-1])
+                                  EnemyReward(2, 1, 0, None))[-1])
 
-# TODO: for field, use 'roomNumber' param
 fieldDungeon = DungeonData("Fresh Fields", "Field",
                            "An easily-accessed open field, suitable for any new party.\n" +
                            "Despite the name, it's not uncommon for allergies to act up as you get further in.",
-                           "30~40 EXP, 3~5 WUP, Common Equipment",
+                           "30~40 EXP, 4~6 WUP, Common Equipment",
                            set([Milestones.TUTORIAL_COMPLETE]),
                            3, 2, False, 0.5, 0.65,
                            [
@@ -54,6 +53,6 @@ fieldDungeon = DungeonData("Fresh Fields", "Field",
                                    ([ffPlantBoss, ffPlant, ffPlant], 1)], {'roomNumber': 3})
                            ],
                            lambda _1, player: (
-                               EnemyReward(10, 2,
+                               EnemyReward(10, 3,
                                            1 if random.random() < 0.3 else 0,
                                            None),)[-1])
