@@ -2,7 +2,7 @@ from enum import Enum, auto
 
 def void(x):
     return None
-def enumName(e):
+def enumName(e : Enum):
     return e.name[0] + e.name[1:].lower()
 EPSILON = 0.0001
 
@@ -54,7 +54,7 @@ class SpecialStats(Stats):
     CURRENT_MP = auto()
 
 baseCombatStats : dict[CombatStats, float] = {
-    CombatStats.CRIT_RATE: 0.1,
+    CombatStats.CRIT_RATE: 0.05,
     CombatStats.CRIT_DAMAGE: 2.0,
     CombatStats.AGGRO_MULT: 1,
     CombatStats.RANGE: 0,

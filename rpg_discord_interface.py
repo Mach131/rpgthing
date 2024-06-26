@@ -373,6 +373,8 @@ bot = commands.Bot(command_prefix='ch.', intents=intents)
 async def on_ready():
     print(f'Logged in as {bot.user}.')
     GLOBAL_STATE.loadState()
+    await bot.change_presence(status=discord.Status.online,
+                              activity=discord.Game("Chatanquest using /play (or ch.play)"))
     saveLoop.start()
 
 @tasks.loop(seconds = BACKUP_INTERVAL_SECONDS)
@@ -396,7 +398,8 @@ def _doSave():
 async def respondNotLoaded(ctx : commands.Context):
     await ctx.send(f"Sorry, still setting up; please wait a moment and try again.")
 
-@bot.hybrid_command()
+@bot.hybrid_command(brief="Create a new character",
+                    description=f"Creates a new character. Currently, you can create up to {MAX_USER_CHARACTERS} characters.")
 async def new_character(ctx : commands.Context, character_name : str):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -431,7 +434,8 @@ async def new_character(ctx : commands.Context, character_name : str):
 async def new_character_error(ctx, error : Exception):
     await ctx.send("Add a character name using 'new_character [name]'!", ephemeral=True)
 
-@bot.hybrid_command()
+@bot.hybrid_command(brief="Change your active character",
+                    description=f"Selects your active character, either by index or name. You can't switch while in a party or dungeon.")
 async def select_character(ctx : commands.Context, target_character : str):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -471,7 +475,8 @@ async def select_character_error(ctx, error : Exception):
         response += '\n'.join(f"[{i+1}] {char.name}, Level {char.level}" for i, char in enumerate(charList))
         await ctx.send(response, ephemeral=True)
 
-@bot.hybrid_command()
+@bot.hybrid_command(brief="Opens the game",
+                    description=f"Opens a new session with for the game, assuming you've already made a character. This should preserve the state of your previous session, so try using this if something breaks.")
 async def play(ctx : commands.Context):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -485,7 +490,8 @@ async def play(ctx : commands.Context):
     else:
         await respondNotLoaded(ctx)
 
-@bot.hybrid_command()
+@bot.hybrid_command(brief="Invite user to party",
+                    description=f"When you've created a party for a dungeon, you can use this to invite a user instead of using the drop-down menu.")
 async def invite(ctx : commands.Context, member: discord.Member):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -523,7 +529,8 @@ async def invite(ctx : commands.Context, member: discord.Member):
 async def invite_error(ctx, error : Exception):
     await ctx.send("Include someone to invite to a party using 'invite [user]'!", ephemeral=True)
 
-@bot.hybrid_command()
+@bot.hybrid_command(brief="Adjust options",
+                    description=f"Provides some options that apply to all characters on your account.")
 async def options(ctx : commands.Context):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -537,16 +544,21 @@ async def options(ctx : commands.Context):
     else:
         await respondNotLoaded(ctx)
 
-@bot.hybrid_command()
+@bot.hybrid_command(brief="[OWNER] Sync bot state",
+                    description=f"[Bot Owner Only] Hopefully updates slash commands.")
 async def sync(ctx : commands.Context):
-    if ctx.guild is not None:
-        await bot.wait_until_ready()
-        bot.tree.clear_commands(guild=ctx.guild)
-        # bot.tree.copy_global_to(guild=ctx.guild)
-        await bot.tree.sync(guild=ctx.guild)
-        await ctx.send("Commands synced!")
+    if ctx.author.id == MY_ID:
+        # if ctx.guild is not None:
+            await bot.wait_until_ready()
+            # bot.tree.clear_commands(guild=ctx.guild)
+            # await bot.tree.sync(guild=ctx.guild)
+            # bot.tree.copy_global_to(guild=ctx.guild)
+            # await bot.tree.sync(guild=ctx.guild)
+            await bot.tree.sync()
+            await ctx.send("Commands synced!")
 
-@bot.hybrid_command()
+@bot.hybrid_command(brief="Emergency session reset",
+                    description=f"Attempts to reset your session to the main menu. Useful if something breaks in a dungeon, but you may want to try just using 'play' again first.")
 async def panic(ctx : commands.Context, confirmation : str | None = None):
     if GLOBAL_STATE.loaded:
         if confirmation is not None and confirmation.lower() == "saveme":
@@ -563,7 +575,8 @@ async def panic(ctx : commands.Context, confirmation : str | None = None):
     else:
         await respondNotLoaded(ctx)
 
-@bot.hybrid_command()
+@bot.hybrid_command(brief="Delete character",
+                    description=f"Deletes one of your characters forever (for real).")
 async def delete_character(ctx : commands.Context, target_character : str):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -601,7 +614,8 @@ async def delete_character_error(ctx, error : Exception):
         response += '\n'.join(f"[{i+1}] {char.name}, Level {char.level}" for i, char in enumerate(charList))
         await ctx.send(response, ephemeral=True)
 
-@bot.command()
+@bot.command(brief="[OWNER] Save bot state",
+                    description=f"[BOT OWNER ONLY] Force-saves the bot state. This should automatically happen periodically without calling this command.")
 async def save(ctx : commands.Context):
     if ctx.author.id == MY_ID:
         _doSave()

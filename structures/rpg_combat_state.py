@@ -102,7 +102,7 @@ class EntityCombatState(object):
         stackStringList = [f"{EFFECT_STACK_NAMES[stack]} x{self.getStack(stack)}" for stack in self.effectStacks
                                 if self.getStack(stack) > 0 and stack in EFFECT_STACK_NAMES]
 
-        stackBuffString = '\n'.join(durationBuffList + noDurationBuffList + stackStringList) 
+        stackBuffString = '\n'.join(noDurationBuffList + durationBuffList + stackStringList) 
         return stackBuffString
 
     def getFullStatusStatString(self, stat : Stats) -> str:
