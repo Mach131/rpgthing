@@ -94,12 +94,16 @@ class RequestView(discord.ui.View):
         super().__init__(timeout=60)
         self.userId = userId
         self.buttons = buttons
+
+        self.message : discord.Message | None = None
         
         for button in self.buttons:
             self.add_item(button)
 
     async def on_timeout(self):
         self.clear_items()
+        if self.message is not None:
+            await self.message.edit(view=self)
 
     async def checkedCallback(self, interaction : discord.Interaction, callback : Callable[[discord.Interaction], Coroutine]):
         await interaction.response.defer()
@@ -189,7 +193,7 @@ async def sendPartyInvite(hostSession : GameSession, targetSession : GameSession
         interaction, hostSession, targetSession, party, requestView))(targetSession, requestView)
     
     assert(hostSession.currentMessage is not None)
-    await hostSession.currentMessage.channel.send(
+    requestView.message = await hostSession.currentMessage.channel.send(
         f"{targetSession.savedMention}, you have been invited to a party for {party.dungeonData.dungeonName} by {player.name}! " +
         "(This invitation will expire in a minute.)",
         view=requestView)
@@ -767,8 +771,8 @@ def equipMainContentFn(session : GameSession, view : InterfaceView):
                 if partyPlayer is None or partyPlayer == player:
                     continue
                 sendButton = discord.ui.Button(label=f"{partyPlayer.name}", style=discord.ButtonStyle.green)
-                sendButton.callback = (lambda _tp: lambda interaction: sendItemCallbackFn(
-                    interaction, session, view, player, focusItem, _tp, partySession))(partyPlayer)
+                sendButton.callback = (lambda _tp, _ts: lambda interaction: sendItemCallbackFn(
+                    interaction, session, view, player, focusItem, _tp, _ts))(partyPlayer, partySession)
                 view.add_item(sendButton)
 
             returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2)
@@ -820,7 +824,7 @@ async def sendItemCallbackFn(interaction : discord.Interaction, session : GameSe
     else:
         if session.currentMessage is not None:
             await session.currentMessage.channel.send(
-                f"{targetSession.savedMention}, you have recieved **{item.name}** from {player.name}!")
+                f"{targetSession.savedMention}, you have received **{item.name}** from {player.name}!")
         
         view.pageData['giveMenu'] = False
         view.pageData['sendItemError'] = ''
@@ -1067,10 +1071,11 @@ async def partyInviteFn(interaction : discord.Interaction, session : GameSession
     await view.refresh()
 async def partyInviteAcceptFn(interaction : discord.Interaction, hostSession : GameSession, joiningSession : GameSession,
                         party : PartyInfo, inviteView : RequestView):
-    await interaction.response.defer()
     if interaction.user.id != joiningSession.userId:
+        await interaction.response.defer()
         return await asyncio.sleep(0)
     await inviteView.close()
+    await interaction.response.edit_message(view=inviteView)
 
     joiningPlayer = joiningSession.getPlayer()
     assert(joiningPlayer is not None)
@@ -1171,6 +1176,8 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
     if combatInterface.activePlayer == player:
         playerTurnString = " - *Your Turn!*"
     embed = discord.Embed(title=f"Combat{playerTurnString}", description="")
+    instructionTitle = ""
+    instructionContent = ""
 
     combatLog : str = _abridgeCombatLog(session.unseenCombatLog)
     if len(session.unseenCombatLog) > DISPLAY_LOG_THRESHOLD:
@@ -1192,7 +1199,8 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
         actionChoice : str = view.pageData.get(ACTION_CHOICE, None)
         actionChoiceData : dict = view.pageData.get(ACTION_CHOICE_DATA, {})
         if actionChoice == CombatActions.ATTACK:
-            embed.description = "**Attack**: Select a target."
+            instructionTitle = "Attack"
+            instructionContent = "Select a target."
 
             targets = combatInterface.getOpponents(player, True)
             for target in targets:
@@ -1204,7 +1212,8 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
         elif actionChoice == CombatActions.SKILL:
             chosenSkill : SkillData | None = actionChoiceData.get('chosenSkill', None)
             if chosenSkill is None:
-                embed.description = f"**Skill**: Select a skill to use:\n"
+                instructionTitle = "Skill"
+                instructionContent = "Select a skill to use:\n"
                 skillDescriptions = []
                 for skill in player.availableActiveSkills:
                     skillDescriptions.append(f"__{skill.skillName}__ ({combatInterface.getSkillManaCost(player, skill)} MP): {skill.description}")
@@ -1221,9 +1230,10 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                                                                         CombatActions.SKILL, [], 0, _sk))(skill)
 
                     view.add_item(skillButton)
-                embed.description += '\n'.join(skillDescriptions)
+                instructionContent += '\n'.join(skillDescriptions)
             elif isinstance(chosenSkill, ActiveSkillDataSelector):
-                embed.description = f"**Skill**: Options for {chosenSkill.skillName}:\n{chosenSkill.optionDescription}"
+                instructionTitle = "Skill"
+                instructionContent = f"Options for {chosenSkill.skillName}:\n{chosenSkill.optionDescription}"
                 for option in chosenSkill.options:
                     optionName = option[0] + option[1:].lower()
                     optionSkill = chosenSkill.selectSkill(option)
@@ -1236,13 +1246,14 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                 selectedTargets : set[CombatEntity] = actionChoiceData.get('skillTargets', set())
                 expectedTargets = chosenSkill.expectedTargets
 
+                instructionTitle = f"{chosenSkill.skillName}"
                 if expectedTargets == 0:
-                    embed.description = f"**{chosenSkill.skillName}**: No targets needed."
+                    instructionContent = f"No targets needed."
                 else:
                     amount = "any number of" if expectedTargets == None else f"{expectedTargets}"
-                    embed.description = f"**{chosenSkill.skillName}**: Select {amount} target(s)."
+                    instructionContent = f"Select {amount} target(s)."
                     if len(selectedTargets) > 0:
-                        embed.description += f" Current targets: {', '.join([st.shortName for st in selectedTargets])}"
+                        instructionContent += f" Current targets: {', '.join([st.shortName for st in selectedTargets])}"
 
                     targetTeam = combatInterface.getOpponents(player, True) if chosenSkill.targetOpponents else combatInterface.getTeammates(player, True)
                     for target in targetTeam:
@@ -1270,11 +1281,14 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                     confirmButton.disabled = len(selectedTargets) == 0
                 view.add_item(confirmButton)
         elif actionChoice == CombatActions.APPROACH:
-            repositionHandler(True, session, view, combatInterface, player, combatHandler, embed, actionChoiceData)
+            instructionTitle, instructionContent = repositionHandler(
+                True, session, view, combatInterface, player, combatHandler, embed, actionChoiceData)
         elif actionChoice == CombatActions.RETREAT:
-            repositionHandler(False, session, view, combatInterface, player, combatHandler, embed, actionChoiceData)
+            instructionTitle, instructionContent = repositionHandler(
+                False, session, view, combatInterface, player, combatHandler, embed, actionChoiceData)
         else:
-            embed.description = "Select an action."
+            instructionTitle = "Select an action."
+            instructionContent = f"*Your current Basic Attack Range is {combatInterface.getRange(player)}.*"
 
             buttonMap : dict[CombatActions, discord.ui.Button] = {}
             for option in CombatActions:
@@ -1310,6 +1324,8 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
             else:
                 returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, {})
             view.add_item(returnButton)
+    if len(instructionTitle + instructionContent) > 0:
+        embed.add_field(name=f"__*{instructionTitle}*__", value=instructionContent)
     return embed
 def repositionHandler(isApproach : bool, session : GameSession, view : InterfaceView, combatInterface : CombatInterface,
                       player : Player, combatHandler : DiscordCombatInputHandler, embed : discord.Embed, actionChoiceData : dict):
@@ -1326,11 +1342,13 @@ def repositionHandler(isApproach : bool, session : GameSession, view : Interface
     if not targetConfirm and len(opponents) == 1:
         targetConfirm = True
         selectedTargets = set([opponents[0]])
-
+    
+    instructionTitle = f"{actionName}"
+    instructionContent = ""
     if len(selectedTargets) > 0:
-        embed.description = f"**{actionName}**: {changeString} distance from {', '.join([st.shortName for st in selectedTargets])}."
+        instructionContent = f"{changeString} distance from {', '.join([st.shortName for st in selectedTargets])}."
     else:
-        embed.description = f"**{actionName}**: Select targets, then amount to move by."
+        instructionContent = "Select targets, then amount to move by."
 
     if not targetConfirm:
         targets = combatInterface.getOpponents(player, True)
@@ -1362,6 +1380,7 @@ def repositionHandler(isApproach : bool, session : GameSession, view : Interface
                                                         combatAction, list(selectedTargets), 2)
         twoButton.disabled = not combatInterface.validateReposition(player, list(selectedTargets), amount * 2)
         view.add_item(twoButton)
+    return (instructionTitle, instructionContent)
 async def submitActionCallbackFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView,
                                  handler : DiscordCombatInputHandler, action : CombatActions, targets : list[CombatEntity],
                                  amount : int = 0, skillData : SkillData | None = None):
@@ -1427,7 +1446,10 @@ def partyDetailContent(session : GameSession, view : InterfaceView, playerTeam :
             targetButtons.append(targetButton)
     [view.add_item(button) for button in targetButtons]
 
-    embed = discord.Embed(title=f"**{focusEntity.name}**: Level {player.level}", description=focusEntity.description)
+    classString = ""
+    if isinstance(focusEntity, Player):
+        classString = f" {enumName(focusEntity.currentPlayerClass)}"
+    embed = discord.Embed(title=f"**{focusEntity.name}**: Level {player.level}{classString}", description=focusEntity.description)
     statusString = combatInterface.getEntityStatus(player, focusEntity)
     embed.add_field(name="Combat Status:", value=statusString, inline=False)
 
@@ -1477,17 +1499,23 @@ def roomReadyFn(session : GameSession, view : InterfaceView):
             " and positioning before trying again.\nPress \"Retry\" when you're prepared."
 
     dungeonHandler = session.currentDungeon.playerTeamHandlers[player]
+    logger = session.currentDungeon.loggers[player]
     assert isinstance(dungeonHandler, DiscordDungeonInputHandler)
     if dungeonHandler.isReady:
         embed.description = "Waiting for teammates..."
     else:
         embed.add_field(name="__Combat Log__", value=_abridgeCombatLog(session.unseenCombatLog), inline=False)
+        sentLog = view.pageData.get('sentLog', False)
+        assert isinstance(logger, DiscordMessageCollector)
         if len(session.unseenCombatLog) > DISPLAY_LOG_THRESHOLD:
-            logger = session.currentDungeon.loggers[player]
             logCatchupButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple,
-                                        disabled=view.pageData.get('sentLog', False), row=3)
+                                        disabled=sentLog, row=3)
             logCatchupButton.callback = lambda interaction: expandLogFn(interaction, session, view, logger)
             view.add_item(logCatchupButton)
+
+        logButton = discord.ui.Button(label="Get Full Fight Log", style=discord.ButtonStyle.blurple, disabled=sentLog, row=3)
+        logButton.callback = lambda interaction: sendCombatLogFn(interaction, session, view, logger)
+        view.add_item(logButton)
 
     disableReady = dungeonHandler.isReady
     if len(session.pendingItems) > 0:
@@ -1498,15 +1526,16 @@ def roomReadyFn(session : GameSession, view : InterfaceView):
     confirmButton = discord.ui.Button(label="I'm Ready", style=discord.ButtonStyle.green, disabled=disableReady)
     if session.dungeonFailed:
         confirmButton.label="Retry"
-    confirmButton.callback = lambda interaction: markReadyFn(interaction, session, dungeonHandler)
+    confirmButton.callback = lambda interaction: markReadyFn(interaction, session, dungeonHandler, logger)
     view.add_item(confirmButton)
 
-
     return embed
-async def markReadyFn(interaction : discord.Interaction, session : GameSession, dungeonHandler : DiscordDungeonInputHandler):
+async def markReadyFn(interaction : discord.Interaction, session : GameSession, dungeonHandler : DiscordDungeonInputHandler,
+                      logger : MessageCollector):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
         return await asyncio.sleep(0)
+    logger.clearMessages()
     dungeonHandler.markReady()
     await session.currentView.refresh()
 def pressedReady(session : GameSession):
@@ -1587,7 +1616,7 @@ def dungeonCompleteFn(session : GameSession, view : InterfaceView):
     sentLog = view.pageData.get('sentLog', False)
     logger = session.currentDungeon.loggers[player]
     assert isinstance(logger, DiscordMessageCollector)
-    logButton = discord.ui.Button(label="Full Combat Log", style=discord.ButtonStyle.blurple, disabled=sentLog)
+    logButton = discord.ui.Button(label="Get Full Fight Log", style=discord.ButtonStyle.blurple, disabled=sentLog)
     logButton.callback = lambda interaction: sendCombatLogFn(interaction, session, view, logger)
     view.add_item(logButton)
 
@@ -1598,7 +1627,7 @@ async def sendCombatLogFn(interaction : discord.Interaction, session : GameSessi
         return await asyncio.sleep(0)
     filterSettings = list(GLOBAL_STATE.accountDataMap[session.userId].enabledLogFilters)
     messages = logger.sendAllMessages(filterSettings, False)
-    messageString = messages.getMessagesString(None, False)
+    messageString = messages.getMessagesString(filterSettings, False)
 
     assert(session.currentMessage is not None)
 
@@ -1825,7 +1854,8 @@ class DiscordMessageCollector(MessageCollector):
 
         result = super().sendNewestMessages(filters, includeTypes)
         resultString = result.getMessagesString(filters, includeTypes)
-        self._updateViewLog(resultString)
+        if len(resultString) > 0:
+            self._updateViewLog(resultString)
         return result
     
     def _updateViewLog(self, newLog : str):

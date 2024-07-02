@@ -51,6 +51,11 @@ class EntityCombatState(object):
         else:
             self.effectStacks[stack] = self.effectStacks.get(stack, 0) + 1
         
+    def removeStack(self, stack : EffectStacks):
+        stackCount = self.effectStacks.get(stack, 0)
+        if stackCount > 0:
+            self.effectStacks[stack] = stackCount - 1
+        
     def setStack(self, stack : EffectStacks, val : int):
         self.effectStacks[stack] = val
 
@@ -87,6 +92,17 @@ class EntityCombatState(object):
         f"**Range**: {self.getFullStatusStatString(CombatStats.RANGE)}  \\||  **Crit Rate**: {self.getFullStatusPercentStatString(CombatStats.CRIT_RATE)}  \\||  **Crit Damage**: {self.getFullStatusPercentStatString(CombatStats.CRIT_DAMAGE)}"
     
     def getStackBuffString(self) -> str:
+        weaknessList = []
+        resistanceList = []
+        for attributeList in PhysicalAttackAttribute, MagicalAttackAttribute:
+            for attribute in attributeList:
+                weaknessInstances = self.weaknesses.count(attribute)
+                resistanceInstances = self.resistances.count(attribute)
+                if weaknessInstances > 0:
+                    weaknessList.append(f"{enumName(attribute)} Weakness ({weaknessInstances} stacks)")
+                if resistanceInstances > 0:
+                    resistanceList.append(f"{enumName(attribute)} Resistance ({resistanceInstances} stacks)")
+
         durationBuffList = []
         noDurationBuffList = []
         for skillEffect in self.activeSkillEffects:
@@ -95,14 +111,14 @@ class EntityCombatState(object):
             if skillEffect.effectDuration is None:
                 noDurationBuffList.append(skillEffect.effectName)
             else:
-                durationBuffList.append(f"{skillEffect.effectName}: {self.activeSkillEffects[skillEffect]}/{skillEffect.effectDuration}")
+                durationBuffList.append(f"{skillEffect.effectName} ({self.activeSkillEffects[skillEffect]}/{skillEffect.effectDuration} Turns)")
         for toggleEffect in self.activeToggleSkills:
-            noDurationBuffList.append(f"{toggleEffect.skillName} Enabled")
+            noDurationBuffList.append(f"{toggleEffect.skillName} (Toggled On)")
 
         stackStringList = [f"{EFFECT_STACK_NAMES[stack]} x{self.getStack(stack)}" for stack in self.effectStacks
                                 if self.getStack(stack) > 0 and stack in EFFECT_STACK_NAMES]
 
-        stackBuffString = '\n'.join(noDurationBuffList + durationBuffList + stackStringList) 
+        stackBuffString = '\n'.join(weaknessList + resistanceList + noDurationBuffList + durationBuffList + stackStringList) 
         return stackBuffString
 
     def getFullStatusStatString(self, stat : Stats) -> str:
@@ -352,10 +368,12 @@ class CombatController(object):
         for team in [self.playerTeam, self.opponentTeam]:
             for entity in team:
                 self.combatStateMap[entity] = EntityCombatState(entity)
+
+        for team in [self.playerTeam, self.opponentTeam]:
+            for entity in team:
                 for skill in entity.availablePassiveSkills:
                     self._activateImmediateEffects(entity, [], skill)
                     [self.addSkillEffect(entity, skillEffect) for skillEffect in skill.skillEffects]
-
                 if entity in startingPlayerTeamDistances:
                     displacement = abs(startingPlayerTeamDistances[entity] - DEFAULT_STARTING_DISTANCE)
                     self.combatStateMap[entity].actionTimer -= FORMATION_ACTION_TIMER_PENALTY * displacement
@@ -813,6 +831,7 @@ class CombatController(object):
         targetOptions = []
         for opponent in opponents:
             aggro = aggroMap.get(opponent, 0)
+            aggro += (MAX_DISTANCE - self.checkDistanceStrict(entity, opponent)) * PROXIMITY_AGGRO_BOOST
             if aggro > maxAggro:
                 maxAggro = aggro
                 targetOptions = [opponent]
@@ -1070,6 +1089,12 @@ class CombatController(object):
         if isinstance(skill, AttackSkillData):
             costMult *= self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.ATTACK_SKILL_MANA_COST_MULT)
         return round(skill.mpCost * costMult)
+    
+    def getSkillManaCostFromValue(self, entity : CombatEntity, cost : int, isAttack : bool) -> int:
+        costMult = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_COST_MULT)
+        if isAttack:
+            costMult *= self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.ATTACK_SKILL_MANA_COST_MULT)
+        return round(cost * costMult)
 
     """
         Performs all steps of an attack, modifying HP, Action Timers, etc. as needed.
@@ -1199,8 +1224,9 @@ class CombatController(object):
                 self.logMessage(MessageType.DAMAGE,
                                 f"{attacker.name}'s attack misses {defender.name}!")
 
+        attackAttribute : AttackAttribute = self.combatStateMap[attacker].getCurrentAttackAttribute(isPhysical)
         attackResultInfo = AttackResultInfo(attacker, defender, originalDistance, inRange, checkHit, damageDealt,
-                                            isCritical, isBonus, isPhysical, attackType)
+                                            isCritical, isBonus, isPhysical, attackType, attackAttribute)
         if parryBonusAttacks is not None:
             [attackResultInfo.addBonusAttack(*parryAttack) for parryAttack in parryBonusAttacks]
 
@@ -1334,7 +1360,7 @@ class RepositionResultInfo(object):
 class AttackResultInfo(object):
     def __init__(self, attacker : CombatEntity, defender : CombatEntity, originalDistance : int, inRange : bool,
                  attackHit : bool, damageDealt : int, isCritical : bool, isBonus : bool,
-                 isPhysical : bool, attackType : AttackType) -> None:
+                 isPhysical : bool, attackType : AttackType, attackAttribute : AttackAttribute) -> None:
         self.attacker : CombatEntity = attacker
         self.defender : CombatEntity = defender
         self.originalDistance : int = originalDistance
@@ -1348,6 +1374,7 @@ class AttackResultInfo(object):
         self.repeatAttack : bool = False
         self.isPhysical : bool = isPhysical
         self.attackType : AttackType = attackType
+        self.attackAttribute : AttackAttribute = attackAttribute
 
     def setRepeatAttack(self):
         self.repeatAttack = True

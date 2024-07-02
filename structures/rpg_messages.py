@@ -41,6 +41,10 @@ class MessageCollector(object):
         self.lastSendLength = len(self.allMessages)
         return result
     
+    def clearMessages(self):
+        self.allMessages = []
+        self.lastSendLength = 0
+    
 class LocalMessageCollector(MessageCollector):
     def __init__(self):
         super().__init__()

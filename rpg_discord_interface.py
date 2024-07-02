@@ -434,8 +434,8 @@ async def new_character(ctx : commands.Context, character_name : str):
 async def new_character_error(ctx, error : Exception):
     await ctx.send("Add a character name using 'new_character [name]'!", ephemeral=True)
 
-@bot.hybrid_command(brief="Change your active character",
-                    description=f"Selects your active character, either by index or name. You can't switch while in a party or dungeon.")
+@bot.hybrid_command(brief="Change active character",
+                    description=f"Selects your active character, either by index or name. Unavailable while in a party or dungeon.")
 async def select_character(ctx : commands.Context, target_character : str):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -476,7 +476,7 @@ async def select_character_error(ctx, error : Exception):
         await ctx.send(response, ephemeral=True)
 
 @bot.hybrid_command(brief="Opens the game",
-                    description=f"Opens a new session with for the game, assuming you've already made a character. This should preserve the state of your previous session, so try using this if something breaks.")
+                    description=f"Opens a new session with for the game, assuming you've already made a character.")
 async def play(ctx : commands.Context):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -491,7 +491,7 @@ async def play(ctx : commands.Context):
         await respondNotLoaded(ctx)
 
 @bot.hybrid_command(brief="Invite user to party",
-                    description=f"When you've created a party for a dungeon, you can use this to invite a user instead of using the drop-down menu.")
+                    description=f"When you've created a party, you can invite people with this instead of the drop-down menu.")
 async def invite(ctx : commands.Context, member: discord.Member):
     if GLOBAL_STATE.loaded:
         userId = ctx.author.id
@@ -558,7 +558,7 @@ async def sync(ctx : commands.Context):
             await ctx.send("Commands synced!")
 
 @bot.hybrid_command(brief="Emergency session reset",
-                    description=f"Attempts to reset your session to the main menu. Useful if something breaks in a dungeon, but you may want to try just using 'play' again first.")
+                    description=f"Attempts to reset your session to the main menu. Useful if something breaks in a dungeon.")
 async def panic(ctx : commands.Context, confirmation : str | None = None):
     if GLOBAL_STATE.loaded:
         if confirmation is not None and confirmation.lower() == "saveme":
@@ -570,8 +570,9 @@ async def panic(ctx : commands.Context, confirmation : str | None = None):
             else:
                 await ctx.send("You don't have a character yet (which means you're probably not stuck)! Use the 'new_character [name]' command first.")
         else:
-            await ctx.send("This command will attempt to reset you to the main menu if you get stuck in a dungeon, kicking you out.\n" +
-                        "To confirm this, use '/panic saveme'.")
+            await ctx.send("This command will attempt to reset you to the main menu if you get stuck in a dungeon, kicking you out. " +
+                           "Note that using the 'play' command to start a new session can solve some smaller issues.\n" +
+                            "To confirm this reset, use '/panic saveme'.")
     else:
         await respondNotLoaded(ctx)
 

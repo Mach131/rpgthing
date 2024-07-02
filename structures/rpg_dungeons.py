@@ -167,6 +167,7 @@ class DungeonController(object):
         
         player.wup += reward.wup
         player.swup += reward.swup
+        player.milestones = player.milestones.union(reward.milestones)
         wupString = f"**{reward.wup} WUP**" if reward.wup > 0 else ""
         swupString = f"**{reward.swup} SWUP**" if reward.swup > 0 else ""
         andString = " and " if reward.wup > 0 and reward.swup > 0 else ""
@@ -182,9 +183,9 @@ class DungeonController(object):
             self.sendAllLatestMessages()
             await self.playerTeamHandlers[player].getEquip(self, equip)
 
-        self.loggers[player].addMessage(
-            MessageType.BASIC, f"*Waiting for teammates...*"
-        )
+        # self.loggers[player].addMessage(
+        #     MessageType.BASIC, f"*Waiting for teammates...*"
+        # )
         self.sendAllLatestMessages()
 
     async def _processRetry(self) -> bool:
@@ -227,6 +228,9 @@ class DungeonController(object):
 
         while self.currentRoom < self.totalRooms:
             if not self.loadCheckWaiting():
+                if len(self.playerTeamHandlers) == 0:
+                    return False
+                
                 if reload:
                     self.currentCombatInterface = None
 
@@ -279,11 +283,13 @@ class DungeonReward(object):
         self.wup = 0
         self.swup = 0
         self.equips : list[Equipment] = []
+        self.milestones : set[Milestones] = set()
 
     def addEnemyReward(self, enemyReward : EnemyReward):
         self.exp += enemyReward.exp
         self.wup += enemyReward.wup
         self.swup += enemyReward.swup
+        self.milestones = self.milestones.union(enemyReward.milestones)
         if enemyReward.equip is not None:
             self.equips.append(enemyReward.equip)
 

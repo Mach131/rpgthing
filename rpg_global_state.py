@@ -30,6 +30,9 @@ class GlobalState(object):
             self.accountDataMap[userId] = AccountData(userId, player, session)
 
     def saveState(self):
+        if len(self.accountDataMap) == 0:
+            return
+
         timestamp = int(datetime.now().timestamp())
 
         # if len(self.accountDataMap) > 0:
@@ -84,9 +87,12 @@ class AccountData(object):
         self.session = session
 
         self.enabledLogFilters : set[MessageType] = set()
-        for logFilter in TOGGLE_LOG_FILTER_DEFAULTS:
-            if TOGGLE_LOG_FILTER_DEFAULTS.get(logFilter, True):
-                self.enabledLogFilters.add(logFilter)
+        for logFilter in MessageType:
+            if logFilter in TOGGLE_LOG_FILTER_DEFAULTS:
+                if TOGGLE_LOG_FILTER_DEFAULTS.get(logFilter, True):
+                    self.enabledLogFilters.add(logFilter)
+            else:
+                    self.enabledLogFilters.add(logFilter)
 
         self.allCharacters = [self.currentCharacter]
 

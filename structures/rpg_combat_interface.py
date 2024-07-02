@@ -523,3 +523,6 @@ class CombatInterface(object):
     
     def getEntityBuffs(self, entity : CombatEntity):
         return self.cc.getBuffStatusStringFor(entity)
+    
+    def getRange(self, entity : CombatEntity):
+        return self.cc.combatStateMap[entity].getTotalStatValue(CombatStats.RANGE)

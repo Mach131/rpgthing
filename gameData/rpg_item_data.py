@@ -14,23 +14,35 @@ def makeBeginnerWeapon(playerClass : BasePlayerClassNames):
     return Weapon(weaponName, weaponClassAttributes.weaponType, weaponClassAttributes.baseStats, None,
                   [], 0, 0, True, (0, 0))
 
-def _makeBasicDrop(rng : random.Random, rarity : int, minRank : int, maxRank : int, weaponChance : float):
+for weaponType in WeaponType:
+    assert(weaponType in MELEE_WEAPON_TYPES or weaponType in RANGED_WEAPON_TYPES or weaponType in MAGIC_WEAPON_TYPES)
+def getWeaponClasses(weaponTypes : list[WeaponType]) -> list[WeaponClasses]:
+    return [weaponClass for weaponClass in WeaponClasses
+                if weaponClassAttributeMap[weaponClass].weaponType in weaponTypes]
+
+def _makeBasicDrop(rng : random.Random, rarity : int, minRank : int, maxRank : int, weaponChance : float,
+                    possibleWeaponClasses : list[WeaponClasses] | None = None) -> Equipment:
     possibleEquipSlots = [EquipmentSlot.HAT, EquipmentSlot.OVERALL, EquipmentSlot.SHOES]
-    equipSlot = rng.choice(possibleEquipSlots)
-    if weaponChance > 0 and rng.random() < weaponChance:
-        equipSlot = EquipmentSlot.WEAPON
-
-    generatorFn = {
-        EquipmentSlot.WEAPON: generateWeapon,
-        EquipmentSlot.HAT: generateHat,
-        EquipmentSlot.OVERALL: generateOverall,
-        EquipmentSlot.SHOES: generateShoes
-    }[equipSlot]
     chosenRank = rng.randint(minRank, maxRank)
-    return generatorFn(rarity, chosenRank, None, 0)
+    equipSlot = rng.choice(possibleEquipSlots)
 
-def makeBasicCommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponChance : float):
-    return _makeBasicDrop(rng, 0, minRank, maxRank, weaponChance)
+    if weaponChance > 0 and rng.random() < weaponChance:
+        weaponClass = None
+        if possibleWeaponClasses is not None:
+            weaponClass = rng.choice(possibleWeaponClasses)
+        return generateWeapon(rarity, chosenRank, weaponClass, 0)
+    else:
+        generatorFn = {
+            EquipmentSlot.HAT: generateHat,
+            EquipmentSlot.OVERALL: generateOverall,
+            EquipmentSlot.SHOES: generateShoes
+        }[equipSlot]
+        return generatorFn(rarity, chosenRank, None, 0)
 
-def makeBasicUncommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponChance : float):
-    return _makeBasicDrop(rng, 1, minRank, maxRank, weaponChance)
+def makeBasicCommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponChance : float,
+                    possibleWeaponClasses : list[WeaponClasses] | None = None):
+    return _makeBasicDrop(rng, 0, minRank, maxRank, weaponChance, possibleWeaponClasses)
+
+def makeBasicUncommonDrop(rng : random.Random, minRank : int, maxRank : int, weaponChance : float,
+                    possibleWeaponClasses : list[WeaponClasses] | None = None):
+    return _makeBasicDrop(rng, 1, minRank, maxRank, weaponChance, possibleWeaponClasses)

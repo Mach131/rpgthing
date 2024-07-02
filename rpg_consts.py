@@ -173,12 +173,21 @@ class EffectStacks(Enum):
     UNRELENTING_ASSAULT = auto()
     FIRE_BLESSING = auto()
     TELEGRAPH_RANGE = auto()
+    RAT_MARK_IMPETUOUS = auto()
+    RAT_MARK_RESOLUTE = auto()
+    RAT_MARK_INTREPID = auto()
+    ENEMY_COUNTER_A = auto()
+    RPS_LEVEL = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
     EffectStacks.SUPPRESSIVE_FIRE: "Suppressive Fire",
     EffectStacks.EYES_OF_THE_DARK: "Eyes of the Dark",
-    EffectStacks.UNRELENTING_ASSAULT: "Unrelenting Assault"
+    EffectStacks.UNRELENTING_ASSAULT: "Unrelenting Assault",
+    EffectStacks.RAT_MARK_IMPETUOUS: "Mark of Impetuous Rat",
+    EffectStacks.RAT_MARK_RESOLUTE: "Mark of Resolute Rat",
+    EffectStacks.RAT_MARK_INTREPID: "Mark of Intrepid Rat",
+    EffectStacks.RPS_LEVEL: "Reactive Protection System Level"
 }
 
 """ Combat """
@@ -200,6 +209,8 @@ BASIC_ATTACK_MP_GAIN = 4
 REPOSITION_MP_GAIN = 2
 DEFEND_MP_GAIN = 4
 DEFEND_HIT_MP_GAIN = 3
+
+PROXIMITY_AGGRO_BOOST = 3
 
 DAMAGE_FORMULA_K = 0.5 # ratio when attack = defense
 DAMAGE_FORMULA_C = 2.0 # scaling, higher means a steeper dropoff/alignment as ratio increases/decreases
@@ -262,6 +273,8 @@ class WeaponType(Enum):
     HAMMER = auto()
     SWORDSHIELD = auto()
     DAGGER = auto()
+    THROWING = auto()
+    ROCKS = auto()
     BOW = auto()
     CROSSBOW = auto()
     FIREARM = auto()
@@ -304,6 +317,18 @@ MAX_ITEM_RARITY = 4
 MAX_ITEM_RANK = 9
 MAX_RANK_STAT_SCALING = 0.75
 
+MELEE_WEAPON_TYPES : list[WeaponType] = [
+    WeaponType.SWORD, WeaponType.SPEAR, WeaponType.FLAIL,
+    WeaponType.SWORDSHIELD, WeaponType.HAMMER, WeaponType.DAGGER
+]
+RANGED_WEAPON_TYPES : list[WeaponType] = [
+    WeaponType.ROCKS, WeaponType.THROWING,
+    WeaponType.BOW, WeaponType.CROSSBOW, WeaponType.FIREARM
+]
+MAGIC_WEAPON_TYPES : list[WeaponType] = [
+    WeaponType.WAND, WeaponType.STAFF, WeaponType.FOCUS
+]
+
 class WeaponTypeAttributes(object):
     def __init__(self, basicAttackType : AttackType, basicAttackAttribute : AttackAttribute, maxRange : int,
                 permittedClasses : list[BasePlayerClassNames]):
@@ -325,6 +350,10 @@ weaponTypeAttributeMap = {
                                            [BasePlayerClassNames.WARRIOR]),
     WeaponType.DAGGER: WeaponTypeAttributes(AttackType.MELEE, PhysicalAttackAttribute.PIERCING, 0,
                                            [BasePlayerClassNames.WARRIOR, BasePlayerClassNames.ROGUE]),
+    WeaponType.THROWING: WeaponTypeAttributes(AttackType.RANGED, PhysicalAttackAttribute.SLASHING, 2,
+                                           [BasePlayerClassNames.ROGUE]),
+    WeaponType.ROCKS: WeaponTypeAttributes(AttackType.RANGED, PhysicalAttackAttribute.CRUSHING, 2,
+                                           [BasePlayerClassNames.RANGER, BasePlayerClassNames.ROGUE]),
     WeaponType.BOW: WeaponTypeAttributes(AttackType.RANGED, PhysicalAttackAttribute.PIERCING, 2,
                                            [BasePlayerClassNames.RANGER, BasePlayerClassNames.ROGUE]),
     WeaponType.CROSSBOW: WeaponTypeAttributes(AttackType.RANGED, PhysicalAttackAttribute.PIERCING, 3,
@@ -373,6 +402,12 @@ class WeaponClasses(EquipClass):
     DAGGER = auto(),
     STILETTO = auto(),
     DIRK = auto(),
+    THROWINGKNIVES = auto(),
+    SHURIKENS = auto(),
+    SLINGSHOT = auto(),
+    SHOTPUTS = auto(),
+    BOLAS = auto(),
+    BOOMERANG = auto(),
     RECURVEBOW = auto(),
     COMPOUNDBOW = auto(),
     LONGBOW = auto(),
@@ -429,6 +464,18 @@ weaponClassAttributeMap : dict[WeaponClasses, WeaponAttributes] = {
             {BaseStats.ATK: 4, BaseStats.ACC: 15, BaseStats.SPD: 15}),
     WeaponClasses.DIRK: WeaponAttributes("Dirk", WeaponType.DAGGER,
             {BaseStats.ATK: 5, BaseStats.ACC: 13, BaseStats.AVO: 4, BaseStats.SPD: 8}),
+    WeaponClasses.THROWINGKNIVES: WeaponAttributes("Throwing Knives", WeaponType.THROWING,
+            {BaseStats.ATK: 5, BaseStats.ACC: 8, BaseStats.SPD: 12}),
+    WeaponClasses.SHURIKENS: WeaponAttributes("Shurikens", WeaponType.THROWING,
+            {BaseStats.ATK: 3, BaseStats.ACC: 8, BaseStats.SPD: 15}),
+    WeaponClasses.BOOMERANG: WeaponAttributes("Boomerang", WeaponType.THROWING,
+            {BaseStats.MP: 2, BaseStats.ATK: 5, BaseStats.ACC: 9, BaseStats.SPD: 8}),
+    WeaponClasses.SLINGSHOT: WeaponAttributes("Slingshot", WeaponType.ROCKS,
+            {BaseStats.ATK: 6, BaseStats.ACC: 9, BaseStats.SPD: 10}),
+    WeaponClasses.SHOTPUTS: WeaponAttributes("Shotputs", WeaponType.ROCKS,
+            {BaseStats.ATK: 9, BaseStats.ACC: 7, BaseStats.SPD: 7}),
+    WeaponClasses.BOLAS: WeaponAttributes("Bolas", WeaponType.ROCKS,
+            {BaseStats.ATK: 5, BaseStats.ACC: 9, BaseStats.AVO: 3, BaseStats.SPD: 8}),
     WeaponClasses.RECURVEBOW: WeaponAttributes("Recurve Bow", WeaponType.BOW,
             {BaseStats.ATK: 6, BaseStats.ACC: 9, BaseStats.SPD: 10}),
     WeaponClasses.COMPOUNDBOW: WeaponAttributes("Compound Bow", WeaponType.BOW,
@@ -531,7 +578,7 @@ overallClassAttributeMap : dict[OverallClasses, EquipAttributes] = {
     OverallClasses.OUTFIT: EquipAttributes("Outfit", EquipmentSlot.OVERALL,
             {BaseStats.DEF: 4, BaseStats.RES: 4, BaseStats.AVO: 3, BaseStats.SPD: 3}, False),
     OverallClasses.COSTUME: EquipAttributes("Costume", EquipmentSlot.OVERALL,
-            {BaseStats.DEF: 4, BaseStats.RES: 4, BaseStats.SPD: 2}, True)
+            {BaseStats.DEF: 3, BaseStats.RES: 3, BaseStats.SPD: 2}, True)
 }
 
 class ShoeClasses(EquipClass):
@@ -560,7 +607,7 @@ shoeClassAttributeMap : dict[ShoeClasses, EquipAttributes] = {
     ShoeClasses.BOOTS: EquipAttributes("Boots", EquipmentSlot.SHOES,
             {BaseStats.DEF: 2, BaseStats.RES: 2, BaseStats.AVO: 2, BaseStats.SPD: 2}, False),
     ShoeClasses.SLIPPERS: EquipAttributes("Slippers", EquipmentSlot.SHOES,
-            {BaseStats.AVO: 2, BaseStats.SPD: 2}, True)
+            {BaseStats.AVO: 2, BaseStats.SPD: 1}, True)
 }
 
 def getEquipClassAttributes(equipClass: EquipClass) -> EquipAttributes:
@@ -598,6 +645,8 @@ STAT_POINTS_PER_LEVEL = 4
 
 class Milestones(Enum):
     TUTORIAL_COMPLETE = auto()
+    FRESH_FIELDS_COMPLETE = auto()
+    SKYLIGHT_CAVE_COMPLETE = auto()
 
 MAX_USER_CHARACTERS = 4
 MAX_NAME_LENGTH = 15

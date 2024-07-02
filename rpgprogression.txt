@@ -50,6 +50,8 @@ level 5-10: 45-60
 level 10-15: 70-85
 level 16-20: 100-120
 
+[ending up ~10-15 above these estimates]
+
 	WUPs (weapon upgrade (fruits?)) - currency to enhance weapon rank
 	SWUPs (super/sweet) - currency to increase rarity
 common: 1/1/1/2/2/2/3/3/3; 10 + 1 SWUP
@@ -64,6 +66,7 @@ uncommon - 3S
 rare - 8S
 epic - 20S
 leg - 50S
+[alternative: always costs 10S base, but can only be done after increasing rarity at least once (or if legendary)]
 
 
 per dungeon run:
@@ -91,6 +94,16 @@ Post-Tutorials:
 	acb: 50/30	/41/10/10/10	/83/119/55
 	wiz: 50/100	/12/10/55/15	/85/50/40
 	snt: 50/120	/12/10/48/40	/67/50/35
+first dungeon equips:
+	mrc: 316/40	/87/37/10/41	/117/57/56
+	knt: 445/42	/76/70/10/46	/111/57/51
+	snp: 163/70	/56/20/10/42	/144/86/72
+	hnt: 256/62	/56/28/10/44	/124/72/71
+	asn: 213/40	/64/29/10/39	/107/115/98
+	acb: 52/30	/61/25/10/40	/121/155/90
+	wiz: 89/131	/16/32/82/43	/97/69/76
+	snt: 51/140	/16/36/71/68	/98/55/71
+
 
 -------
 
@@ -121,7 +134,7 @@ Instructor Aqi: 120/1000	/50/18/1/18	/50/60/30
 		4: super slime/plant captain
 	Dungeon Reward: 5 EXP, ~10% chance of SWUP
 
-Slimey: 110/1	/25/25/1/25	/60/60/40
+Slimy: 110/1	/25/25/1/25	/60/60/40
 	Lv2; gives 2 EXP
 		small chance of dropping common (rank 1-2) equipment (non-weapon)
 	variances: +40 HP, +5 atk, +10 def/res, +10 acc, +20 avo, +15 spd
@@ -130,10 +143,10 @@ Slimey: 110/1	/25/25/1/25	/60/60/40
 Field Rat: 80/1	/20/20/1/25	/60/75/50
 	Lv2; gives 2 EXP
 		small chance of dropping common (rank 1-2) equipment (non-weapon)
-	variances: +20 HP, +10 atk, +5 def/res, +10 acc, +15 avo, +70 spd
+	variances: +20 HP, +10 atk, +5 def/res, +10 acc, +15 avo, +30 spd
 	range 0, advance and attack
 
-Shooting Plant: 130/50	/5/30/40/35	/85/30/25
+Shooting Plant: 130/50	/5/30/40/35	/85/30/20
 	Lv3; gives 3 EXP (at most 1 per room)
 		decent chance of dropping common (rank 2-4) equipment (non-weapon)
 		occasionally drops a WUP
@@ -142,8 +155,8 @@ Shooting Plant: 130/50	/5/30/40/35	/85/30/25
 	cannot reposition; uses magic attacks (10 MP)
 	physical attack range 0, big MP recovery on hit
 
-[Boss] Super Slime (Slimeu): 350/100	/70/50/80/70	/90/60/50
-	Lv4; gives 5 EXP
+[Boss] Super Slime (Slimoo): 400/150	/70/50/80/70	/90/60/50
+	Lv4; gives 6 EXP
 		always drops an equip (could be weapon); usually common (rank 5-7), very small chance of uncommon (rank 1)
 		drops 2-3 WUP
 	physical attack range 0, discount for advancing 2
@@ -155,9 +168,9 @@ Shooting Plant: 130/50	/5/30/40/35	/85/30/25
 	Budding: Spawns 2 slimes, if there are less than 5 enemies
 		20 MP, ~6 turn cooldown
 
-[Boss] Plant Captain: 400/200	/40/60/100/85	/120/30/30
-	always spawns with 2 shooting plants
-	Lv4; gives 3 EXP
+[Boss] Plant Captain: 500/200	/40/60/100/85	/140/30/30
+	always spawns with 3 shooting plants
+	Lv4; gives 6 EXP
 		always drops an equip (could be weapon); usually common (rank 5-7), very small chance of uncommon (rank 1)
 		drops 1-2 WUP
 	weak to fire/ice/wind
@@ -175,10 +188,174 @@ Shooting Plant: 130/50	/5/30/40/35	/85/30/25
 
 **Cave
 	physically tankier, better physical drops
+	50% HP, 65% MP recovery between rooms
+		1: two mobs, but not two rats
+		2: 1-2 rats, others random
+		3: almost any combo of 3 (including duplicates)
+		4: bosses
+	Dungeon Reward: 7 Exp, ~10% SWUP
+
+Rock: 180/30	/50/60/1/30	/85/50/40
+	Lv3; gives 3 EXP
+		decent chance of dropping common (rank 3-6) equipment (melee weapons only, rare)
+		occasionally drops a WUP
+	variances: +100 HP, +20 atk, +30 def, +40 res, +10 acc, +10 avo, +10 spd
+	Weak to Crushing, Resists Piercing
+	Physical Attack Range 0, Crushing Damage
+	Gains 2 stacks at end of turn, reduced by 1 if hit
+	If over 5, can spend 5 stacks and 15 MP for a strong attack (explosive strike, r1)
+
+Bat: 150/45	/40/40/1/40	/100/100/75
+	Lv3; gives 3 EXP
+		decent chance of dropping common (rank 3-6) equipment (melee weapons only, rare)
+		occasionally drops a WUP
+	variances: +50 HP, +20 atk, +15 def, +15 res, +15 acc, +20 avo, +20 spd
+	Weak to Slashing, Resists Crushing
+	Physical Attack Range 0, Slashing Damage
+	Below 40% HP, starts retreating (slightly reduced movement time)
+		If distance 2 or greater in this mode, spends 15 MP for a strong closing attack
+
+Glass Fairy: 130/60	/60/30/1/60	/130/50/60
+	Lv3; gives 3 EXP
+		decent chance of dropping common (rank 3-6) equipment (melee weapons only, rare)
+		occasionally drops a WUP
+	variances: +30 HP, +15 atk, +15 def, +15 res, +10 acc, +20 avo, +15 spd
+	Weak to Piercing, Resists Slashing
+	Ranged Attack Range 2, Piercing Damage
+	15 MP: strafe effect
+	If not attacked between turns, can spend 15 MP to increase all allies ATK/DEF by 10%
+
+Cave Rat: 140/1		/40/30/1/35	/80/90/75
+	Lv3; gives 3 EXP
+		small chance of dropping common (rank 2-5) equipment (non-weapon)
+	variances: +30 HP, +10 atk, +10 def/res, +10 acc, +10 avo, +20 spd
+	Physical Attack Range 0
+	On attack, opponent gains 3 caverat stacks, up to 9
+		any rat attacking an enemy consumes a stack to gain 5% DEF/RES [resolute]
+
+	{todo: change field rat to have a similar effect for ACC/AVO} [impetuous]
+
+[Boss] rock/paper/scissors golem: 800/100	/80/80/1/80	/90/60/60
+	spawns with no allies
+	Lv5; gives 15 EXP
+		always drops a melee weapon; usually common (rank 6-9), very small chance of uncommon (rank 1)
+		drops 6 WUP
+	Physical Attack Range 1 (Crushing)
+
+	Starts with 1 weakness stack for each physical attribute
+	When hit by a physical attack, gains 2 stacks of resistance to it and 1 stack of weakness to another (similar to triangle above)
+	If resistance stacks for something are over 5, can spend 10 Mana for a very strong attack of that attribute;
+		when used, removes those resistance stacks and gains 2 weakness stacks for it
+	Longer cooldown AOE (20 MP), damage reduced by number of resistance stacks but increased by number of weakness stacks; resets to having 1 stack of each weakness
+	
+
+[Boss] some cave spirit thing:	450/300		/40/20/75/80	/140/80/75
+	spawns with 1 rock, 1 bat, and 1 fairy
+	Lv5; gives 5 EXP
+		always drops a melee weapon; usually common (rank 6-9), very small chance of uncommon (rank 1)
+		drops 4 WUP
+	Physical Attack Range 0
+	Magic attack, 15 MP
+	When hit, redirects an equal portion of damage to each surviving ally (similar to atlas)
+		aggro allies gain from this redirection is greatly increased
+	defeating an enemy gives it 3 stacks of resistance for that enemy's weakness and enables a new skill
+		rock: 15 MP to knockback by 2 (with magic attack), similar to plant thrashing
+			stronger but longer recovery time, ~3 turn CD
+		bat: 15 MP to apply self-buff to speed, ~65% uptime
+			4 turn duration, 6 turn cd
+		fairy: 15 MP to heal all allies and increase DEF/RES (including self)
+			5 turn CD
+	when all enemies are defeated, converts to 2 stacks of weakness to all physical attributes
+Deposylph Byebat Stalactun
+
 **Woods
 	magically tankier, better magical drops
+
+
+	mrc: 316/40	/87/37/10/41	/117/57/56
+	knt: 445/42	/76/70/10/46	/111/57/51
+	snp: 163/70	/56/20/10/42	/144/86/72
+	hnt: 256/62	/56/28/10/44	/124/72/71
+	asn: 213/40	/64/29/10/39	/107/115/98
+	acb: 52/30	/61/25/10/40	/121/155/90
+	wiz: 89/131	/16/32/82/43	/97/69/76
+	snt: 51/140	/16/36/71/68	/98/55/71
+
+
+Mini Reaper: 200/30	/110/100/1/100	/100/50/30
+	Lv3; gives 3 EXP
+		decent chance of dropping common (rank 3-6) equipment (ranged/magic weapons only, rare)
+		occasionally drops a WUP
+	variances: +100 HP, +40 atk, +20 def, +20 res, +10 acc, +10 spd
+	weak to Light, resists Dark
+	basic attack: slashing, range 0
+	slow to reset aggro; approaches target by 1 each turn
+	if in range 0 of target with enough mana, performs a very strong skill (15 mp)
+	def/res decrease when attacked closer (by like 15% per distance?)
+
+Ninja Bug: 120/60	/35/40/35/40	/110/110/70
+	Lv3; gives 3 EXP
+		decent chance of dropping common (rank 3-6) equipment (ranged weapons only, rare)
+		occasionally drops a WUP
+	variances: +30 HP, +30 atk, +30 mag, +10 def, +10 res, +10 acc, +20 avo, +15 spd
+	basic attack: piercing, range 2 (ranged)
+	lowered time to reposition; every 2-3 turns, if not at range 2, tries to move there
+	if opponent not at range 2 the turn after repositioning, uses a magic attack that attempts to RESTRICT & lower speed (if restricted)
+
+Elemental: 150/150	/10/40/60/85	/100/75/60
+	Lv3; gives 3 EXP
+		decent chance of dropping common (rank 3-6) equipment (magic weapons only, rare)
+		occasionally drops a WUP
+	variances: +50 HP, +20 mag, +15 def, +15 res, +15 acc, +15 avo, +20 spd
+	random element chosen: fire/ice/wind
+	resists chosen element; fire weak to wind, wind weak to ice, ice weak to fire
+	basic attack: magic, range 0
+	magic attack skill (all ranges): ~15 MP
+	between attacks, can use Buff or Debuff skill (20 MP; debuff only works if attack hiits)
+		Fire: buff ally ATK/MAG, debuff DEF/RES
+		Ice: buff ally DEF/RES, debuff SPD/AVO
+		Wind: buff ally SPD/AVO, debuff ACC/ATK/MAG
+	at low health, can spend 30 MP for a strong R0 teleport + magic attack (telegraphed but fast after teleport?)
+
+Forest Rat: 140/1		/40/30/1/35	/80/90/75
+	Lv3; gives 3 EXP
+		small chance of dropping common (rank 2-5) equipment (non-weapon)
+	variances: +30 HP, +10 atk, +10 def/res, +10 acc, +10 avo, +20 spd
+	Physical Attack Range 0
+	On attack, opponent gains 3 forest stacks, up to 9
+		any rat attacking an enemy consumes a stack to gain 5% ATK/SPD [intrepid]
+
+[boss] ninja leader: 400/300	/60/50/60/50	/135/150/100
+	spawns with 2 ninja bugs
+	Lv5; gives 6 EXP
+		always drops a magic/ranged weapon; usually common (rank 6-9), very small chance of uncommon (rank 1)
+		drops 5 WUP
+	basic attack: r2 slashing ranged
+	when dodging an attack, gains a stack; can spend after certain actions to greatly decrease timer usage
+		can use stacks when repositioning
+	alternates between preferring close and far range; accelerates based on where they're hit from (e.g. hit at r0 -> prefers r2 faster)
+	15 MP physical closing attack, 15 MP magic distancing attack
+		can use stacks, empowered if they do
+	10 MP R0 slashing attack
+		can use stacks
+		repeats until target takes a turn; power increases on each repetition
+	30 MP R3 piercing attack
+		telegraphed, increased damage against distant enemies
+		guaranteed crit if opponent has a status condition
+
+
+[boss] enchanted beast 600/200	/80/70/70/70	/110/60/80
+	Lv5; gives 5 EXP
+		always drops a magic/ranged weapon; usually common (rank 6-9), very small chance of uncommon (rank 1)
+		drops 4 WUP
+	[has a rush attack on a cooldown]
+	[periodically spawns 2 elementals of the same element; if not killed in time, sacrifices them to empower a magic blast of the same type]
+
+
 **Beginner dungeon
 	more enemies at once, more WUP/better SWUP chance
+
+[rats]
 
 -- lv 5-9
 all dungeons begin having more enemies, partying likely needed
@@ -269,3 +446,7 @@ special dungeon events:
 	Golden Slime: ~3 enemies that retreat on their turn, escape if at distance 3; worth lots of exp/WUP/SWUP
 	Special Dummy: can appear at the end of a dungeon; deal as much damage as possible within a set time, standard minor boss rewards but keeps a global leaderboard
 	Wanted Party: team of opponents with player class skills; generally higher level than dungeon's recommendation, but can drop notably better equips
+
+---
+	other ideas:
+poison swamp

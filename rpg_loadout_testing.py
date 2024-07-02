@@ -1,4 +1,4 @@
-from gameData.rpg_item_data import makeBeginnerWeapon
+from gameData.rpg_item_data import *
 from rpg_consts import *
 from structures.rpg_combat_entity import *
 from structures.rpg_items import *
@@ -145,27 +145,52 @@ def postTutorialPlayer(name, baseClass, advanceClass, statList):
     ptp.changeClass(advanceClass)
     return ptp
 
-ptp_merc = postTutorialPlayer("mercenary", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.MERCENARY,
+def basicLootPlayer(name, baseClass, advanceClass, statList):
+    blp = beginnerPlayer(name, baseClass)
+    blp.gainExp(EXP_TO_NEXT_PLAYER_LEVEL[0])
+    blp.changeClass(advanceClass)
+
+    blp.gainExp(50)
+    blp.assignStatPoints(statList)
+    blp.wup = 100
+    for i in range(7): blp.increaseItemRank(blp.equipment[EquipmentSlot.WEAPON])
+    
+    blp.equipItem(generateHat(0, random.randint(1, 8), None, 0))
+    blp.equipItem(generateOverall(0, random.randint(1, 8), None, 0))
+    blp.equipItem(generateShoes(0, random.randint(1, 8), None, 0))
+    print(advanceClass)
+    # print(blp.getTotalStatString())
+    return blp
+
+test_mercenary = basicLootPlayer("mercenary", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.MERCENARY,
                               [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.MP])
-ptp_knight = postTutorialPlayer("knight", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.KNIGHT,
+                               BaseStats.ATK, BaseStats.ACC, BaseStats.SPD, BaseStats.MP,
+                               BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.HP])
+test_knight = basicLootPlayer("knight", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.KNIGHT,
                               [BaseStats.ATK, BaseStats.DEF, BaseStats.ACC, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.DEF, BaseStats.SPD, BaseStats.HP])
-ptp_sniper = postTutorialPlayer("sniper", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.SNIPER,
+                               BaseStats.ATK, BaseStats.DEF, BaseStats.SPD, BaseStats.HP,
+                               BaseStats.ATK, BaseStats.DEF, BaseStats.ACC, BaseStats.HP])
+test_sniper = basicLootPlayer("sniper", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.SNIPER,
                               [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.MP,
+                               BaseStats.ATK, BaseStats.HP, BaseStats.SPD, BaseStats.MP,
                                BaseStats.ATK, BaseStats.HP, BaseStats.SPD, BaseStats.MP])
-ptp_hunter = postTutorialPlayer("hunter", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.HUNTER,
+test_hunter = basicLootPlayer("hunter", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.HUNTER,
                               [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.MP,
+                               BaseStats.ATK, BaseStats.HP, BaseStats.SPD, BaseStats.MP,
                                BaseStats.ATK, BaseStats.HP, BaseStats.SPD, BaseStats.MP])
-ptp_sin = postTutorialPlayer("assassin", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ASSASSIN,
+test_assassin = basicLootPlayer("assassin", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ASSASSIN,
                               [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.AVO,
-                               BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP])
-ptp_acro = postTutorialPlayer("acrobat", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ACROBAT,
+                               BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
+                               BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.AVO,])
+test_acrobat = basicLootPlayer("acrobat", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ACROBAT,
                               [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.AVO,
+                               BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.ACC,
                                BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.ACC])
-ptp_wiz = postTutorialPlayer("wizard", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.WIZARD,
+test_wizard = basicLootPlayer("wizard", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.WIZARD,
                               [BaseStats.MAG, BaseStats.SPD, BaseStats.ACC, BaseStats.MP,
+                               BaseStats.MAG, BaseStats.MP, BaseStats.SPD, BaseStats.MP,
                                BaseStats.MAG, BaseStats.MP, BaseStats.SPD, BaseStats.ACC])
-ptp_saint = postTutorialPlayer("saint", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.SAINT,
+test_saint = basicLootPlayer("saint", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.SAINT,
                               [BaseStats.MAG, BaseStats.RES, BaseStats.ACC, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.MP, BaseStats.SPD, BaseStats.RES])
+                               BaseStats.MAG, BaseStats.MP, BaseStats.SPD, BaseStats.RES,
+                               BaseStats.MAG, BaseStats.RES, BaseStats.SPD, BaseStats.MP])

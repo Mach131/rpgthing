@@ -456,6 +456,7 @@ class Player(CombatEntity):
 class Enemy(CombatEntity):
     def __init__(self, name : str, shortName : str, description : str, level : int, baseStats : dict[BaseStats, int],
                  bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float], aggroDecayFactor : float,
+                 basicAttackType : AttackType | None, basicAttackAttribute : AttackAttribute | None,
                  passiveSkills : list[SkillData], activeSkills : list[SkillData],
                  encounterMessage : str, defeatMessage : str, ai : EnemyAI,
                  rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
@@ -466,6 +467,11 @@ class Enemy(CombatEntity):
         self.multStatMod = bonusMultStats
         self.ai = ai
         self.rewardFn = rewardFn
+        
+        if basicAttackType is not None:
+            self.basicAttackType = basicAttackType
+        if basicAttackAttribute is not None:
+            self.basicAttackAttribute = basicAttackAttribute
 
     def getReward(self, combatController : CombatController, player : CombatEntity) -> EnemyReward:
         return self.rewardFn(combatController, player)
@@ -488,8 +494,9 @@ class EnemyAIAction(object):
         self.skillSelector = skillSelector
 
 class EnemyReward(object):
-    def __init__(self, exp : int, wup : int, swup : int, equip : Equipment | None):
+    def __init__(self, exp : int, wup : int, swup : int, equip : Equipment | None, milestones : set[Milestones] = set()):
         self.exp = exp
         self.wup = wup
         self.swup = swup
         self.equip = equip
+        self.milestones = milestones

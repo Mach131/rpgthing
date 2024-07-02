@@ -27,8 +27,10 @@ AttackSkillData("Great Swing", BasePlayerClassNames.WARRIOR, 2, False, 20,
 
 PassiveSkillData("Endurance", BasePlayerClassNames.WARRIOR, 3, True,
     "Recovers 2% HP at the end of your turn.",
-    {}, {}, [SkillEffect("", [EFAfterNextAttack(
-      lambda controller, user, _1, _2, _3: void(controller.gainHealth(user, round(controller.getMaxHealth(user) * 0.02)))
+    {}, {}, [SkillEffect("", [EFEndTurn(
+        lambda controller, user, skipDurationTick, _: void(
+          controller.gainHealth(user, round(controller.getMaxHealth(user) * 0.02))
+        ) if not skipDurationTick else None
     )], None)])
 
 
@@ -271,7 +273,7 @@ def atlasFn(controller, user, attacker, defender, _):
             attackResult.addBonusAttack(attacker_, user, CounterSkillData(attackResult.isPhysical, attackResult.attackType, 1,
                     [SkillEffect("", [EFBeforeNextAttack({
                         CombatStats.IGNORE_RANGE_CHECK: 1,
-                        CombatStats.FIXED_ATTACK_POWER: attackResult.damageDealt * 3/5
+                        CombatStats.FIXED_ATTACK_POWER: attackResult.damageDealt * 0.7
                     }, {}, None, None)], 0)]))
     )
     followupEffect : SkillEffect = SkillEffect("", [revertEffectFn, redirectEffectFn], 0)
