@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import math
 from random import Random
 from typing import Callable
 
@@ -146,11 +147,21 @@ class DungeonController(object):
         self.loggers.pop(player, None)
         self.logMessage(MessageType.BASIC, f"{player.name} escaped from the dungeon.")
         self.sendAllLatestMessages()
+
+    def _scaleDungeonExp(self, player : Player, exp : int) -> int:
+        if player.level < self.dungeonData.recLevel:
+            return exp
+        levelDiff = player.level - self.dungeonData.recLevel
+        if levelDiff <= 2:
+            return exp
+        scaling = 2 ** (-(levelDiff - 2) / 3)
+        return math.ceil(exp * scaling)
         
     async def handleRewardsForPlayer(self, player : Player, reward : DungeonReward):
-        levelUp, rankUp = player.gainExp(reward.exp)
+        scaledExp = self._scaleDungeonExp(player, reward.exp)
+        levelUp, rankUp = player.gainExp(scaledExp)
         self.loggers[player].addMessage(
-            MessageType.BASIC, f"*Gained **{reward.exp} EXP!***"
+            MessageType.BASIC, f"*Gained **{scaledExp} EXP!***{' *(Scaled down because you outlevel this dungeon.)*' if scaledExp != reward.exp else ''}"
         )
         if levelUp:
             self.loggers[player].addMessage(

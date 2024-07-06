@@ -173,11 +173,19 @@ class EffectStacks(Enum):
     UNRELENTING_ASSAULT = auto()
     FIRE_BLESSING = auto()
     TELEGRAPH_RANGE = auto()
+    TELEGRAPH_ATTACK = auto()
     RAT_MARK_IMPETUOUS = auto()
     RAT_MARK_RESOLUTE = auto()
     RAT_MARK_INTREPID = auto()
+    CONSUMED_RAT_MARK_IMPETUOUS = auto()
+    CONSUMED_RAT_MARK_RESOLUTE = auto()
+    CONSUMED_RAT_MARK_INTREPID = auto()
     ENEMY_COUNTER_A = auto()
+    ENEMY_COUNTER_B = auto()
+    ENEMY_PHASE_COUNTER = auto()
     RPS_LEVEL = auto()
+    BUTTERFLY_KI = auto()
+    SALALI_CHARGE = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
@@ -187,7 +195,9 @@ EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.RAT_MARK_IMPETUOUS: "Mark of Impetuous Rat",
     EffectStacks.RAT_MARK_RESOLUTE: "Mark of Resolute Rat",
     EffectStacks.RAT_MARK_INTREPID: "Mark of Intrepid Rat",
-    EffectStacks.RPS_LEVEL: "Reactive Protection System Level"
+    EffectStacks.RPS_LEVEL: "Reactive Protection System Level",
+    EffectStacks.BUTTERFLY_KI: "Floating Butterfly",
+    EffectStacks.SALALI_CHARGE: "Voltage"
 }
 
 """ Combat """
@@ -623,7 +633,7 @@ def getEquipClassAttributes(equipClass: EquipClass) -> EquipAttributes:
 
 EQUIP_CURSE_CHANCE = 0.15
 
-MAX_INVENTORY = 12
+MAX_INVENTORY = 16
 
 """ Progression """
 
@@ -641,12 +651,14 @@ EXP_TO_NEXT_ADVANCED_CLASS_RANK = [
     300, 500, 1000
 ]
 
-STAT_POINTS_PER_LEVEL = 4
+STAT_POINTS_PER_LEVEL = 3
 
 class Milestones(Enum):
     TUTORIAL_COMPLETE = auto()
     FRESH_FIELDS_COMPLETE = auto()
     SKYLIGHT_CAVE_COMPLETE = auto()
+    SAFFRON_FOREST_COMPLTE = auto()
+    ABANDONED_STOREHOUSE_COMPLETE = auto()
 
 MAX_USER_CHARACTERS = 4
 MAX_NAME_LENGTH = 15

@@ -148,8 +148,8 @@ PassiveSkillData("Battle Frenzy", AdvancedPlayerClassNames.MERCENARY, 4, False,
     {}, {}, [SkillEffect("", [EFOnStatsChange(frenzyFn)], None)])
 
 ActiveToggleSkillData("Berserk", AdvancedPlayerClassNames.MERCENARY, 5, False, 10,
-    "[Toggle] Decrease DEF, RES, and AVO by 50%. Increase ATK and SPD by 50%.", MAX_ACTION_TIMER / 10, {},
-    {BaseStats.ATK: 1.5, BaseStats.SPD: 1.5, BaseStats.DEF: 0.5, BaseStats.RES: 0.5, BaseStats.AVO: 0.5}, [],
+    "[Toggle] Decrease DEF, RES, and AVO by 50%. Increase ATK by 50% and SPD by 25%.", MAX_ACTION_TIMER / 10, {},
+    {BaseStats.ATK: 1.5, BaseStats.SPD: 1.25, BaseStats.DEF: 0.5, BaseStats.RES: 0.5, BaseStats.AVO: 0.5}, [],
     0, 0, True)
 
 PassiveSkillData("Determination", AdvancedPlayerClassNames.MERCENARY, 6, True,
@@ -213,9 +213,9 @@ PassiveSkillData("Chivalry", AdvancedPlayerClassNames.KNIGHT, 3, True,
     ], None)])
 
 PassiveSkillData("Justified", AdvancedPlayerClassNames.KNIGHT, 4, False,
-    "Restore 20% of the damage you deal as HP.",
+    "Restore 15% of the damage you deal as HP.",
     {}, {}, [SkillEffect("", [EFAfterNextAttack(
-      lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.2)))
+      lambda controller, user, _1, attackInfo, _2: void(controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.15)))
     )], None)])
 
 def parryFn(controller, user, attacker, isPhysical, effectResult):

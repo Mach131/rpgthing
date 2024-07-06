@@ -10,7 +10,9 @@ from structures.rpg_items import EquipmentTrait, Item, Equipment, Weapon
 class CombatEntity(object):
     def __init__(self, name : str, level : int, aggroDecayFactor : float,
                  passiveSkills : list[SkillData], activeSkills : list[SkillData],
-                 shortName : str = "", description = "", encounterMessage : str = "", defeatMessage : str = "") -> None:
+                 shortName : str = "", description = "",
+                 encounterMessage : str | Callable[[list[Player]], str] = "",
+                 defeatMessage : str | Callable[[list[Player]], str] = "") -> None:
         self.name = name
         self.shortName = shortName if len(shortName) > 0 else self.name
         self.level = level
@@ -458,8 +460,8 @@ class Enemy(CombatEntity):
                  bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float], aggroDecayFactor : float,
                  basicAttackType : AttackType | None, basicAttackAttribute : AttackAttribute | None,
                  passiveSkills : list[SkillData], activeSkills : list[SkillData],
-                 encounterMessage : str, defeatMessage : str, ai : EnemyAI,
-                 rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
+                 encounterMessage : str | Callable[[list[Player]], str], defeatMessage : str | Callable[[list[Player]], str],
+                 ai : EnemyAI, rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
         super().__init__(name, level, aggroDecayFactor, passiveSkills, activeSkills,
                          shortName, description, encounterMessage, defeatMessage)
         self.baseStats = baseStats

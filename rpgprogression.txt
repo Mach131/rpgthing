@@ -293,7 +293,7 @@ Mini Reaper: 200/30	/110/100/1/100	/100/50/30
 	if in range 0 of target with enough mana, performs a very strong skill (15 mp)
 	def/res decrease when attacked closer (by like 15% per distance?)
 
-Ninja Bug: 120/60	/35/40/35/40	/110/110/70
+Ninja Bug: 120/60	/35/40/35/40	/110/125/70
 	Lv3; gives 3 EXP
 		decent chance of dropping common (rank 3-6) equipment (ranged weapons only, rare)
 		occasionally drops a WUP
@@ -311,7 +311,7 @@ Elemental: 150/150	/10/40/60/85	/100/75/60
 	resists chosen element; fire weak to wind, wind weak to ice, ice weak to fire
 	basic attack: magic, range 0
 	magic attack skill (all ranges): ~15 MP
-	between attacks, can use Buff or Debuff skill (20 MP; debuff only works if attack hiits)
+	between attacks, can use Buff or Debuff skill (20 MP; debuff only works if attack hits)
 		Fire: buff ally ATK/MAG, debuff DEF/RES
 		Ice: buff ally DEF/RES, debuff SPD/AVO
 		Wind: buff ally SPD/AVO, debuff ACC/ATK/MAG
@@ -325,7 +325,7 @@ Forest Rat: 140/1		/40/30/1/35	/80/90/75
 	On attack, opponent gains 3 forest stacks, up to 9
 		any rat attacking an enemy consumes a stack to gain 5% ATK/SPD [intrepid]
 
-[boss] ninja leader: 400/300	/60/50/60/50	/135/150/100
+[boss] ninja leader: 500/300	/60/50/60/50	/135/175/110
 	spawns with 2 ninja bugs
 	Lv5; gives 6 EXP
 		always drops a magic/ranged weapon; usually common (rank 6-9), very small chance of uncommon (rank 1)
@@ -334,28 +334,136 @@ Forest Rat: 140/1		/40/30/1/35	/80/90/75
 	when dodging an attack, gains a stack; can spend after certain actions to greatly decrease timer usage
 		can use stacks when repositioning
 	alternates between preferring close and far range; accelerates based on where they're hit from (e.g. hit at r0 -> prefers r2 faster)
-	15 MP physical closing attack, 15 MP magic distancing attack
+	15 MP physical closing attack, 15 MP magic distancing attack [Butterfly Art: Tsukiga Ochiru/Tsukiga Shutsu]
 		can use stacks, empowered if they do
-	10 MP R0 slashing attack
+	10 MP R0 slashing attack [Butterfly Art: Habataku]
 		can use stacks
 		repeats until target takes a turn; power increases on each repetition
-	30 MP R3 piercing attack
+	30 MP R3 piercing attack [Butterfly Art: Chou No Hitokuchi]
 		telegraphed, increased damage against distant enemies
 		guaranteed crit if opponent has a status condition
 
 
-[boss] enchanted beast 600/200	/80/70/70/70	/110/60/80
+[boss] enchanted beast 650/200	/80/70/70/70	/110/60/80
 	Lv5; gives 5 EXP
 		always drops a magic/ranged weapon; usually common (rank 6-9), very small chance of uncommon (rank 1)
 		drops 4 WUP
-	[has a rush attack on a cooldown]
-	[periodically spawns 2 elementals of the same element; if not killed in time, sacrifices them to empower a magic blast of the same type]
+	basic attack: r0 crushing
+	20 MP rushing skill on a cooldown (close to r0, stronger based on distance moved)
+	periodically selects an element, spawns 2 elementals of that type (25 MP); also changes own attribute and resistances/weaknesses
+	after a set amount of turns (~5?), performs a free magic AOE (R2); uses same selected element, greatly empowered by each surviving elemental but destroys them in the process
 
 
 **Beginner dungeon
 	more enemies at once, more WUP/better SWUP chance
+	requires field/cave/forest clears
+	5 stages:
+		just existing rats [3x]
+		introducing rat mage/high rat [3x]
+		introducing rat ball [+2x]
+		rat ball + 3x, at least one mage/high
+		salali
 
-[rats]
+
+	mrc: 398/55	/145/54/10/41	/173/58/93
+	knt: 673/42	/90/118/10/58	/130/77/64
+	snp: 371/70	/84/43/10/56	/215/86/116
+	hnt: 256/66	/84/51/10/82	/164/77/108
+	asn: 213/55	/98/29/10/46	/170/115/152
+	acb: 110/47	/89/40/10/81	/126/201/119
+	wiz: 204/167	/18/46/129/51	/141/80/99
+	snt: 390/164	/18/46/112/80	/108/67/88
+
+
+
+
+- 3 rats from other dungeons
+	-> Level 4, 3 EXP
+		Drop Rank 4-7 equipment (any type)
+	-> 220/1		/70/65/1/65	/100/110/85
+	variances: +80 HP, +20 ATK, +15 DEF, +15 RES, +30 ACC, +25 AVO, +15 SPD
+
+- rat ball: 200/40		/1/100/1/100	/1/1/30
+	-> Level 5; up to 12-15 EXP based on rats spawned (max 4 rats, but weighted heavier as more spawn), but those rats don't give any rewards directly
+		drops wup per rat spawned, up to 4
+	variances: +75 HP, +20 MP, +50 DEF, +50 RES, +15 SPD
+	if there's space, spawns a rat for 10 MP
+	otherwise, can heal or buff all rats for 15 HP
+	else, defend (cannot attack)
+
+- rat mage: 220/150	/40/55/85/80		/130/100/75
+	-> Level 5, 4 EXP
+		drops common items, rank 6-9
+		drops WUP
+	variances: +40 HP, +15 ATK, +15 MAG, +10 DEF, +15 RES, +20 ACC, +25 AVO, +15 SPD
+	magic attack for 15 MP, applies random stack
+	stores buffs consumed by magic attack; with >= 2, can spend 15 MP to share with all allies
+
+- high rat: 260/1	/85/85/1/60		/120/120/80
+	-> Level 5, 4 EXP
+		drops common items, rank 6-9
+		drops WUP
+	variances: +80 HP, +15 ATK, +15 DEF, +10 RES, +20 ACC, +25 AVO, +20 SPD
+	Basic attack Range 1
+	can't directly apply/consume stacks, but attack does more damage per stack on target (~7.5%?)
+
+
+
+- salali: 3000/1000	/100/90/100/90		/150/175/110
+P2: [1500]		/125/105/125/105	/200/215/145
+	-> Level 8, 20 EXP
+		Drops uncommon items, rank 3-6
+		Drops 10 WUP, 1-2 SWUP
+	basic attack range 0, reduced repositioning time
+	fairly sensitive aggro (~0.4?)	
+
+"...Hey, hey! I don't see anyone else coming down here often! Isn't this place cool? Aren't these [rat ball]-thingies *cool* cool? They're super super fun, I got them from--"
+"...Huh, huh? I'm not a rat! If you're just here to ruin my fun, you don't have to be so rude about it!"
+
+	P1:
+		[GeneRATor!]
+		30 MP: Spawn 2 Rat balls, like 12 turn cooldown
+		
+		[Heaven's Flash]
+		30 MP: Thunder; similar to slime cannon, but single target and slightly faster to activate (less acc dropoff?)
+			On hit, attempts to apply STUN for 2 turns
+			~7 turn cooldown
+
+		[Short Circuit]
+		15 MP: Chain Dash; After a telegraph, repeats this attack until each opponent has been targeted once
+			very low time between actions (make sure not to count down CDs between repetitions
+			order set after telegraph: first prioritizes closest enemies, then goes off of aggro for ties
+			Gains a stack for every distance moved while repeating, damage increases based on stacks (later attacks get stronger)
+			~7 turn cooldown, staggered with thunder
+
+
+[use a passive skill to see if health goes below threshold; if it does, reset to 1500, refill action timer, and set some phase flag after doing phase]
+"Hey, hey, you're actually kinda fun after all! You won't mind if I go a bit further, right, right?"
+**Salali activates her *Charge Signature*!** She seems even more energetic than before, if possible.
+			
+	P2: Supercharged Sciuridae
+		On turn end, gain 4 charge stacks
+		When hit, lose 1 charge stack
+		If at or above 10 stacks on turn, enter Overdrive state
+			time between actions reduced by like 90%; slight ATK/MAG drop?
+			aggro towards opponent fluctuates (aggro multiplier drops to like 0.2, randomly increases aggro towards all enemies at start of turn)
+			doesn't gain charge stacks, but can still lose by being hit
+			spends 3 stacks per turn, ends when out of stacks
+
+		No longer spawns rat balls
+
+		Charge Sign 「Kite-Chasing Spear」
+		Thunder: becomes AoE, stuns for 3 turns
+
+		Charge Sign 「Path of Least Resistance」
+		Chain Dash: distance scaling is higher, also gives a charge stack for every 2 distance moved
+
+		Lightspeed Charge 「Power Law」
+		75 MP: Taunt attack; locks target on single opponent, can reset if opponent is stunned (from <= 5 turn CD or so)
+			Pretty long action time after telegraph; if the target does not hit before next turn, performs a very strong R2 attack + gains 6 charge stacks (even in overdrive)
+				if target does attack, does nothing
+			~10 turn cooldown, increases by 3 when entering overdrive
+
 
 -- lv 5-9
 all dungeons begin having more enemies, partying likely needed

@@ -50,12 +50,12 @@ def rerollOtherEquips(player : Player, testRarity : int = 0):
 
 if __name__ == '__main__':
     # asyncio.run(betterCombatSimulation([bgp_warrior], [trainingBoss()]))
-    player = test_acrobat
-    dungeonController = DungeonController(fieldDungeon,
+    player = test_knight
+    dungeonController = DungeonController(storehouseDungeon,
                                           {player: DungeonInputHandler(player, LocalPlayerInputHandler)},
                                           {player: DEFAULT_STARTING_DISTANCE},
                                           {player: LocalMessageCollector()})
-    # asyncio.run(dungeonController.runDungeon(False))
+    asyncio.run(dungeonController.runDungeon(False))
 
     while True:
         inp = input("> ")

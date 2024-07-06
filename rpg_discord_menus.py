@@ -1449,7 +1449,7 @@ def partyDetailContent(session : GameSession, view : InterfaceView, playerTeam :
     classString = ""
     if isinstance(focusEntity, Player):
         classString = f" {enumName(focusEntity.currentPlayerClass)}"
-    embed = discord.Embed(title=f"**{focusEntity.name}**: Level {player.level}{classString}", description=focusEntity.description)
+    embed = discord.Embed(title=f"**{focusEntity.name}**: Level {focusEntity.level}{classString}", description=focusEntity.description)
     statusString = combatInterface.getEntityStatus(player, focusEntity)
     embed.add_field(name="Combat Status:", value=statusString, inline=False)
 

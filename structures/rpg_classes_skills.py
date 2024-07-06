@@ -292,6 +292,17 @@ class EFImmediate(EffectFunction):
         self.func(controller, user, targets, result)
         return result
     
+"""An immediate effect upon using a toggle skill"""
+class EFOnToggle(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, list[CombatEntity], bool, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.IMMEDIATE)
+        self.func : Callable[[CombatController, CombatEntity, list[CombatEntity], bool, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, targets : list[CombatEntity], toggled : bool) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, targets, toggled, result)
+        return result
+    
 """An immediate effect upon using an attacking skill."""
 class EFOnAttackSkill(EffectFunction):
     def __init__(self, func : Callable[[CombatController, CombatEntity, list[CombatEntity], EffectFunctionResult], None]):
