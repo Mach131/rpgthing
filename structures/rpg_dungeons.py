@@ -14,7 +14,7 @@ class DungeonData(object):
 
     def __init__(self, dungeonName : str, shortDungeonName : str, description : str, rewardDescription : str, milestoneRequirements : set[Milestones],
                  maxPartySize : int, recLevel : int, allowRetryFights : bool, hpBetweenRooms : float, mpBetweenRooms : float,
-                dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, Player], EnemyReward]):
+                dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, Player], EnemyReward], clearFlag : Milestones):
         self.dungeonName = dungeonName
         self.shortDungeonName = shortDungeonName
         self.description = description
@@ -27,6 +27,7 @@ class DungeonData(object):
         self.mpBetweenRooms = mpBetweenRooms
         self.dungeonRooms = dungeonRooms
         self.rewardFn = rewardFn
+        self.clearFlag = clearFlag
 
         DungeonData.registeredDungeons.append(self)
 

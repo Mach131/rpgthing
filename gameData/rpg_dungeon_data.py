@@ -26,7 +26,8 @@ trainingDungeon = DungeonData("Training Yard", "Training",
                                   DungeonRoomData([([skillfulDummy], 1)], {}),
                                   DungeonRoomData([([trainingBoss], 1)], {})
                               ],
-                              lambda _1, player: EnemyReward(2, 1, 0, None, set([Milestones.TUTORIAL_COMPLETE])))
+                              lambda _1, player: EnemyReward(2, 1, 0, None, set([Milestones.TUTORIAL_COMPLETE])),
+                        Milestones.TUTORIAL_COMPLETE)
 
 fieldDungeon = DungeonData("Fresh Fields", "Field",
                            "An easily-accessed open field, suitable for any new party.\n" +
@@ -60,7 +61,8 @@ fieldDungeon = DungeonData("Fresh Fields", "Field",
                            ],
                            lambda _1, player: EnemyReward(10, 3,
                                                           1 if random.random() < 0.3 else 0,
-                                                          None, set([Milestones.FRESH_FIELDS_COMPLETE])))
+                                                          None, set([Milestones.FRESH_FIELDS_COMPLETE])),
+                        Milestones.FRESH_FIELDS_COMPLETE)
 
 caveDungeon = DungeonData("Skylight Cave", "Cave",
                            "A cave with a ceiling lightly dotted by holes, letting in scatterings of daylight.\n" +
@@ -85,7 +87,8 @@ caveDungeon = DungeonData("Skylight Cave", "Cave",
                            ],
                            lambda _1, player: EnemyReward(10, 3,
                                                           1 if random.random() < 0.4 else 0,
-                                                          None, set([Milestones.SKYLIGHT_CAVE_COMPLETE])))
+                                                          None, set([Milestones.SKYLIGHT_CAVE_COMPLETE])),
+                        Milestones.SKYLIGHT_CAVE_COMPLETE)
 
 forestDungeon = DungeonData("Saffron Forest", "Forest",
                            "The entrance to a magical forest, lush with colorful and fragrant plantlife.\n" +
@@ -110,7 +113,8 @@ forestDungeon = DungeonData("Saffron Forest", "Forest",
                            ],
                            lambda _1, player: EnemyReward(10, 3,
                                                           1 if random.random() < 0.4 else 0,
-                                                          None, set([Milestones.SAFFRON_FOREST_COMPLTE])))
+                                                          None, set([Milestones.SAFFRON_FOREST_COMPLTE])),
+                        Milestones.SAFFRON_FOREST_COMPLTE)
 
 # add storehouse tag
 sdSecondStageCombos = []
@@ -144,4 +148,5 @@ storehouseDungeon = DungeonData("Abandoned Storehouse", "Storehouse",
                            ],
                            lambda _1, player: EnemyReward(10, 3,
                                                           1 if random.random() < 0.5 else 0,
-                                                          None, set([Milestones.ABANDONED_STOREHOUSE_COMPLETE])))
+                                                          None, set([Milestones.ABANDONED_STOREHOUSE_COMPLETE])),
+                        Milestones.ABANDONED_STOREHOUSE_COMPLETE)

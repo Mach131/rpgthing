@@ -5,6 +5,7 @@ from datetime import datetime
 
 from rpg_consts import *
 from structures.rpg_combat_entity import Player
+from structures.rpg_dungeons import DungeonData
 
 if TYPE_CHECKING:
     from rpg_discord_interface import GameSession
@@ -64,6 +65,18 @@ class GlobalState(object):
                 
                 for accountData in self.accountDataMap.values():
                     accountData.session.onLoadReset()
+
+                # # temp
+                # availableDungeons = DungeonData.registeredDungeons
+                # flags = [
+                #     Milestones.TUTORIAL_COMPLETE,
+                #     Milestones.FRESH_FIELDS_COMPLETE,
+                #     Milestones.SKYLIGHT_CAVE_COMPLETE,
+                #     Milestones.SAFFRON_FOREST_COMPLTE,
+                #     Milestones.ABANDONED_STOREHOUSE_COMPLETE
+                # ]
+                # for i in range(len(flags)):
+                #     availableDungeons[i].clearFlag = flags[i]
 
                 print(f"loaded state from {lastSaveTimestamp}")
         except FileNotFoundError:

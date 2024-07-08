@@ -514,8 +514,8 @@ ActiveBuffSkillData("Shadowing", AdvancedPlayerClassNames.ASSASSIN, 2, False, 10
     1, 0, True)
 
 PassiveSkillData("Vital Strike", AdvancedPlayerClassNames.ASSASSIN, 3, True,
-    "Increases Critical Hit rate by 5% and Critical Hit damage by 50%.",
-    {CombatStats.CRIT_RATE: 0.05, CombatStats.CRIT_DAMAGE: 0.5}, {}, [])
+    "Increases Critical Hit rate by 5% and Critical Hit damage by 30%.",
+    {CombatStats.CRIT_RATE: 0.05, CombatStats.CRIT_DAMAGE: 0.3}, {}, [])
 
 PassiveSkillData("Eyes of the Dark", AdvancedPlayerClassNames.ASSASSIN, 4, False,
     "Apply a debuff stack when hitting an opponent, up to 10 stacks. Each stack reduces AVO by 3% and DEF/RES by 2%.",
