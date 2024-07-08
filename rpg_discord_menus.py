@@ -889,7 +889,8 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
             if i >= len(availableDungeons):
                 break
             dungeon = availableDungeons[i]
-            dungeonString = f"**{dungeon.dungeonName}**\n"
+            clearSymbol = "⭐" if dungeon.clearFlag in player.milestones else ""
+            dungeonString = f"**{dungeon.dungeonName}**{clearSymbol}\n"
             shortDescription = dungeon.description.split('\n')[0]
             dungeonString += f"*{shortDescription}*\n"
             dungeonString += f"Rec. Level: {dungeon.recLevel} \\|| Max Party Size: {dungeon.maxPartySize}"

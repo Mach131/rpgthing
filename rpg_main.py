@@ -55,7 +55,7 @@ if __name__ == '__main__':
                                           {player: DungeonInputHandler(player, LocalPlayerInputHandler)},
                                           {player: DEFAULT_STARTING_DISTANCE},
                                           {player: LocalMessageCollector()})
-    asyncio.run(dungeonController.runDungeon(False))
+    # asyncio.run(dungeonController.runDungeon(False))
 
     while True:
         inp = input("> ")

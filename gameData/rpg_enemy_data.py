@@ -1699,7 +1699,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                     controller.combatStateMap[source].setStack(EffectStacks.ENEMY_COUNTER_A, 0)
                 ))
             )
-        ], 0)
+        ], 1)
         return effect
     slashSkill = AttackSkillData("Butterfly Art: Habataku", BasePlayerClassNames.WARRIOR, 0, False, 10, "",
                                  True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE * 0.65, [
