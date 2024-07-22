@@ -380,7 +380,7 @@ class EnemyInputHandler(CombatInputHandler):
             self.doDefend(combatController)
             return
         
-        assert(False) # AI tried to do an action that failed
+        combatController.logMessage(MessageType.DEBUG, f"[Unexpected action failure: {self.entity.name} doing {aiDecision.action.name}]")
         self.doDefend(combatController)
         return
 

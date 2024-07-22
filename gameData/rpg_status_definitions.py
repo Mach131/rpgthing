@@ -44,7 +44,7 @@ class PoisonStatusEffect(StatusEffect):
     def _poisonTick(self, controller : CombatController, target : CombatEntity, skipDurationTick : bool, result : EffectFunctionResult):
         if not skipDurationTick:
             controller.logMessage(MessageType.EFFECT,
-                                  f"{target.name} takes damage from POISON!")
+                                  f"{target.shortName} takes damage from POISON!")
             controller.applyDamage(self.inflicter, target, self.poisonStrength)
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
@@ -61,7 +61,7 @@ class BurnStatusEffect(StatusEffect):
     def _burnTick(self, controller : CombatController, target : CombatEntity, skipDurationTick : bool, result : EffectFunctionResult):
         if not skipDurationTick:
             controller.logMessage(MessageType.EFFECT,
-                                  f"{target.name} takes damage from BURN!")
+                                  f"{target.shortName} takes damage from BURN!")
             controller.applyDamage(self.inflicter, target, self.burnStrength)
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
@@ -202,7 +202,7 @@ class FearStatusEffect(StatusEffect):
                                                 BaseStats.ACC, BaseStats.AVO, BaseStats.SPD])
             controller.applyMultStatBonuses(user, {targetStat: self.multiplier})
             controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s {targetStat.name} is decreased by their FEAR of {attacker.name}!")
+                                  f"{user.shortName}'s {targetStat.name} is decreased by their FEAR of {attacker.shortName}!")
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, FearStatusEffect):

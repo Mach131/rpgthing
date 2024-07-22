@@ -108,7 +108,7 @@ AttackSkillData("Sweeping Blow", AdvancedPlayerClassNames.MERCENARY, 2, False, 3
         lambda controller, _1, target, attackInfo, _2: void((
             controller.applyMultStatBonuses(target, {BaseStats.DEF: 0.85}),
             controller.logMessage(MessageType.EFFECT,
-                                  f"{target.name}'s DEF was reduced!")
+                                  f"{target.shortName}'s DEF was reduced!")
          )) if attackInfo.attackHit else None
     )], 0)])
 
@@ -184,7 +184,7 @@ ActiveBuffSkillData("Heroic Legacy", AdvancedPlayerClassNames.MERCENARY, 9, True
     [SkillEffect("Heroic Legacy", [
         EFImmediate(lambda controller, user, _1, _2: 
             controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s attacks will be repeated!")),
+                                  f"{user.shortName}'s attacks will be repeated!")),
         EFAfterNextAttack(lambda _1, _2, _3, attackResultInfo, _4: attackResultInfo.setRepeatAttack() if not attackResultInfo.isBonus else None)
     ], 4, "Heroic Legacy wore off.")],
     0, 0, True)
@@ -246,7 +246,7 @@ def unifiedSpiritsFn(controller, user, attacker, defender, _):
         resBonus = controller.combatStateMap[user].getTotalStatValue(BaseStats.RES) * 0.3
         flatStatBonuses : dict[Stats, float] = {BaseStats.DEF: defBonus, BaseStats.RES: resBonus}
         controller.applyFlatStatBonuses(defender, flatStatBonuses)
-        controller.logMessage(MessageType.EFFECT, f"{defender.name} is protected by {user.name}'s Unified Spirits!")
+        controller.logMessage(MessageType.EFFECT, f"{defender.shortName} is protected by {user.shortName}'s Unified Spirits!")
         revertEffect : SkillEffect = SkillEffect("", [EFAfterNextAttack(
             lambda controller_, attacker_, defender_, _1, _2: controller_.revertFlatStatBonuses(defender, flatStatBonuses)
         )], 0)
@@ -304,7 +304,7 @@ PassiveSkillData("Steady Hand", AdvancedPlayerClassNames.SNIPER, 3, True,
             controller.combatStateMap[user].setStack(EffectStacks.STEADY_HAND, 0),
         ))),
         EFEndTurn(lambda controller, user, skipDurationTick, _2: void((
-            controller.logMessage(MessageType.EFFECT, f"{user.name}'s ATK and MAG are increased by Steady Hand!")
+            controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s ATK and MAG are increased by Steady Hand!")
                 if controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) < 10 else None,
             controller.revertMultStatBonuses(user, {
                 BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.STEADY_HAND) * 0.05),
@@ -323,7 +323,7 @@ PassiveSkillData("Steady Hand", AdvancedPlayerClassNames.SNIPER, 3, True,
                 }),
             controller.combatStateMap[user].setStack(EffectStacks.STEADY_HAND, 0),
             controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s Steady Hand ATK/MAG bonus is reset.")
+                                  f"{user.shortName}'s Steady Hand ATK/MAG bonus is reset.")
         )) if userMoved and oldDist != newDist else None)
     ], None)])
 
@@ -331,7 +331,7 @@ PassiveSkillData("Suppressive Fire", AdvancedPlayerClassNames.SNIPER, 4, False,
     "Apply a debuff stack when hitting an opponent, up to 10 stacks. Each stack reduces SPD and AVO by 6%.",
     {}, {}, [SkillEffect("", [
         EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
-            controller.logMessage(MessageType.EFFECT, f"{target.name}'s SPD and AVO are lowered by Suppressive Fire!")
+            controller.logMessage(MessageType.EFFECT, f"{target.shortName}'s SPD and AVO are lowered by Suppressive Fire!")
                 if controller.combatStateMap[target].getStack(EffectStacks.SUPPRESSIVE_FIRE) < 10 else None,
             controller.revertMultStatBonuses(target, {
                 BaseStats.SPD: 1 - (controller.combatStateMap[target].getStack(EffectStacks.SUPPRESSIVE_FIRE) * 0.06),
@@ -449,11 +449,11 @@ ActiveBuffSkillData("Weakening Trap", AdvancedPlayerClassNames.HUNTER, 5, False,
                     BaseStats.AVO: 0.93
                 }),
                 controller.logMessage(MessageType.EFFECT,
-                                    f"{attacker.name}'s DEF, RES, ACC, and AVO are lowered by {user.name}'s Weakening Trap!")
+                                    f"{attacker.shortName}'s DEF, RES, ACC, and AVO are lowered by {user.shortName}'s Weakening Trap!")
             )) if attackInfo.attackHit else None)
         ], 3, "Weakening Trap wore off.")),
         controller.logMessage(MessageType.EFFECT,
-                                f"{user.name} set a Weakening Trap for enemies attacking {targets[0].name}!")
+                                f"{user.shortName} set a Weakening Trap for enemies attacking {targets[0].shortName}!")
     )))], 0)],
     1, 0, False)
 
@@ -478,7 +478,7 @@ AttackSkillData("Enclosing Fangs", AdvancedPlayerClassNames.HUNTER, 9, True, 25,
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void((
             [controller.combatStateMap[target].reduceTolerance(status, math.ceil(attackResult.damageDealt * 0.2)) for status in StatusConditionNames],
             controller.logMessage(MessageType.EFFECT,
-                                  f"{target.name}'s tolerances were lowered by {math.ceil(attackResult.damageDealt * 0.2)}!")
+                                  f"{target.shortName}'s tolerances were lowered by {math.ceil(attackResult.damageDealt * 0.2)}!")
         )) if attackResult.attackHit else None)
     ], 0)])
 
@@ -505,7 +505,7 @@ ActiveBuffSkillData("Shadowing", AdvancedPlayerClassNames.ASSASSIN, 2, False, 10
                                controller.applyMultStatBonuses(
                                    user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SHADOWING) * 0.15)}),
                                 controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s ATK increased due to Shadowing from distance {controller.combatStateMap[user].getStack(EffectStacks.SHADOWING)}!")
+                                  f"{user.shortName}'s ATK increased due to Shadowing from distance {controller.combatStateMap[user].getStack(EffectStacks.SHADOWING)}!")
                                     if controller.combatStateMap[user].getStack(EffectStacks.SHADOWING) > 0 else None
                                 )),
                            lambda controller, user, _1, _2, _3: controller.revertMultStatBonuses(user,
@@ -521,7 +521,7 @@ PassiveSkillData("Eyes of the Dark", AdvancedPlayerClassNames.ASSASSIN, 4, False
     "Apply a debuff stack when hitting an opponent, up to 10 stacks. Each stack reduces AVO by 3% and DEF/RES by 2%.",
     {}, {}, [SkillEffect("", [
         EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
-            controller.logMessage(MessageType.EFFECT, f"{target.name}'s DEF, RES, and AVO are lowered by Eyes of the Dark!")
+            controller.logMessage(MessageType.EFFECT, f"{target.shortName}'s DEF, RES, and AVO are lowered by Eyes of the Dark!")
                 if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) < 10 else None,
             controller.revertMultStatBonuses(target, {
                 BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.03),
@@ -542,7 +542,7 @@ ambushSkillEffects : dict[str, SkillEffect] = {
     "INTERROGATE": SkillEffect("", [
         EFBeforeNextAttack({}, {BaseStats.ATK: 0.5}, None, None),
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void((
-                controller.logMessage(MessageType.EFFECT, f"{target.name}'s Eyes of the Dark stacks were consumed to increase {user.name}'s ATK, ACC, and SPD!")
+                controller.logMessage(MessageType.EFFECT, f"{target.shortName}'s Eyes of the Dark stacks were consumed to increase {user.shortName}'s ATK, ACC, and SPD!")
                     if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) > 0 else None,
                 controller.applyMultStatBonuses(user, {
                     BaseStats.ATK: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.04),
@@ -560,7 +560,7 @@ ambushSkillEffects : dict[str, SkillEffect] = {
     "DISABLE": SkillEffect("", [
         EFBeforeNextAttack({}, {BaseStats.ATK: 0.8}, None, None),
         EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
-                controller.logMessage(MessageType.EFFECT, f"{target.name}'s Eyes of the Dark stacks were consumed to decrease their ATK, DEF, MAG, and RES!")
+                controller.logMessage(MessageType.EFFECT, f"{target.shortName}'s Eyes of the Dark stacks were consumed to decrease their ATK, DEF, MAG, and RES!")
                     if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) > 0 else None,
                 controller.applyMultStatBonuses(target, {
                     BaseStats.ATK: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
@@ -586,7 +586,7 @@ ambushSkillEffects : dict[str, SkillEffect] = {
                     BaseStats.ATK: 0.7 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.2)
                 }),
                 controller.combatStateMap[user].setStack(EffectStacks.EOTD_CONSUMED, controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK)),
-                controller.logMessage(MessageType.EFFECT, f"{target.name}'s Eyes of the Dark stacks were consumed to enhance the attack!")
+                controller.logMessage(MessageType.EFFECT, f"{target.shortName}'s Eyes of the Dark stacks were consumed to enhance the attack!")
                     if controller.combatStateMap[target].getStack(EffectStacks.EOTD_CONSUMED) > 0 else None,
             )),
             lambda controller, user, target, attackResult, _2: void((
@@ -629,7 +629,7 @@ PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, Tr
     {}, {}, [SkillEffect("", [
         EFBeforeNextAttack({}, {}, 
             lambda controller, user, _:
-                controller.logMessage(MessageType.EFFECT, f"{user.name}'s ATK/MAG was increased by Unrelenting Assault!")
+                controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s ATK/MAG was increased by Unrelenting Assault!")
                     if controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 0 else None,
             None),
         EFAfterNextAttack(
@@ -647,7 +647,7 @@ PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, Tr
         ),
         EFOnAdvanceTurn(
             lambda controller, user, _1, nextPlayer, _2: void((
-                controller.logMessage(MessageType.EFFECT, f"{user.name}'s Unrelenting Assault ends.")
+                controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s Unrelenting Assault ends.")
                     if controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 1 else None,
                 controller.revertMultStatBonuses(user, {
                     BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) * 0.2),
@@ -664,7 +664,7 @@ ActiveBuffSkillData("Instantaneous Eternity", AdvancedPlayerClassNames.ASSASSIN,
             lambda controller, user, _1, _2: void((
                 controller.applyFlatStatBonuses(user, {CombatStats.INSTANTANEOUS_ETERNITY: 1}),
                 controller.logMessage(MessageType.EFFECT,
-                                    f"{user.name} stops time!")
+                                    f"{user.shortName} stops time!")
             ))
         ),
         EFStartTurn(
@@ -701,7 +701,7 @@ PassiveSkillData("Ride the Wake", AdvancedPlayerClassNames.ACROBAT, 4, False,
                 BaseStats.ACC: 1.06
             }),
             controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s ATK and ACC are increased by Ride the Wake!")
+                                  f"{user.shortName}'s ATK and ACC are increased by Ride the Wake!")
         )) if attackResult.inRange and not attackResult.attackHit else None
     )], None)])
 
@@ -740,7 +740,7 @@ def confidenceFn(controller : CombatController, user : CombatEntity, originalSta
     
     if newFull and not originalFull:
         controller.logMessage(MessageType.EFFECT,
-                                f"{user.name}'s Earned Confidence is restored! Their ATK, MAG, ACC, AVO, and SPD increase.")
+                                f"{user.shortName}'s Earned Confidence is restored! Their ATK, MAG, ACC, AVO, and SPD increase.")
         controller.applyMultStatBonuses(user, {
                 BaseStats.ATK: 1.25,
                 BaseStats.MAG: 1.25,
@@ -750,7 +750,7 @@ def confidenceFn(controller : CombatController, user : CombatEntity, originalSta
         })
     elif originalFull and not newFull:
         controller.logMessage(MessageType.EFFECT,
-                                f"{user.name}'s Earned Confidence is broken! Their ATK, MAG, ACC, AVO, and SPD decrease.")
+                                f"{user.shortName}'s Earned Confidence is broken! Their ATK, MAG, ACC, AVO, and SPD decrease.")
         controller.revertMultStatBonuses(user, {
                 BaseStats.ATK: 1.25,
                 BaseStats.MAG: 1.25,
@@ -773,7 +773,7 @@ PassiveSkillData("Earned Confidence", AdvancedPlayerClassNames.ACROBAT, 8, True,
     ], None)])
 
 ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9, True, 15,
-    "For 8 turns, increase AVO by 20% and SPD by 7.5%, but decrease DEF/RES by 25%. This can be used up to 3 times simultaneously for greater effect.",
+    "For 6 turns, increase AVO by 20% and SPD by 7.5%, but decrease DEF/RES by 25%. This can be used up to 3 times simultaneously for greater effect.",
     "Select how many times you'd like to use this effect at once.",
     MAX_ACTION_TIMER / 10, 0, True,
     lambda amount: ActiveBuffSkillData(f"Insidious Killer x{amount}",
@@ -787,9 +787,9 @@ ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9,
                 BaseStats.SPD: 1 + (0.075 * int(amount)),
             }),
             controller.logMessage(MessageType.EFFECT,
-                                  f"{user.name}'s DEF and RES decrease, but their AVO and SPD increase!")
+                                  f"{user.shortName}'s DEF and RES decrease, but their AVO and SPD increase!")
         )))
-    ], 8, "Insidious Killer wore off.", [
+    ], 6, "Insidious Killer wore off.", [
         EFImmediate(lambda controller, user, _1, _2:
             controller.revertMultStatBonuses(user, {
                 BaseStats.DEF: 1 - (0.25 * int(amount)),
@@ -834,7 +834,7 @@ natureBlessingEnchantments = {
                     BaseStats.AVO: 0.925
                 }),
                 controller.logMessage(MessageType.EFFECT,
-                                    f"{target.name}'s SPD and AVO are lowered by {user.name}'s Ice enchantment!")
+                                    f"{target.shortName}'s SPD and AVO are lowered by {user.shortName}'s Ice enchantment!")
             )) if attackResult.attackHit and attackResult.isCritical else None),
     ], 8),
     "WIND": EnchantmentSkillEffect("Nature's Blessing (Wind)", MagicalAttackAttribute.WIND, {
@@ -857,7 +857,7 @@ ActiveSkillDataSelector("Nature's Blessing", AdvancedPlayerClassNames.WIZARD, 2,
     lambda attribute: ActiveBuffSkillData(f"Nature's Blessing ({attribute[0] + attribute[1:].lower()})",
                     AdvancedPlayerClassNames.WIZARD, 2, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [
                         SkillEffect("", [EFImmediate(lambda controller, _1, targets, _2: void((
-                            controller.logMessage(MessageType.EFFECT, natureBlessingMessage[attribute].format(targets[0].name)),
+                            controller.logMessage(MessageType.EFFECT, natureBlessingMessage[attribute].format(targets[0].shortName)),
                             controller.addSkillEffect(
                                 targets[0], natureBlessingEnchantments[attribute]
                             )
@@ -887,7 +887,7 @@ AttackSkillData("Magic Circle", AdvancedPlayerClassNames.WIZARD, 5, False, 30,
         lambda controller, user, target: void((
                 controller.applyMultStatBonuses(user, {BaseStats.MAG: 2.5 / 1.2}),
                 controller.logMessage(MessageType.EFFECT,
-                                    f"{user.name}'s Magic Circle is strengthened by targeting a weakness!")
+                                    f"{user.shortName}'s Magic Circle is strengthened by targeting a weakness!")
         )) if controller.combatStateMap[user].getCurrentAttackAttribute(False) in controller.combatStateMap[target].weaknesses else None,
         lambda controller, user, target, _2, _3: controller.revertMultStatBonuses(user, {BaseStats.MAG: 2.5 / 1.2})
             if controller.combatStateMap[user].getCurrentAttackAttribute(False) in controller.combatStateMap[target].weaknesses else None,)
@@ -926,7 +926,7 @@ def enlightenmentFn(controller : CombatController, user : CombatEntity, original
     
     if newOver and not originalOver:
         controller.logMessage(MessageType.EFFECT,
-                            f"{user.name}'s Enlightenment is re-established! Their ATK, MAG, RES, and SPD increase.")
+                            f"{user.shortName}'s Enlightenment is re-established! Their ATK, MAG, RES, and SPD increase.")
         controller.applyMultStatBonuses(user, {
                 BaseStats.ATK: 1.15,
                 BaseStats.MAG: 1.15,
@@ -935,7 +935,7 @@ def enlightenmentFn(controller : CombatController, user : CombatEntity, original
         })
     elif originalOver and not newOver:
         controller.logMessage(MessageType.EFFECT,
-                            f"{user.name}'s Enlightenment is disrupted! Their ATK, MAG, RES, and SPD decrease.")
+                            f"{user.shortName}'s Enlightenment is disrupted! Their ATK, MAG, RES, and SPD decrease.")
         controller.revertMultStatBonuses(user, {
                 BaseStats.ATK: 1.15,
                 BaseStats.MAG: 1.15,
@@ -966,7 +966,7 @@ ActiveToggleSkillData("Enigmatic Mind", AdvancedPlayerClassNames.WIZARD, 9, True
                     }, None, None)
                 ], 0)),
                 controller.logMessage(MessageType.EFFECT,
-                                    f"{user.name}'s Enigmatic Mind increases the skill's power!")
+                                    f"{user.shortName}'s Enigmatic Mind increases the skill's power!")
             ))
     )], None)], 0, 0, True)
 
@@ -1026,7 +1026,7 @@ ActiveSkillDataSelector("Spirits' Blessing", AdvancedPlayerClassNames.SAINT, 5, 
     lambda attribute: ActiveBuffSkillData(f"Spirits' Blessing ({attribute[0] + attribute[1:].lower()})",
                     AdvancedPlayerClassNames.SAINT, 5, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [
                         SkillEffect("", [EFImmediate(lambda controller, _1, targets, _2: void((
-                            controller.logMessage(MessageType.EFFECT, spiritBlessingMessage[attribute].format(targets[0].name)),
+                            controller.logMessage(MessageType.EFFECT, spiritBlessingMessage[attribute].format(targets[0].shortName)),
                             controller.addSkillEffect(
                                 targets[0], spiritBlessingEnchantments[attribute]
                             )
@@ -1045,7 +1045,7 @@ def prayerFn(controller : CombatController, user : CombatEntity, skipDurationTic
             if isinstance(effect, StatusEffect):
                 if not prayerLog:
                     controller.logMessage(MessageType.EFFECT,
-                                            f"{user.name}'s Prayer reduces the durations of allies' status conditions!")
+                                            f"{user.shortName}'s Prayer reduces the durations of allies' status conditions!")
                     prayerLog = True
                 controller.combatStateMap[ally].activeSkillEffects[effect] += 1
         controller._cleanupEffects(ally)
@@ -1059,7 +1059,7 @@ PassiveSkillData("Divine Punishment", AdvancedPlayerClassNames.SAINT, 8, True,
         lambda controller, user, target, attackInfo, _:
             void((
                 controller.logMessage(MessageType.EFFECT,
-                                    f"{target.name} loses MP due to {user.name}'s Divine Punishment!"),
+                                    f"{target.shortName} loses MP due to {user.shortName}'s Divine Punishment!"),
                 controller.spendMana(target, min(round(attackInfo.damageDealt * 0.1), 60))
             )) if attackInfo.attackHit and controller.getCurrentMana(target) > 0 else None
     )], None)])
@@ -1079,6 +1079,6 @@ AttackSkillData("Sealing Ritual", AdvancedPlayerClassNames.SAINT, 9, True, 60,
                     BaseStats.AVO: 0.8
                 }),
                 controller.logMessage(MessageType.EFFECT,
-                                    f"{target.name}'s DEF, RES, and AVO are lowered by the Sealing Ritual!")
+                                    f"{target.shortName}'s DEF, RES, and AVO are lowered by the Sealing Ritual!")
                 )) if statusName == StatusConditionNames.STUN else None)
     ], 0)])

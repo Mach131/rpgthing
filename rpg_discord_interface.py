@@ -367,7 +367,7 @@ class CharacterDeletionPrompt(object):
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = commands.Bot(command_prefix='ch.', intents=intents)
+bot = commands.Bot(command_prefix='ch.', intents=intents) # TODO: change if beta
 
 @bot.event
 async def on_ready():
@@ -422,6 +422,7 @@ async def new_character(ctx : commands.Context, character_name : str):
                 gameSession = GLOBAL_STATE.accountDataMap[userId].session
                 gameSession.newCharacterName = character_name
                 await ctx.send(f"Creating new character for {ctx.author.display_name}...")
+                await gameSession.recreateEmbed(ctx.channel)
                 await gameSession.loadNewMenu(NEW_GAME_MENU, ctx.channel)
             else:
                 gameSession = GameSession(userId, character_name)
@@ -485,6 +486,24 @@ async def play(ctx : commands.Context):
             await ctx.send(f"Opening session for {ctx.author.display_name}...")
             gameSession.savedMention = ctx.author.mention
             await gameSession.recreateEmbed(ctx.channel)
+        else:
+            await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
+    else:
+        await respondNotLoaded(ctx)
+
+@bot.hybrid_command(brief="Closes the game",
+                    description=f"Disables any open sessions you have.")
+async def close(ctx : commands.Context):
+    if GLOBAL_STATE.loaded:
+        userId = ctx.author.id
+        if GLOBAL_STATE.idRegistered(userId):
+            gameSession = GLOBAL_STATE.accountDataMap[userId].session
+            if gameSession.isActive:
+                await ctx.send(f"Closing session for {ctx.author.display_name}...")
+                gameSession.currentView.stop()
+                await gameSession.messageTimeout(gameSession.currentView)
+            else:
+                await ctx.send(f"No active session found for {ctx.author.display_name}.")
         else:
             await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
     else:
