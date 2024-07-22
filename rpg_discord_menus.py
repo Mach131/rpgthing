@@ -1164,7 +1164,6 @@ async def expandLogFn(interaction : discord.Interaction, session : GameSession, 
 
     mentionString = session.savedMention
     await interaction.response.send_message(f"{mentionString} Log since last turn:\n{logString}", ephemeral=True)
-    view.pageData['sentLog'] = True
     await view.refresh()
 
 def combatMainContentFn(session : GameSession, view : InterfaceView):
@@ -1183,8 +1182,7 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
     combatLog : str = _abridgeCombatLog(session.unseenCombatLog)
     if len(session.unseenCombatLog) > DISPLAY_LOG_THRESHOLD:
         logger = session.currentDungeon.loggers[player]
-        logCatchupButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple,
-                                      disabled=view.pageData.get('sentLog', False), row=4)
+        logCatchupButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple, row=4)
         logCatchupButton.callback = lambda interaction: expandLogFn(interaction, session, view, logger)
         view.add_item(logCatchupButton)
 
@@ -1509,8 +1507,7 @@ def roomReadyFn(session : GameSession, view : InterfaceView):
         sentLog = view.pageData.get('sentLog', False)
         assert isinstance(logger, DiscordMessageCollector)
         if len(session.unseenCombatLog) > DISPLAY_LOG_THRESHOLD:
-            logCatchupButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple,
-                                        disabled=sentLog, row=3)
+            logCatchupButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple, row=3)
             logCatchupButton.callback = lambda interaction: expandLogFn(interaction, session, view, logger)
             view.add_item(logCatchupButton)
 
@@ -1605,8 +1602,7 @@ def dungeonCompleteFn(session : GameSession, view : InterfaceView):
     embed.add_field(name="__Combat Log__", value=_abridgeCombatLog(session.unseenCombatLog), inline=False)
     if len(session.unseenCombatLog) > DISPLAY_LOG_THRESHOLD:
         logger = session.currentDungeon.loggers[player]
-        logCatchupButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple,
-                                      disabled=view.pageData.get('sentLog', False), row=4)
+        logCatchupButton = discord.ui.Button(label="Expand Log", style=discord.ButtonStyle.blurple, row=4)
         logCatchupButton.callback = lambda interaction: expandLogFn(interaction, session, view, logger)
         view.add_item(logCatchupButton)
 

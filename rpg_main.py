@@ -1,4 +1,5 @@
 import asyncio
+import os
 import traceback
 import random
 
@@ -56,6 +57,13 @@ if __name__ == '__main__':
                                           {player: DEFAULT_STARTING_DISTANCE},
                                           {player: LocalMessageCollector()})
     # asyncio.run(dungeonController.runDungeon(False))
+
+    
+    combatLogFile = f"chartest.txt"
+    with open(combatLogFile, "w", encoding="utf-8") as tmp:
+        tmp.write("Lightspeed Charge 「Power Law」")
+
+    os.remove(combatLogFile)
 
     while True:
         inp = input("> ")

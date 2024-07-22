@@ -1,0 +1,140 @@
+striker
+	warrior; uses stances to change stats and property of other move
+	boosted stats when unarmed based on level, as if it were a weapon (lv1 = common rank 1, 2/3/4 -> rank 3, 6, 10; lv5 = uncommon, lv9 = rare, lv13 = epic, lv17 = legendary)
+		making up for traits, so pretty good weapon; 12 Atk/12 Acc/10 Spd
+
+~Master hand-to-hand combat to adapt to the needs of any battle!~
+
+Class Passive: When no weapon is equipped, increase ATK, ACC, and SPD based on player level. [Striker's Path]
+Class Active: [Cost 20 MP] Select a stance (that you're not already in); shift into that stance while performing an attack. [Form Shift]
+	{attack happens before form change}
+	Tiger Stance: Attack an enemy for 1.3x ATK. While in stance: +30% SPD, +30% AVO; -15% ATK, -15% ACC
+	Horse Stance: Attack all enemies at R0 for 0.6x ATK. While in stance: +30% DEF, +30% RES; -15% SPD, -15% AVO
+	Crane Stance: Attack an enemy for 1x ATK while retreating 1. While in stance: +1 Range, +30% ACC; -15% DEF, -15% RES
+Free Passive: When attacking from out of range, you automatically approach by 1 before attacking (increasing the time the attack takes). [Fancy Footwork]
+Class Passive: Your Stances gain additional effects. [Awakened Instincts]
+	Tiger Stance: Dodging reduces time to next action. MP Restoration increased by 1.5x.
+	Horse Stance: When you are hit, gain a stack increasing Damage Reduction by 2% (max 10 stacks).
+	Crane Stance: Increase Critical Hit Rate by 30% at Range 1 or greater.
+Class Active: [Cost 30 MP] Attack with 1.2x ATK. If in a stance, exit the stance and gain additional effects. [Ki Strike]
+	{attack happens before form change}
+	Tiger Stance: If this is a turn after dodging an attack, +50% damage and greatly decrease time to next action.
+	Horse Stance: +2% damage per Horse Instinct stack. Attempt to inflict STUN for 1 turn per 3 Horse Instinct stacks.
+	Crane Stance: +100% Crit Damage. Approaches by 1 after attack.
+Free Passive: Decreases the time between your actions by up to 25% based on your remaining MP percentage. [Stamina]
+Class Passive: While in a stance, +10% ATK/DEF/MAG/RES/ACC/AVO/SPD. [Inner Peace]
+Free Passive: Gain 1 stack of resistance to all Physical attack attributes. [Combat Aura]
+Free Active: [40 MP] Select a move; attack with 1.5x ATK. Bonus damage can apply based on your stance or highest stat (excluding HP and MP). [Secret Art]
+	Tiger Destruction: Slashing Damage; if in Tiger Stance or highest stat is SPD/AVO, +50% Damage
+	Orochi Breaker: Crushing Damage; if in Horse Stance or highest stat is DEF/RES, +50% Damage
+	Hoyokusen: Piercing Damage; if in Crane Stance or highest stat is ATK/MAG/ACC, +50% Damage
+
+-------------
+
+alchefist
+	ranger; queues up to 2 effects that activate on next basic attack, combination causes different things
+		3 from first skill, 2 more from second  -> 5 singles/duplicates + 10 combos
+		single/duplicates cause elemental attacks; combos are based on some property of the second choice
+			e.g. last 2 reagents might be oriented towards party buffs; maybe some access to healing
+		duplicate powers might be influenced by mag
+		increased MP cost for using the same reagent too many times in a row?
+
+~Concoct a variety of additional attack effects by combining ingredients!~
+
+Class Passive: +10% ATK, +10% MAG, +10% ACC. [Alchefist's Reasoning]
+Class Active: [Cost 10 MP] Select an ingredient to combine into your next attack. Attacks use at most two ingredients, and the cost of preparing the same ingredient multiple times in a row will increase. [Corporeal Ingredient]
+	{pretty fast action time; keeps a queue of last 4 ingredients, cost for 0/1/2/3+ appearances is 10/20/30/40}
+	Flour Flower: Prepares Wood Alchefy
+	Buttery Silver: Prepares Metal Alchefy
+	Hatching Stone: Prepares Earth Alchefy
+Free Passive: During combat, equipped weapons function as if their base ATK and MAG are both equal to the higher of the two. [Mirror Knife]
+Class Passive: Reduces the number of times an ingredient's MP cost can increase due to recent use. {queue 4 -> 2} [Philosopher's Scone]
+Class Active: [Cost 10 MP] Select an ingredient to combine into your next attack. Attacks use at most two ingredients, and the cost of preparing the same ingredient multiple times in a row will increase. [Ethereal Ingredient]
+	{same rules as corporeal}
+	Solar Sugar: Prepares Fire/Sun Alchefy
+	Lunar Leavener: Prepares Water/Moon Alchefy
+Free Passive: +5% ATK, +5% MAG, +5% ACC, +10% MP [Curiosity]
+Class Passive: Decreases the time taken by ingredient skills, and allows up to 5 ingredients to be prepared (attacks use the 2 most recently prepared ingredients). [Seasoned Cookware]
+Free Passive: If you do not attack for at least 2 turns in a row, gain 50% ATK/MAG and 30% ACC on your next attack. [Stewing Schemes]
+Free Active: [Cost 0 MP] Gain 45 MP. {Very Slow action, like 2x action bar} [Transcendent Brunch]
+
+*** yippee ***
+Wood: 1x Neutral Magic Attack [Flour Flower]
+	x2: 1.4x Neutral Magic Attack; Decrease target ACC by 8% [Pollen Dough]
+Metal: 0.8x Attack, 50% Time Usage [Buttery Silver]
+	x2: 1.2x Slashing Attack, 25% time usage; Decrease target DEF/RES by 8% [Mercury Dressing]
+Earth: 1.2x Attack [Hatching Stone]
+	x2: 1.5x Crushing Attack; Decrease target SPD by 5% [Quicksand Omelet]
+
+Wood + Metal: 1x Piercing attack, bonus 0.7x to random enemy in range [Bread Doll]
+Wood + Earth: 1.3x Wind Magic Attack; Increase all ally SPD by 6% [Sylphid Noodles]
+Metal + Earth: 1.3x Attack; places 5-turn debuff reducing ATK/MAG/ACC of target's Ranged/Magic attacks by 30% [Bedrock Quiche]
+
+---
+
+Fire/Sun: 1x Fire Magic Attack [Molten Monosaccharide]
+	x2: 1.4x Light Magic Attack; Increase all ally ACC by 10% [Solar Sugar]
+Water/Moon: 1x Ice Magic Attack [Basic Broth]
+	x2: 1.4x Dark Magic Attack; Increase all ally AVO by 10% [Lunar Leavener]
+
+Wood + Fire/Sun: 1.2x Neutral Magic Attack; lowers a random (non hp/mp) stat by 10% [Confectioner's Haze]
+Wood + Water/Moon: 1.2x Neutral Magic Attack, attempts to apply a random debuff [Night-Bloom Tea]
+Metal + Fire/Sun: 1.2x Attack, increases damage by 50% of MAG [Alloy Brulee]
+Metal + Water/Moon: 1x Attack, 25% Bonus Crit Rate; repeats (once) on crit [Cream of Bismuth]
+Earth + Fire/Sun: 0.6x Attack, gives 4-turn buff to all allies reducing MP costs by 30% [Scrambled Sunlight]
+Earth + Water/Moon: 0.8x Neutral Magic Attack, gives 4-turn buff to all allies reducing time between actions by 30% [Poached Jade]
+Fire/Sun + Water/Moon: 1x Attack, 1.5x strength Heal to all allies [Elixir Tea of Life]
+*** *** ***
+
+---------------------
+
+saboteur
+	rogue; passives apply conditional marks, actives can interact with marks to apply debuffs
+
+~Wear down your targets with targeted debuffs, growing stronger each time they falter!~
+
+Class Passive: When you hit an opponent, apply a stacking debuff (max 10). Your attacks have 5% ATK increase per target's mark. [Inevitability: Remove all marks; apply POISON for 5 turns with 8% Strength per mark.] [Saboteur's Discipline]
+Class Active: [Cost 30 MP] Attack with 1x ATK. Inevitability effects will activate if the target has a sufficient number of marks. [Inevitability]
+Free Passive: When an opponent takes POISON or BURN damage, apply a stacking debuff (max 5). Your attacks restore 1% of max HP/MP per target's stack. [Inevitability: Inflict damage proportional to the strength of active POISON/BURN effects. {dot strengths * 4 or so}] [Energy Sap]
+Class Passive: When you dodge an opponent's attack, apply a stacking debuff (max 6). You have 10% ACC/AVO per target/attacker's mark. [Inevitability: Remove 2 marks; on the attack, -50% action time, +30% Crit Rate.] [Blackout]
+Class Active: [Cost 20 MP] Attack with 1x ATK. If the opponent is POISONED or BURNED, attempt to inflict both with a proportional strength. {total dot strengths * 0.5} [Funeral Toll]
+Free Passive: +5% Crit Rate; on crit, reduce time to next action {~15% gauge}. [Efficiency]
+Class Passive: When hitting an opponent with an attacking skill, apply a stacking debuff (max 3). [Inevitability: Remove 3 marks; for 2 turns, reduce MP costs by 90%.] [Grand Vision]
+Free Passive: When landing a critical hit, apply a stacking debuff (max 5). Your attacks have 4% Crit Damage per target's mark. [Inevitability: Remove 3 marks; Increase status condition application chance by 50%.] [Infiltration]
+Free Active: [Cost 15 MP] Attack with 0.4x ATK and 0.7x ACC. If this defeats an opponent, fully restore your HP and MP. [No Witnesses]
+
+
+----------------------
+
+summoner
+	mage; has snaps as a summon, gets its own skills as you rank up
+		ai controlled, but can influence behavior using an active
+	snaps functions as a melee tank; not many stat boosts, but summon and summoner can share stats
+
+~Fight alongside a summoned creature, overwhelming opponents from two angles!~
+
+Class Passive: At the beginning of combat, summon Snaps, the ancient reptilian creature. Snaps benefits from your Stat point allocations, equipment bonuses, and equipment traits. (Parties cannot contain more than 5 entities; this may fail if a party contains multiple summoners.) {snaps is defeated if its summoner is} [Summoner's Pact]
+Class Active: [Cost 5 MP] Select a command; Snaps will change action priorities accordingly. [Hey Snaps!]
+	Go Wild!: Snaps will attack anyone that draws its ire. {follows normal aggro priorities; some of player's aggro transfers to snaps?}
+	Let's Ride!: Snaps will focus on the target that you attacked most recently. {defends if no such target/target is dead}
+	Follow Me!: Immediately repositions Snaps to match your distances; it will then focus on following you. {defends if no movement to be made}
+	Hold On!: Snaps will continuously defend until further notice.
+Free Passive: The Defend action takes 25% less time and gives 15% additional damage reduction. {can cause special messages if you defend on the same space as Snaps} [Guardian Spirit]
+Class Passive: When attacking a target closer to Snaps than you are, accuracy is checked as if you are at Snaps's range. [Shared Vision]
+Class Active: [Cost 25 MP] Attack with 1.2x MAG from any range. The cooldown of Snaps' Castigator skill is reduced by 2 turns, and it will prioritize using it next turn if available. [Talk To Them!]
+Free Passive: After you hit an opponent, the next attack against that opponent has 10% additional Crit Rate and Crit Damage. [Cooperation]
+Class Passive: When your range to a target is the same as Snaps, increase ATK/DEF/MAG/RES/ACC/AVO/SPD by 35% of Snaps's stats. [As One]
+Free Passive: When gaining MP from a basic attack, reposition, or defend action, all allies gain the same amount of MP. [Unwavering Trust]
+Free Active: [Cost 100 MP] Take 50% of your HP as damage to revive one defeated ally with 30% HP. {recovery scales down if they accidentally kill themselves} [Entwined Fates]
+
+*** snaps ***
+
+Snaps Passive: Snaps gains +100 HP, +10 ATK/DEF/MAG/RES, and +15 ACC. [Navigator]
+Snaps Active: [Cost 10 MP, 3 Turn Cooldown] Snaps approaches 1, then attacks for 1.2x ATK. [Instigator]
+Snaps Passive: Snaps's Defend Action takes 50% less time and gives 30% additional damage reduction. [Mitigator]
+Snaps Passive: Snaps's attacks restore HP for itself and its summoner equal to 10% of the damage dealt. [Irrigator]
+Snaps Active: [Cost 20 MP, 6 Turn Cooldown] Snaps attacks all enemies in its range for 1.25x MAG. [Castigator]
+Snaps Passive: Snaps gains +10% ATK/DEF/MAG/RES and +5% ACC/SPD. [Subjugator]
+Snaps Passive: When Snaps lands a critical hit, it gains 6 MP and all cooldowns are reduced by 1. [Variegator]
+Snaps Passive: When Snaps's Summoner performs an attack, the time to Snaps' next action is decreased {30% bar} [Delegator]
+Snaps Active: [Cost 20 MP, 10 Turn Cooldown] Attacks for 1.5x ATK or MAG, whichever is higher. Cooldown resets if landing a Critical Hit against an enemy under the effect of Cooperation. {Prioritized over Instigator if in range} [Supererogator]
