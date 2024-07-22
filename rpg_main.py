@@ -59,11 +59,7 @@ if __name__ == '__main__':
     # asyncio.run(dungeonController.runDungeon(False))
 
     
-    combatLogFile = f"chartest.txt"
-    with open(combatLogFile, "w", encoding="utf-8") as tmp:
-        tmp.write("Lightspeed Charge 「Power Law」")
-
-    os.remove(combatLogFile)
+    asyncio.run(betterCombatSimulation([tp_acrobat], [basicDummy({})]))
 
     while True:
         inp = input("> ")

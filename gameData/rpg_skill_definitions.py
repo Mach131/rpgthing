@@ -773,7 +773,7 @@ PassiveSkillData("Earned Confidence", AdvancedPlayerClassNames.ACROBAT, 8, True,
     ], None)])
 
 ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9, True, 15,
-    "Decrease DEF/RES by 25%. Increase AVO by 20% and SPD by 7.5%. This can be used up to 3 times simultaneously for greater effect.",
+    "For 8 turns, increase AVO by 20% and SPD by 7.5%, but decrease DEF/RES by 25%. This can be used up to 3 times simultaneously for greater effect.",
     "Select how many times you'd like to use this effect at once.",
     MAX_ACTION_TIMER / 10, 0, True,
     lambda amount: ActiveBuffSkillData(f"Insidious Killer x{amount}",
@@ -789,7 +789,16 @@ ActiveSkillDataSelector("Insidious Killer", AdvancedPlayerClassNames.ACROBAT, 9,
             controller.logMessage(MessageType.EFFECT,
                                   f"{user.name}'s DEF and RES decrease, but their AVO and SPD increase!")
         )))
-    ], None)], 0, 0, True, False), ["1", "2", "3"])
+    ], 8, "Insidious Killer wore off.", [
+        EFImmediate(lambda controller, user, _1, _2:
+            controller.revertMultStatBonuses(user, {
+                BaseStats.DEF: 1 - (0.25 * int(amount)),
+                BaseStats.RES: 1 - (0.25 * int(amount)),
+                BaseStats.AVO: 1 + (0.2 * int(amount)),
+                BaseStats.SPD: 1 + (0.075 * int(amount)),
+            })
+        )
+    ])], 0, 0, True, False), ["1", "2", "3"])
 
 
 # Wizard

@@ -263,11 +263,12 @@ class ActiveSkillDataSelector(SkillData):
 
 class SkillEffect(object):
     def __init__(self, effectName : str, effectFunctions : list[EffectFunction], effectDuration : int | None,
-                 expirationMessage : str | None = None):
+                 expirationMessage : str | None = None, expirationEffects : list[EFImmediate] = []):
         self.effectName : str = effectName
         self.effectFunctions : list[EffectFunction] = effectFunctions[:]
         self.effectDuration : int | None = effectDuration
         self.expirationMessage : str | None = expirationMessage
+        self.expirationEffects : list[EFImmediate] = expirationEffects
 
 class EnchantmentSkillEffect(SkillEffect):
     def __init__(self, effectName : str, enchantmentAttribute : AttackAttribute, flatStatBonuses : dict[Stats, float],

@@ -99,18 +99,18 @@ testRarity = 0
 # rerollOtherEquips(tp_hunter, testRarity)
 # print()
 
-# tp_acrobat = Player("mimosa", BasePlayerClassNames.ROGUE)
-# tp_acrobat.level = 3
-# tp_acrobat.freeStatPoints = 12
-# tp_acrobat.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
-#                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
-#                         BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
-# tp_acrobat.classRanks[BasePlayerClassNames.ROGUE] = 3
-# tp_acrobat.changeClass(AdvancedPlayerClassNames.ACROBAT)
-# [tp_acrobat._rankUp() for i in range(9-1)]
-# rerollWeapon(tp_acrobat, testRarity)
-# rerollOtherEquips(tp_acrobat, testRarity)
-# print()
+tp_acrobat = Player("mimosa", BasePlayerClassNames.ROGUE)
+tp_acrobat.level = 3
+tp_acrobat.freeStatPoints = 12
+tp_acrobat.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
+                        BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.MP,
+                        BaseStats.ATK, BaseStats.AVO, BaseStats.SPD, BaseStats.HP])
+tp_acrobat.classRanks[BasePlayerClassNames.ROGUE] = 3
+tp_acrobat.changeClass(AdvancedPlayerClassNames.ACROBAT)
+[tp_acrobat._rankUp() for i in range(9-1)]
+rerollWeapon(tp_acrobat, testRarity)
+rerollOtherEquips(tp_acrobat, testRarity)
+print()
 
 # tp_saint = Player("avalie", BasePlayerClassNames.MAGE)
 # tp_saint.level = 3

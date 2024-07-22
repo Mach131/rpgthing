@@ -1629,7 +1629,7 @@ async def sendCombatLogFn(interaction : discord.Interaction, session : GameSessi
     assert(session.currentMessage is not None)
 
     combatLogFile = f"{COMBAT_LOG_FILE_PREFIX}{session.userId}_{int(datetime.now().timestamp())}.txt"
-    with open(combatLogFile, "w") as tmp:
+    with open(combatLogFile, "w", encoding="utf-8") as tmp:
         tmp.write(messageString)
 
     channel = session.currentMessage.channel

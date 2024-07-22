@@ -68,6 +68,8 @@ class EntityCombatState(object):
             controller.removeSkillEffect(self.entity, effect)
             if effect.expirationMessage is not None:
                 controller.logMessage(MessageType.EFFECT, f"{effect.shortName}'s {effect.expirationMessage}")
+            for expirationEffect in effect.expirationEffects:
+                expirationEffect.applyEffect(controller, self.entity, [])
         
         self.flatStatMod = {}
         self.multStatMod = {}
@@ -1334,6 +1336,8 @@ class CombatController(object):
             self.removeSkillEffect(player, expiredEffect)
             if expiredEffect.expirationMessage is not None:
                 self.logMessage(MessageType.EFFECT, f"{player.shortName}'s {expiredEffect.expirationMessage}")
+            for expirationEffect in expiredEffect.expirationEffects:
+                expirationEffect.applyEffect(self, player, [])
 
     """
         Cleanup for beginning of turn. At the moment, just disables defend.
@@ -1377,6 +1381,8 @@ class CombatController(object):
                 self.removeSkillEffect(player, expiredEffect)
                 if expiredEffect.expirationMessage is not None:
                     self.logMessage(MessageType.EFFECT, f"{player.shortName}'s {expiredEffect.expirationMessage}")
+                for expirationEffect in expiredEffect.expirationEffects:
+                    expirationEffect.applyEffect(self, player, [])
 
         self._applyAggroDecay(player)
         self.previousTurnEntity = player

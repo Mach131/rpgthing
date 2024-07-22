@@ -64,19 +64,10 @@ class GlobalState(object):
                     self.accountDataMap = pickle.load(saveFile)
                 
                 for accountData in self.accountDataMap.values():
+                    for character in accountData.allCharacters:
+                        character._updateAvailableSkills()
                     accountData.session.onLoadReset()
 
-                # # temp
-                # availableDungeons = DungeonData.registeredDungeons
-                # flags = [
-                #     Milestones.TUTORIAL_COMPLETE,
-                #     Milestones.FRESH_FIELDS_COMPLETE,
-                #     Milestones.SKYLIGHT_CAVE_COMPLETE,
-                #     Milestones.SAFFRON_FOREST_COMPLTE,
-                #     Milestones.ABANDONED_STOREHOUSE_COMPLETE
-                # ]
-                # for i in range(len(flags)):
-                #     availableDungeons[i].clearFlag = flags[i]
 
                 print(f"loaded state from {lastSaveTimestamp}")
         except FileNotFoundError:
