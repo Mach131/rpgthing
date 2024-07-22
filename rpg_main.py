@@ -1,8 +1,10 @@
 import asyncio
 import os
+import shutil
 import traceback
 import random
 
+from rpg_global_state import GlobalState
 from structures.rpg_combat_interface import *
 from rpg_consts import *
 from structures.rpg_combat_entity import CombatEntity, Player
@@ -58,8 +60,7 @@ if __name__ == '__main__':
                                           {player: LocalMessageCollector()})
     # asyncio.run(dungeonController.runDungeon(False))
 
-    
-    asyncio.run(betterCombatSimulation([tp_acrobat], [basicDummy({})]))
+    # asyncio.run(betterCombatSimulation([tp_acrobat], [basicDummy({})]))
 
     while True:
         inp = input("> ")

@@ -1,4 +1,6 @@
 from __future__ import annotations
+import os
+import shutil
 import dill as pickle
 from typing import TYPE_CHECKING
 from datetime import datetime
@@ -33,7 +35,22 @@ class GlobalState(object):
     def saveState(self):
         if len(self.accountDataMap) == 0:
             return
+        
+        if not os.path.exists(STATE_FILE_FOLDER):
+            os.mkdir(STATE_FILE_FOLDER)
 
+        # Archive old files
+        saveFiles = [f for f in os.listdir(STATE_FILE_FOLDER) if f.startswith(STATE_FILE_NAME) and f != STATE_FILE_NAME + "ts"]
+        saveFiles.sort()
+        print(saveFiles)
+        if len(saveFiles) > ARCHIVE_SIZE + 1:
+            if os.path.exists(STATE_ARCHIVE_FOLDER):
+                shutil.rmtree(STATE_ARCHIVE_FOLDER)
+            os.mkdir(STATE_ARCHIVE_FOLDER)
+            for file in saveFiles[:-1]:
+                os.rename(STATE_FILE_FOLDER + file, STATE_ARCHIVE_FOLDER + file)
+
+        # Save new file, update timestamp tracker
         timestamp = int(datetime.now().timestamp())
 
         # if len(self.accountDataMap) > 0:

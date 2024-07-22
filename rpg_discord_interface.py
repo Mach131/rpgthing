@@ -1,4 +1,6 @@
 from __future__ import annotations
+import logging
+import logging.handlers
 from typing import Any
 import dill as pickle
 import traceback
@@ -371,6 +373,9 @@ bot = commands.Bot(command_prefix='ch.', intents=intents) # TODO: change if beta
 
 @bot.event
 async def on_ready():
+    if not os.path.exists(TMP_FOLDER):
+        os.mkdir(TMP_FOLDER)
+
     print(f'Logged in as {bot.user}.')
     GLOBAL_STATE.loadState()
     await bot.change_presence(status=discord.Status.online,
@@ -643,8 +648,25 @@ async def save(ctx : commands.Context):
     else:
         await ctx.send("This is a dev-only command; progress should be periodically saved automatically.")
 
+# Logging
+logger = logging.getLogger('discord')
+logger.setLevel(logging.DEBUG)
+logging.getLogger('discord.http').setLevel(logging.INFO)
+if not os.path.exists('./logs/'):
+    os.mkdir('./logs/')
+handler = logging.handlers.RotatingFileHandler(
+    filename='./logs/discord.log',
+    encoding='utf-8',
+    maxBytes=32 * 1024 * 1024,  # 32 MiB
+    backupCount=5,  # Rotate through 5 files
+)
+dt_fmt = '%Y-%m-%d %H:%M:%S'
+formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', dt_fmt, style='{')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 secret_file = open("secret.txt", "r")
 secret = secret_file.read()
 secret_file.close()
-bot.run(secret)
+# Suppress the default logging configuration since we have our own
+bot.run(secret, log_handler=None)
