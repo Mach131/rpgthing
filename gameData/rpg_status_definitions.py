@@ -89,7 +89,7 @@ class BlindStatusEffect(StatusEffect):
             CombatStats.ACC_EFFECTIVE_DISTANCE_MOD: 1}, {}, self._applyBlindAccPenalty, self._revertBlindAccPenalty)
         super().__init__(StatusConditionNames.BLIND, inflicter, duration, [blindEffectFunction])
 
-    def _applyBlindAccPenalty(self, controller : CombatController, user : CombatEntity, target : CombatEntity) -> None:
+    def _applyBlindAccPenalty(self, controller : CombatController, user : CombatEntity, target : CombatEntity, _) -> None:
         self.currentAppliedMultiplier = BLIND_STACK_ACC_MULT ** self.blindStacks
         controller.applyMultStatBonuses(user, {BaseStats.ACC: self.currentAppliedMultiplier})
 

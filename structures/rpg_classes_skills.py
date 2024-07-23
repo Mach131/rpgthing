@@ -13,10 +13,11 @@ if TYPE_CHECKING:
 class PlayerClassData(object):
     PLAYER_CLASS_DATA_MAP : dict[PlayerClassNames, PlayerClassData] = {}
 
-    def __init__(self, className : PlayerClassNames, classRequirements : list[PlayerClassNames]) -> None:
+    def __init__(self, className : PlayerClassNames, classRequirements : list[PlayerClassNames], milestoneRequirements : list[Milestones] = []) -> None:
         self.className : PlayerClassNames = className
         self.isBaseClass : bool = len(classRequirements) == 0
         self.classRequirements : list[PlayerClassNames] = classRequirements
+        self.milestoneRequirements : list[Milestones] = milestoneRequirements
 
         self.rankSkills : dict[int, SkillData] = {}
 
@@ -125,7 +126,12 @@ classDataList = [
     PlayerClassData(AdvancedPlayerClassNames.ASSASSIN, [BasePlayerClassNames.ROGUE]),
     PlayerClassData(AdvancedPlayerClassNames.ACROBAT, [BasePlayerClassNames.ROGUE]),
     PlayerClassData(AdvancedPlayerClassNames.WIZARD, [BasePlayerClassNames.MAGE]),
-    PlayerClassData(AdvancedPlayerClassNames.SAINT, [BasePlayerClassNames.MAGE])
+    PlayerClassData(AdvancedPlayerClassNames.SAINT, [BasePlayerClassNames.MAGE]),
+
+    PlayerClassData(SecretPlayerClassNames.STRIKER, [BasePlayerClassNames.WARRIOR], [Milestones.CLASS_STRIKER_UNLOCKED]),
+    PlayerClassData(SecretPlayerClassNames.ALCHEFIST, [BasePlayerClassNames.RANGER], [Milestones.CLASS_ALCHEFIST_UNLOCKED]),
+    PlayerClassData(SecretPlayerClassNames.SABOTEUR, [BasePlayerClassNames.ROGUE], [Milestones.CLASS_SABOTEUR_UNLOCKED]),
+    PlayerClassData(SecretPlayerClassNames.SUMMONER, [BasePlayerClassNames.MAGE], [Milestones.CLASS_SUMMONER_UNLOCKED])
 ]
 
 ### Skills
@@ -249,12 +255,21 @@ class PrepareParrySkillData(SkillData):
 class ActiveSkillDataSelector(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
             optionDescription : str, actionTime : float, expectedTargets : int | None, targetOpponents : bool,
-            skillGenerator : Callable[[str], SkillData], options : list[str], register : bool = True):
+            skillGenerator : Callable[[str], SkillData], options : list[str], register : bool = True,
+            optionChecker : Callable[[str, CombatController, CombatEntity], bool] | None = None):
         super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False,
                          [], expectedTargets, 0, targetOpponents, register)
         self.skillGenerator = skillGenerator
         self.options = options
         self.optionDescription = optionDescription
+        self.optionChecker = optionChecker
+
+    def checkOptionAvailable(self, selectorInput : str, controller : CombatController, user : CombatEntity) -> bool:
+        if selectorInput not in self.options:
+            return False
+        if self.optionChecker is None:
+            return True
+        return self.optionChecker(selectorInput, controller, user)
         
     def selectSkill(self, selectorInput : str) -> SkillData:
         if selectorInput not in self.options:
@@ -318,12 +333,12 @@ class EFOnAttackSkill(EffectFunction):
 """(Usually) a temporary bonus before performing the next attack."""
 class EFBeforeNextAttack(EffectFunction):
     def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
-            applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity], None],
+            applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None],
             revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
         super().__init__(EffectTimings.BEFORE_ATTACK)
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
-        self.applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity], None] = applyFunc
+        self.applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = applyFunc
         self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None] = revertFunc
 
 
@@ -331,12 +346,13 @@ class EFBeforeNextAttack(EffectFunction):
         controller.applyFlatStatBonuses(user, self.flatStatBonuses)
         controller.applyMultStatBonuses(user, self.multStatBonuses)
 
+        result = EffectFunctionResult(self)
         if self.applyFunc is not None:
-            self.applyFunc(controller, user, target)
+            self.applyFunc(controller, user, target, result)
         revertEffect : SkillEffect = SkillEffect("", [EFBeforeNextAttack_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
         controller.addSkillEffect(user, revertEffect)
 
-        return EffectFunctionResult(self)
+        return result
 
 class EFBeforeNextAttack_Revert(EffectFunction):
     def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],

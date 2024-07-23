@@ -11,9 +11,9 @@ from gameData.rpg_status_definitions import BlindStatusEffect, BurnStatusEffect,
     PoisonStatusEffect, RestrictStatusEffect, StatusEffect, StunStatusEffect, TargetStatusEffect
 
 if TYPE_CHECKING:
-    from structures.rpg_classes_skills import EffectFunctionResult
+    from structures.rpg_classes_skills import EffectFunctionResult, EffectFunction
     from structures.rpg_combat_entity import CombatEntity
-    from structures.rpg_combat_state import CombatController
+    from structures.rpg_combat_state import CombatController, AttackResultInfo
 
 # Warrior
 
@@ -125,7 +125,7 @@ def confrontationFn(controller, user, target, revert, attackResultInfo = None):
 PassiveSkillData("Confrontation", AdvancedPlayerClassNames.MERCENARY, 3, True,
     "When attacking at distance 0, increase ATK and ACC by 10%.",
     {}, {}, [SkillEffect("", [EFBeforeNextAttack({}, {},
-                    lambda controller, user, target: confrontationFn(controller, user, target, False),
+                    lambda controller, user, target, _: confrontationFn(controller, user, target, False),
                     lambda controller, user, target, attackResultInfo, _2: confrontationFn(controller, user, target, True, attackResultInfo)
     )], None)])
 
@@ -349,7 +349,7 @@ AttackSkillData("Perfect Shot", AdvancedPlayerClassNames.SNIPER, 5, False, 30,
     "Attack with 1x ATK, plus 0.4x ATK per distance from the target.",
     True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect("", [
         EFBeforeNextAttack({}, {},
-                           lambda controller, user, target:
+                           lambda controller, user, target, _:
                                 controller.applyMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.checkDistanceStrict(user, target) * 0.4)}),
                            lambda controller, user, target, attackResult, _:
                                 controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (attackResult.originalDistance * 0.4)})
@@ -363,7 +363,7 @@ PassiveSkillData("Clarity", AdvancedPlayerClassNames.SNIPER, 7, False,
     "Increases Critical Hit rate by 10% per distance from your target.",
     {}, {}, [SkillEffect("", [
         EFBeforeNextAttack({}, {},
-                           lambda controller, user, target:
+                           lambda controller, user, target, _:
                                 controller.applyFlatStatBonuses(user, {CombatStats.CRIT_RATE: controller.checkDistanceStrict(user, target) * 0.1}),
                            lambda controller, user, target, attackResult, _:
                                 controller.revertFlatStatBonuses(user, {CombatStats.CRIT_RATE: attackResult.originalDistance * 0.1})
@@ -416,7 +416,7 @@ PassiveSkillData("Camouflage", AdvancedPlayerClassNames.HUNTER, 3, True,
     "Decrease aggro generated from attacks by 20% per distance from your target.",
     {}, {}, [SkillEffect("", [
         EFBeforeNextAttack({}, {},
-                           lambda controller, user, target:
+                           lambda controller, user, target, _:
                                 controller.applyMultStatBonuses(user, {CombatStats.AGGRO_MULT: 1 - (controller.checkDistanceStrict(user, target) * 0.2)}),
                            lambda controller, user, target, attackResult, _:
                                 controller.revertMultStatBonuses(user, {CombatStats.AGGRO_MULT: 1 - (attackResult.originalDistance * 0.2)})
@@ -501,7 +501,7 @@ ActiveBuffSkillData("Shadowing", AdvancedPlayerClassNames.ASSASSIN, 2, False, 10
     [SkillEffect("Shadowing", [
         EFImmediate(shadowingMovementFn),
         EFBeforeNextAttack({}, {}, 
-                           lambda controller, user, _: void((
+                           lambda controller, user, _1, _2: void((
                                controller.applyMultStatBonuses(
                                    user, {BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SHADOWING) * 0.15)}),
                                 controller.logMessage(MessageType.EFFECT,
@@ -578,7 +578,7 @@ ambushSkillEffects : dict[str, SkillEffect] = {
     ], 0),
     "EXECUTE": SkillEffect("", [
         EFBeforeNextAttack({}, {},
-            lambda controller, user, target:  void((
+            lambda controller, user, target, _:  void((
                 controller.applyFlatStatBonuses(user, {
                     CombatStats.CRIT_RATE: controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.1
                 }),
@@ -628,7 +628,7 @@ PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, Tr
     "After each attack, +20% ATK/MAG. Resets when an enemy takes a turn.",
     {}, {}, [SkillEffect("", [
         EFBeforeNextAttack({}, {}, 
-            lambda controller, user, _:
+            lambda controller, user, _1, _2:
                 controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s ATK/MAG was increased by Unrelenting Assault!")
                     if controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 0 else None,
             None),
@@ -810,7 +810,7 @@ PassiveSkillData("Wizard's Wisdom", AdvancedPlayerClassNames.WIZARD, 1, False,
 natureBlessingEnchantments = {
     "FIRE": EnchantmentSkillEffect("Nature's Blessing (Fire)", MagicalAttackAttribute.FIRE, {}, {}, [
         EFBeforeNextAttack({}, {}, 
-            lambda controller, user, _: void((
+            lambda controller, user, _1, _2: void((
                 controller.combatStateMap[user].setStack(
                     EffectStacks.FIRE_BLESSING, controller.combatStateMap[user].getTotalStatValue(BaseStats.ATK)),
                 controller.applyFlatStatBonuses(
@@ -873,7 +873,7 @@ PassiveSkillData("Serendipity", AdvancedPlayerClassNames.WIZARD, 3, True,
 PassiveSkillData("Arcane Flow", AdvancedPlayerClassNames.WIZARD, 4, False,
     "Attacks while you have an Enchantment active on yourself have 15% increased MAG.",
     {}, {}, [SkillEffect("", [EFBeforeNextAttack({}, {},
-        lambda controller, user, _: controller.applyMultStatBonuses(user, {BaseStats.MAG: 1.15})
+        lambda controller, user, _1, _2: controller.applyMultStatBonuses(user, {BaseStats.MAG: 1.15})
             if len(controller.combatStateMap[user].activeEnchantments) > 0 else None,
         lambda controller, user, _1, _2, _3: controller.revertMultStatBonuses(user, {BaseStats.MAG: 1.15})
             if len(controller.combatStateMap[user].activeEnchantments) > 0 else None
@@ -884,7 +884,7 @@ AttackSkillData("Magic Circle", AdvancedPlayerClassNames.WIZARD, 5, False, 30,
     False, AttackType.MAGIC, 1.2, DEFAULT_ATTACK_TIMER_USAGE,
     [SkillEffect("", [
         EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {},
-        lambda controller, user, target: void((
+        lambda controller, user, target, _: void((
                 controller.applyMultStatBonuses(user, {BaseStats.MAG: 2.5 / 1.2}),
                 controller.logMessage(MessageType.EFFECT,
                                     f"{user.shortName}'s Magic Circle is strengthened by targeting a weakness!")
@@ -1021,8 +1021,8 @@ spiritBlessingMessage = {
 ActiveSkillDataSelector("Spirits' Blessing", AdvancedPlayerClassNames.SAINT, 5, False, 30,
     "Select an attribute and a target ally; for 6 turns, their attacks will be Enchanted with that attribute.",
     "(Note: Only the latest enchantment's effects are applied to a player.)\n" + 
-    "LIGHT: Increases DEF, RES, and AVO by 10%. On hit, restores 7% of the ally's max HP.\n" +
-    "DARK: Increases ATK, MAG, and ACC by 10%. On hit, restores 7% of the ally's max MP.", MAX_ACTION_TIMER / 5, 1, False,
+    "__LIGHT__: Increases DEF, RES, and AVO by 10%. On hit, restores 7% of the ally's max HP.\n" +
+    "__DARK__: Increases ATK, MAG, and ACC by 10%. On hit, restores 7% of the ally's max MP.", MAX_ACTION_TIMER / 5, 1, False,
     lambda attribute: ActiveBuffSkillData(f"Spirits' Blessing ({attribute[0] + attribute[1:].lower()})",
                     AdvancedPlayerClassNames.SAINT, 5, False, 30, "", MAX_ACTION_TIMER / 5, {}, {}, [
                         SkillEffect("", [EFImmediate(lambda controller, _1, targets, _2: void((
@@ -1082,3 +1082,156 @@ AttackSkillData("Sealing Ritual", AdvancedPlayerClassNames.SAINT, 9, True, 60,
                                     f"{target.shortName}'s DEF, RES, and AVO are lowered by the Sealing Ritual!")
                 )) if statusName == StatusConditionNames.STUN else None)
     ], 0)])
+
+
+####
+
+# Striker
+
+BASE_STRIKER_WEAPON_STATS = {
+    BaseStats.ATK: 9,
+    BaseStats.ACC: 8,
+    BaseStats.SPD: 9
+}
+def strikerWeaponStatScaler(rarity : int, rank : int) -> dict[Stats, float]:
+    currentRarityMultiplier = (rarity+1) ** 2
+    nextRarityMultiplier = (rarity+2) ** 2 if rarity < MAX_ITEM_RARITY else ((MAX_ITEM_RARITY+1) ** 3) / MAX_RANK_STAT_SCALING
+    rankScalingRange = (nextRarityMultiplier * MAX_RANK_STAT_SCALING) - currentRarityMultiplier
+    rankScalingBonus = rankScalingRange * rank / MAX_ITEM_RANK
+
+    finalMultiplier = currentRarityMultiplier + rankScalingBonus
+    return { baseStat: math.ceil(BASE_STRIKER_WEAPON_STATS[baseStat] * finalMultiplier) for baseStat in BASE_STRIKER_WEAPON_STATS }
+def conditioningFn(controller : CombatController, user : CombatEntity):
+    if controller.combatStateMap[user].checkWeapon() is not None:
+        return None
+    sampleRarity = min((user.level - 1) // 4, MAX_ITEM_RARITY)
+    sampleRank = math.floor(((user.level % 4) / 3) * MAX_ITEM_RANK)
+    controller.applyFlatStatBonuses(user, strikerWeaponStatScaler(sampleRarity, sampleRank))
+PassiveSkillData("Striker's Conditioning", SecretPlayerClassNames.STRIKER, 1, False,
+    "When no weapon is equipped, increase ATK, ACC and SPD based on player level.",
+    {}, {}, [
+        SkillEffect("", [
+            EFImmediate(
+                lambda controller, user, _1, _2: conditioningFn(controller, user)
+            )
+        ], None)
+    ])
+
+
+strikerStanceMarkMap = {
+    "TIGER": EffectStacks.STRIKER_TIGER,
+    "HORSE": EffectStacks.STRIKER_HORSE,
+    "CRANE": EffectStacks.STRIKER_CRANE
+}
+strikerStanceDescMap = {
+    "TIGER": "enters Tiger stance! Their SPD and AVO increase, while their ATK and ACC decrease.",
+    "HORSE": "enters Horse stance! Their DEF and RES increase, while their SPD and AVO decrease.",
+    "CRANE": "enters Crane stance! Their Range and ACC increase, while their DEF and RES decrease."
+}
+def deactivateStanceFn(controller : CombatController, user : CombatEntity):
+    stateMap = controller.combatStateMap[user]
+    if stateMap.getStack(EffectStacks.STRIKER_TIGER) > 0:
+        controller.revertMultStatBonuses(user, {
+            BaseStats.SPD: 1.3,
+            BaseStats.AVO: 1.3,
+            BaseStats.ATK: 0.85,
+            BaseStats.ACC: 0.85
+        })
+        stateMap.setStack(EffectStacks.STRIKER_TIGER, 0)
+    if stateMap.getStack(EffectStacks.STRIKER_HORSE) > 0:
+        controller.revertMultStatBonuses(user, {
+            BaseStats.DEF: 1.3,
+            BaseStats.RES: 1.3,
+            BaseStats.SPD: 0.85,
+            BaseStats.AVO: 0.85
+        })
+        stateMap.setStack(EffectStacks.STRIKER_HORSE, 0)
+    if stateMap.getStack(EffectStacks.STRIKER_CRANE) > 0:
+        controller.revertFlatStatBonuses(user, {
+            CombatStats.RANGE: 1
+        })
+        controller.revertMultStatBonuses(user, {
+            BaseStats.ACC: 1.3,
+            BaseStats.DEF: 0.85,
+            BaseStats.RES: 0.85
+        })
+        stateMap.setStack(EffectStacks.STRIKER_CRANE, 0)
+def activateStanceFn(controller : CombatController, user : CombatEntity, stance : str):
+    newStanceMark = strikerStanceMarkMap[stance]
+    if newStanceMark == EffectStacks.STRIKER_TIGER:
+        controller.applyMultStatBonuses(user, {
+            BaseStats.SPD: 1.3,
+            BaseStats.AVO: 1.3,
+            BaseStats.ATK: 0.85,
+            BaseStats.ACC: 0.85
+        })
+    elif newStanceMark == EffectStacks.STRIKER_HORSE:
+        controller.applyMultStatBonuses(user, {
+            BaseStats.DEF: 1.3,
+            BaseStats.RES: 1.3,
+            BaseStats.SPD: 0.85,
+            BaseStats.AVO: 0.85
+        })
+    elif newStanceMark == EffectStacks.STRIKER_CRANE:
+        controller.applyFlatStatBonuses(user, {
+            CombatStats.RANGE: 1
+        })
+        controller.applyMultStatBonuses(user, {
+            BaseStats.ACC: 1.3,
+            BaseStats.DEF: 0.85,
+            BaseStats.RES: 0.85
+        })
+    controller.combatStateMap[user].setStack(newStanceMark, 1)
+def horseAoeFn(controller : CombatController, user : CombatEntity, target : CombatEntity, attackInfo : AttackResultInfo, _):
+    otherOpponents = [opp for opp in controller.getTargets(user) if opp is not target]
+    for bonusTarget in otherOpponents:
+        if controller.checkInRange(user, bonusTarget):
+            counterData = CounterSkillData(True, AttackType.MELEE, 0.7, [])
+            attackInfo.addBonusAttack(user, bonusTarget, counterData)
+formShiftAttackEffects : dict[str, list[EffectFunction]] = {
+    "TIGER": [EFBeforeNextAttack({}, {BaseStats.ATK: 1.3}, None, None)],
+    "HORSE": [
+        EFBeforeNextAttack({}, {BaseStats.ATK: 0.7}, None, None),
+        EFAfterNextAttack(horseAoeFn)
+    ],
+    "CRANE": [EFAfterNextAttack(increaseDistanceFn)]
+}
+ActiveSkillDataSelector("Form Shift", SecretPlayerClassNames.STRIKER, 2, False, 20,
+    "Select a stance you are not currently in; perform an attack, then shift into that stance.",
+    "__TIGER__: Attack with 1.3x attack. Stance Effect: +30% SPD, +30% AVO; -15% ATK, -15% ACC \n"
+    "__HORSE__: Attack all enemies in range for 0.7x ATK. Stance Effect: +30% DEF, +30% RES, -15% SPD, -15% AVO \n"
+    "__CRANE__: Attack with 1x ATK, then increase distance to target 1. Stance Effect: +1 Range, +30% ACC; -15% DEF, -15% RES",
+    DEFAULT_ATTACK_TIMER_USAGE, 1, True,
+    lambda stance: AttackSkillData(
+        f"Form Shift: {stance[0] + stance[1:].lower()} Stance", SecretPlayerClassNames.STRIKER, 2, False, 20, "",
+        True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE, [
+            SkillEffect("", formShiftAttackEffects[stance] + [
+                EFAfterNextAttack(
+                    lambda controller, user, _1, _2, _3: void((
+                        deactivateStanceFn(controller, user),
+                        activateStanceFn(controller, user, stance),
+                        controller.logMessage(MessageType.EFFECT,
+                                            f"{user.shortName} {strikerStanceDescMap[stance]}")
+                    ))
+                )
+            ], 0)
+        ], False),
+    ["TIGER", "HORSE", "CRANE"],
+    optionChecker = lambda stance, controller, user:
+        controller.combatStateMap[user].getStack(strikerStanceMarkMap[stance]) == 0)
+
+def decreaseDistanceFn(controller : CombatController, user : CombatEntity, target : CombatEntity, _1, result : EffectFunctionResult):
+    currentDistance = controller.checkDistance(user, target)
+    if currentDistance is not None:
+        reactionAttackData = controller.updateDistance(user, target, currentDistance - 1)
+        [result.setBonusAttack(*reactionAttack) for reactionAttack in reactionAttackData]
+PassiveSkillData("Like A Butterfly", SecretPlayerClassNames.STRIKER, 3, True,
+    "If attacking from out of range, decrease your distance to the target by 1 before attacking (slightly increasing the time until your next action).",
+    {}, {}, [SkillEffect("", [EFBeforeNextAttack(
+        {}, {},
+        lambda controller, user, target, result: void((
+            decreaseDistanceFn(controller, user, target, None, result),
+            controller.spendActionTimer(user, DEFAULT_APPROACH_TIMER_USAGE * 0.5)
+        )) if not controller.checkInRange(user, target) else None,
+        None
+    )], None)])

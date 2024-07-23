@@ -340,7 +340,7 @@ def ffPlant(params : dict, rng : random.Random | None = None) -> Enemy:
 def ffSlimeBoss(params : dict) -> Enemy:
     def _slimeCannonAccMult(rangeDelta : int):
         return max(1 - ((rangeDelta ** 2) * 0.225), 0.05)
-    def slimeCannonApply(controller : CombatController, attacker : CombatEntity, defender: CombatEntity):
+    def slimeCannonApply(controller : CombatController, attacker : CombatEntity, defender: CombatEntity, _):
         originalRange = controller.combatStateMap[defender].getStack(EffectStacks.TELEGRAPH_RANGE) - 1
         assert(originalRange >= 0)
 
@@ -483,7 +483,7 @@ def ffPlantBoss(params : dict) -> Enemy:
                                       {}, {}, [
                                           SkillEffect("", [
                                               EFBeforeNextAttack({}, {},
-                                                  lambda controller, attacker, _: controller.applyMultStatBonuses(
+                                                  lambda controller, attacker, _1, _2: controller.applyMultStatBonuses(
                                                       attacker, { BaseStats.MAG: 1.25 }
                                                   ) if len(controller.getTeammates(attacker)) == 0 else None,
                                                   lambda controller, attacker, _1, _2, _3: controller.revertMultStatBonuses(
@@ -987,7 +987,7 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                       SkillEffect("", [
                                           EFBeforeNextAttack(
                                               {CombatStats.IGNORE_RANGE_CHECK: 1}, {},
-                                              lambda controller, user, _: controller.applyMultStatBonuses(
+                                              lambda controller, user, _1, _2: controller.applyMultStatBonuses(
                                                   user, {
                                                       BaseStats.ATK: 0.8 + (controller.combatStateMap[user].getStack(EffectStacks.RPS_LEVEL) * 0.7)
                                                   }),
@@ -1706,7 +1706,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                      SkillEffect("", [
                                         EFBeforeNextAttack(
                                             { CombatStats.RANGE: -2 }, {},
-                                            lambda controller, user, _: void((
+                                            lambda controller, user, _1, _2: void((
                                                 controller.applyMultStatBonuses(user, {
                                                     BaseStats.ATK: 0.8 + (0.3 * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A))
                                                 }),
@@ -1733,7 +1733,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                           ),
                                           EFBeforeNextAttack(
                                               {}, {},
-                                              lambda controller, user, _: void((
+                                              lambda controller, user, _1, _2: void((
                                                   controller.applyMultStatBonuses(user, {
                                                       BaseStats.ATK: 1.5
                                                   }),
@@ -1760,7 +1760,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                           ),
                                           EFBeforeNextAttack(
                                               {CombatStats.IGNORE_RANGE_CHECK: 1}, {},
-                                              lambda controller, user, _: void((
+                                              lambda controller, user, _1, _2: void((
                                                   controller.applyMultStatBonuses(user, {
                                                       BaseStats.MAG: 1.5
                                                   }),
@@ -1783,7 +1783,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         "Butterfly Art: Chou No Hitokuchi", BasePlayerClassNames.WARRIOR, 0, False, 30, "",
         True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect("", [
             EFBeforeNextAttack({ CombatStats.RANGE: 1 }, { BaseStats.ACC: 1.5 },
-                lambda controller, user, target: void((
+                lambda controller, user, target, _2: void((
                     controller.applyMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.checkDistanceStrict(user, target) * 0.5)}),
                     controller.applyFlatStatBonuses(user, {CombatStats.CRIT_RATE: 1})
                         if len(controller.combatStateMap[target].currentStatusEffects) > 0 else None
@@ -1931,7 +1931,7 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                           ),
                                           EFBeforeNextAttack(
                                               {}, {},
-                                              lambda controller, user, _: controller.applyMultStatBonuses(
+                                              lambda controller, user, _1, _2: controller.applyMultStatBonuses(
                                                   user, { BaseStats.ATK: 0.9 + (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A) * 0.7 )}
                                               ),
                                               lambda controller, user, _1, _2, _3:  controller.revertMultStatBonuses(
@@ -1962,7 +1962,7 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                      SkillEffect("", [
                                         EFBeforeNextAttack(
                                             {CombatStats.IGNORE_RANGE_CHECK: 1}, {},
-                                            lambda controller, enemy, _: void((
+                                            lambda controller, enemy, _1, _2: void((
                                                 controller.combatStateMap[enemy].setStack(EffectStacks.ENEMY_COUNTER_B, len(controller.getTeammates(enemy)) - 1),
                                                 controller.applyMultStatBonuses(
                                                     enemy, { BaseStats.MAG: 0.5 + (controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_COUNTER_B) * 1.5 )})
@@ -2299,7 +2299,7 @@ def asStrongRat(params : dict, rng : random.Random | None = None) -> Enemy:
         SkillEffect("", [
             EFBeforeNextAttack(
                 {}, {},
-                lambda controller, user, target: void((
+                lambda controller, user, target, _2: void((
                     controller.combatStateMap[user].setStack(EffectStacks.ENEMY_COUNTER_A, sum([
                         controller.combatStateMap[target].getStack(stack) for stack in stackOptions
                     ])),
@@ -2351,7 +2351,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
         
     def _thunderAccMult(rangeDelta : int):
         return max(1 - ((rangeDelta ** 1.8) * 0.25), 0.05)
-    def thunderApply(controller : CombatController, attacker : CombatEntity, defender: CombatEntity):
+    def thunderApply(controller : CombatController, attacker : CombatEntity, defender: CombatEntity, _):
         originalRange = controller.combatStateMap[defender].getStack(EffectStacks.TELEGRAPH_RANGE) - 1
         assert(originalRange >= 0)
 
@@ -2421,7 +2421,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                                           ),
                                           EFBeforeNextAttack(
                                               {}, {},
-                                              lambda controller, user, _: controller.applyMultStatBonuses(user, {
+                                              lambda controller, user, _1, _2: controller.applyMultStatBonuses(user, {
                                                   BaseStats.ATK: 1 + ((0.25 if (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) == 0) else 0.45)
                                                                       * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A))
                                               }),

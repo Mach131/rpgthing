@@ -1,11 +1,13 @@
 from __future__ import annotations
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from gameData.rpg_item_data import makeBeginnerWeapon
-from structures.rpg_combat_state import CombatController
 from rpg_consts import *
 from structures.rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
 from structures.rpg_items import EquipmentTrait, Item, Equipment, Weapon
+
+if TYPE_CHECKING:
+    from structures.rpg_combat_state import CombatController
 
 class CombatEntity(object):
     def __init__(self, name : str, level : int, aggroDecayFactor : float,
@@ -71,7 +73,7 @@ class Player(CombatEntity):
 
         self.classRanks : dict[PlayerClassNames, int] = {}
         self.classExp : dict[PlayerClassNames, int] = {}
-        for classNameSet in [BasePlayerClassNames, AdvancedPlayerClassNames]:
+        for classNameSet in [BasePlayerClassNames, AdvancedPlayerClassNames, SecretPlayerClassNames]:
             for className in classNameSet:
                 self.classRanks[className] = 1
                 self.classExp[className] = 0
@@ -93,6 +95,7 @@ class Player(CombatEntity):
         for baseClass in BasePlayerClassNames:
             newWeapon = makeBeginnerWeapon(baseClass)
             self.inventory.append(newWeapon)
+            self.weaponCache[baseClass] = newWeapon
             if baseClass == self.currentPlayerClass:
                 self.equipItem(newWeapon)
 
@@ -269,6 +272,9 @@ class Player(CombatEntity):
         for requiredClass in classData.classRequirements:
             requiredRank = MAX_BASE_CLASS_RANK if isinstance(requiredClass, BasePlayerClassNames) else MAX_ADVANCED_CLASS_RANK
             if self.classRanks[requiredClass] < requiredRank:
+                return False
+        for milestone in classData.milestoneRequirements:
+            if milestone not in self.milestones:
                 return False
         return True
     

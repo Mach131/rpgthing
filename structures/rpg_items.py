@@ -393,12 +393,12 @@ luckTrait = EquipmentTrait("Lucky", lambda r, c: f"Become{','.join([' much' for 
 healthCostCurse = EquipmentTrait("Attacks Cost HP", lambda r, c: f"When attacking, spend {r+1}% of your total HP. (Cannot kill you.)",
                                   lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {},
     [SkillEffect("", [EFBeforeNextAttack({}, {},
-        lambda controller, user, _1: void(controller.applyDamage(user, user,
+        lambda controller, user, _1, _2: void(controller.applyDamage(user, user,
             min(math.ceil(controller.getMaxHealth(user) * ((r+1)*0.01)), controller.getCurrentHealth(user)-1))), None)], None)], False))
 manaCostCurse = EquipmentTrait("Attacks Cost MP", lambda r, c: f"When attacking, spend {r+1}% of your total MP.",
                                   lambda r, c: PassiveSkillData("", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {},
     [SkillEffect("", [EFBeforeNextAttack({}, {},
-        lambda controller, user, _1:
+        lambda controller, user, _1, _2:
             void(controller.spendMana(user, math.ceil(controller.getMaxMana(user) * ((r+1)*0.01)))), None)], None)], False))
 
 def makeStatusEffectCurse(statusName : StatusConditionNames, procScaling : float, duration : int, valMethod : Callable | None, description : str):

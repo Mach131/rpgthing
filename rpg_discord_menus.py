@@ -338,16 +338,41 @@ def characterClassesContent(session : GameSession, view : InterfaceView):
         advancedClassString = '\n'.join(advancedClassStrings)
     embed.add_field(name="Advanced Classes:", value=advancedClassString)
 
+    availableSecretClasses = [secretClass for secretClass in SecretPlayerClassNames if player.classRequirementsMet(secretClass)]
+    if len(availableSecretClasses) > 0:
+        secretClassStrings = [f"{enumName(secretClass)}: Rank {player.classRanks[secretClass]}/{MAX_ADVANCED_CLASS_RANK}"
+                                for secretClass in availableSecretClasses]
+        secretClassString = '\n'.join(secretClassStrings)
+        embed.add_field(name="Secret Classes:", value=secretClassString)
+
     embed.add_field(name=enumName(currentClass), value=CLASS_DESCRIPTION[currentClass], inline=False)
 
-    # TODO: may need scrolling options
-    for classGroup in (BasePlayerClassNames, availableAdvancedClasses):
-        for availableClass in classGroup:
+    if SCROLL_IDX not in view.pageData:
+        view.pageData[SCROLL_IDX] = 0
+    window_size = 10
+    currentScroll = view.pageData[SCROLL_IDX]
+    scrollWindowMin = currentScroll * window_size
+    scrollWindowMax = scrollWindowMin + window_size
+
+    allAvailableClasses = [baseClass for baseClass in BasePlayerClassNames] + availableAdvancedClasses + availableSecretClasses
+    for i in range(scrollWindowMin, scrollWindowMax):
+        if i >= 0 and i < len(allAvailableClasses):
+            availableClass = allAvailableClasses[i]
             classButton = discord.ui.Button(label=f"{availableClass.name[0] + availableClass.name[1:].lower()}",
-                                            style=discord.ButtonStyle.primary if classGroup is BasePlayerClassNames else discord.ButtonStyle.green,
+                                            style=discord.ButtonStyle.primary if isinstance(availableClass, BasePlayerClassNames) else discord.ButtonStyle.green,
                                             custom_id=f"{availableClass.name}", disabled=(availableClass == currentClass))
             classButton.callback = (lambda _class: lambda interaction: changeClassButton(interaction, session, player, _class))(availableClass)
             view.add_item(classButton)
+
+    if len(allAvailableClasses) > window_size:
+        backButton = discord.ui.Button(emoji="⬅️", style=discord.ButtonStyle.green, row=2)
+        backButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, -1,
+                                                                   (len(allAvailableClasses)-1) // window_size)
+        forwardButton = discord.ui.Button(emoji="➡️", style=discord.ButtonStyle.green, row=2)
+        forwardButton.callback = lambda interaction: scrollCallbackFn(interaction, session, view, 1,
+                                                                      (len(allAvailableClasses)-1) // window_size)
+        view.add_item(backButton)
+        view.add_item(forwardButton)
 
     return embed
 async def changeClassButton(interaction : discord.Interaction, session : GameSession, player : Player, newClass : PlayerClassNames):
@@ -461,6 +486,7 @@ def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
             skillButton = discord.ui.Button(label=f"+{skill.skillName}", style=discord.ButtonStyle.blurple, disabled=atFreeSkillCapacity)
             if skill.playerClass in currentSkillClasses:
                 skillButton.disabled = True
+                skillButton.style = discord.ButtonStyle.secondary
             skillButton.callback = (lambda _skill:(lambda interaction:
                                                     toggleFreeSkillButton(interaction, session, player, _skill, True)))(skill)
             view.add_item(skillButton)
@@ -1235,8 +1261,9 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                 instructionContent = f"Options for {chosenSkill.skillName}:\n{chosenSkill.optionDescription}"
                 for option in chosenSkill.options:
                     optionName = option[0] + option[1:].lower()
+                    optionAvailable = chosenSkill.checkOptionAvailable(option, combatInterface.cc, player)
                     optionSkill = chosenSkill.selectSkill(option)
-                    optionButton = discord.ui.Button(label=optionName, style=discord.ButtonStyle.blurple)
+                    optionButton = discord.ui.Button(label=optionName, style=discord.ButtonStyle.blurple, disabled=not optionAvailable)
                     optionButton.callback = (lambda _os: lambda interaction:
                                             updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, 'chosenSkill', _os))(optionSkill)
                     optionButton.disabled = not combatInterface.canPayForSkill(player, optionSkill)

@@ -126,6 +126,12 @@ class AdvancedPlayerClassNames(PlayerClassNames):
     WIZARD = auto()
     SAINT = auto()
 
+class SecretPlayerClassNames(PlayerClassNames):
+    STRIKER = auto()
+    ALCHEFIST = auto()
+    SABOTEUR = auto()
+    SUMMONER = auto()
+
 CLASS_DESCRIPTION : dict[PlayerClassNames, str] = {
     BasePlayerClassNames.WARRIOR: "Confront opponents face-on!",
     BasePlayerClassNames.RANGER: "Attack safely from afar!",
@@ -139,7 +145,12 @@ CLASS_DESCRIPTION : dict[PlayerClassNames, str] = {
     AdvancedPlayerClassNames.ASSASSIN: "Use quick strikes to lower enemies' guards for a big finisher!",
     AdvancedPlayerClassNames.ACROBAT: "Become untouchable, dodging to draw attention while building momentum!",
     AdvancedPlayerClassNames.WIZARD: "Enchant your and your party's attacks to magically hammer weak points!",
-    AdvancedPlayerClassNames.SAINT: "Provide allies with an arsenal of offensive and defensive support!"
+    AdvancedPlayerClassNames.SAINT: "Provide allies with an arsenal of offensive and defensive support!",
+
+    SecretPlayerClassNames.STRIKER: "Master unarmed combat to adapt to the needs of any battle!",
+    SecretPlayerClassNames.ALCHEFIST: "Concoct a variety of additional attack effects by combining ingredients!",
+    SecretPlayerClassNames.SABOTEUR: "Wear down your targets, growing stronger each time they falter!",
+    SecretPlayerClassNames.SUMMONER: "Fight alongside a summoned creature, overwhelming opponents from two angles!"
 }
 
 MAX_BASE_CLASS_RANK = 3
@@ -186,6 +197,10 @@ class EffectStacks(Enum):
     RPS_LEVEL = auto()
     BUTTERFLY_KI = auto()
     SALALI_CHARGE = auto()
+    STRIKER_TIGER = auto()
+    STRIKER_HORSE = auto()
+    STRIKER_CRANE = auto()
+    HORSE_INSTINCTS = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
@@ -197,8 +212,17 @@ EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.RAT_MARK_INTREPID: "Mark of Intrepid Rat",
     EffectStacks.RPS_LEVEL: "Reactive Protection System Level",
     EffectStacks.BUTTERFLY_KI: "Floating Butterfly",
-    EffectStacks.SALALI_CHARGE: "Voltage"
+    EffectStacks.SALALI_CHARGE: "Voltage",
+    EffectStacks.STRIKER_TIGER: "Tiger Stance",
+    EffectStacks.STRIKER_HORSE: "Horse Stance",
+    EffectStacks.STRIKER_CRANE: "Crane Stance"
 }
+
+NO_COUNT_DISPLAY_STACKS : set[EffectStacks] = set((
+    EffectStacks.STRIKER_TIGER,
+    EffectStacks.STRIKER_HORSE,
+    EffectStacks.STRIKER_CRANE
+))
 
 """ Combat """
 MAX_ACTION_TIMER = 100
@@ -659,6 +683,10 @@ class Milestones(Enum):
     SKYLIGHT_CAVE_COMPLETE = auto()
     SAFFRON_FOREST_COMPLTE = auto()
     ABANDONED_STOREHOUSE_COMPLETE = auto()
+    CLASS_STRIKER_UNLOCKED = auto()
+    CLASS_ALCHEFIST_UNLOCKED = auto()
+    CLASS_SABOTEUR_UNLOCKED = auto()
+    CLASS_SUMMONER_UNLOCKED = auto()
 
 MAX_USER_CHARACTERS = 4
 MAX_NAME_LENGTH = 15

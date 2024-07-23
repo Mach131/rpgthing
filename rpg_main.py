@@ -17,12 +17,12 @@ from structures.rpg_messages import LocalMessageCollector, MessageCollector
 from rpg_loadout_testing import *
 from gameData.rpg_enemy_data import *
 
-async def simpleCombatSimulation(team1 : list[Player], team2 : list[Player], bothRandom : bool, sleepTime : int) -> None:
+async def simpleCombatSimulation(team1 : list[Player], team2 : list[Player], t1Random : bool, t2Random : bool, sleepTime : int) -> None:
     mainLogger = LocalMessageCollector()
     loggers : dict[CombatEntity, MessageCollector] = {player : MessageCollector() for player in team1}
     loggers[team1[0]] = mainLogger
-    ci = CombatInterface({player: RandomEntityInputHandler(player, sleepTime) if bothRandom else LocalPlayerInputHandler(player) for player in team1},
-                         {opponent: RandomEntityInputHandler(opponent, sleepTime) for opponent in team2}, loggers, {}, {},
+    ci = CombatInterface({player: RandomEntityInputHandler(player, sleepTime) if t1Random else LocalPlayerInputHandler(player) for player in team1},
+                         {opponent: RandomEntityInputHandler(opponent, sleepTime) if t2Random else LocalPlayerInputHandler(opponent) for opponent in team2}, loggers, {}, {},
                          {player : 2 for player in team1})
 
     await ci.runCombat()
@@ -61,6 +61,12 @@ if __name__ == '__main__':
     # asyncio.run(dungeonController.runDungeon(False))
 
     # asyncio.run(betterCombatSimulation([tp_acrobat], [basicDummy({})]))
+
+    print(tp_mercenary.getTotalStatString())
+    print("--")
+    print(tp_striker.getTotalStatString())
+    print("--")
+    asyncio.run(simpleCombatSimulation([tp_striker], [tp_mercenary, tp_knight], False, True, 0))
 
     while True:
         inp = input("> ")

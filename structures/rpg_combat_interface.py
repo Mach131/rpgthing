@@ -315,6 +315,10 @@ class LocalPlayerInputHandler(CombatInputHandler):
 
     def doCheck(self, combatController : CombatController, target : CombatEntity):
         print(combatController.getFullStatusStringFor(target))
+        buffString = combatController.getBuffStatusStringFor(target)
+        if len(buffString) > 0:
+            print("Ongoing Effects:\n" + buffString.replace("\n", ", ") + "\n")
+
         distance = combatController.checkDistance(self.player, target)
         if distance is not None:
             print(f"Current distance: {distance}")

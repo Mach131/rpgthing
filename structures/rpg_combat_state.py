@@ -7,6 +7,7 @@ from rpg_consts import *
 from structures.rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnHealSkill, EFOnStatusApplied, EFOnToggle, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
+from structures.rpg_combat_entity import Player
 from structures.rpg_messages import MessageCollector, makeTeamString
 from gameData.rpg_status_definitions import StatusEffect
 
@@ -149,7 +150,8 @@ class EntityCombatState(object):
         for toggleEffect in self.activeToggleSkills:
             noDurationBuffList.append(f"{toggleEffect.skillName} (Toggled On)")
 
-        stackStringList = [f"{EFFECT_STACK_NAMES[stack]} x{self.getStack(stack)}" for stack in self.effectStacks
+        stackStringList = [f"{EFFECT_STACK_NAMES[stack]}{' x' + str(self.getStack(stack)) if stack not in NO_COUNT_DISPLAY_STACKS else ''}"
+                                for stack in self.effectStacks
                                 if self.getStack(stack) > 0 and stack in EFFECT_STACK_NAMES]
 
         stackBuffString = '\n'.join(weaknessList + resistanceList + noDurationBuffList + durationBuffList + stackStringList) 
@@ -375,6 +377,12 @@ class EntityCombatState(object):
         self.currentStatusEffects.pop(statusName)
         self.maxStatusTolerance[statusName] *= STATUS_TOLERANCE_RECOVERY_INCREASE_FACTOR
         self.currentStatusTolerance[statusName] = self.maxStatusTolerance[statusName]
+
+    """ Striker class utility: returns the entity's weapon, or None if they do not have one """
+    def checkWeapon(self):
+        if isinstance(self.entity, Player):
+            return self.entity.equipment.get(EquipmentSlot.WEAPON, None)
+        return None
 
 
 class CombatController(object):
@@ -1214,9 +1222,12 @@ class CombatController(object):
         if attackType is None:
             attackType = self.combatStateMap[attacker].getDefaultAttackType()
         
+        savedBonusAttacks = []
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
-            effectFunction.applyEffect(self, attacker, defender)
+            effectResult = effectFunction.applyEffect(self, attacker, defender)
+            if effectResult.bonusAttacks is not None:
+                savedBonusAttacks += effectResult.bonusAttacks
         for ally in self.getTeammates(defender):
             for effectFunction in self.combatStateMap[ally].getEffectFunctions(EffectTimings.BEFORE_ATTACKED):
                 if ally == defender:
@@ -1232,7 +1243,6 @@ class CombatController(object):
             self.logMessage(MessageType.DAMAGE,
                             f"{attacker.shortName} is out of range of {defender.shortName}!")
 
-        parryBonusAttacks = None
         parryDamageMultiplier = 1
         guaranteeDodge = False
         if inRange and self.combatStateMap[defender].parryType is not None:
@@ -1242,7 +1252,8 @@ class CombatController(object):
                 for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.PARRY):
                     assert(isinstance(effectFunction, EFOnParry))
                     effectResult = effectFunction.applyEffect(self, defender, attacker, isPhysical)
-                    parryBonusAttacks = effectResult.bonusAttacks
+                    if effectResult.bonusAttacks is not None:
+                        savedBonusAttacks += effectResult.bonusAttacks
                     if effectResult.damageMultiplier is not None:
                         parryDamageMultiplier = effectResult.damageMultiplier
                     if effectResult.guaranteeDodge is not None:
@@ -1276,8 +1287,8 @@ class CombatController(object):
         attackAttribute : AttackAttribute = self.combatStateMap[attacker].getCurrentAttackAttribute(isPhysical)
         attackResultInfo = AttackResultInfo(attacker, defender, originalDistance, inRange, checkHit, damageDealt,
                                             isCritical, isBonus, isPhysical, attackType, attackAttribute)
-        if parryBonusAttacks is not None:
-            [attackResultInfo.addBonusAttack(*parryAttack) for parryAttack in parryBonusAttacks]
+        if savedBonusAttacks is not None:
+            [attackResultInfo.addBonusAttack(*bonusAttack) for bonusAttack in savedBonusAttacks]
 
         actionTimerUsage : float = DEFAULT_ATTACK_TIMER_USAGE
         actionTimeMult : float = 1
@@ -1289,6 +1300,8 @@ class CombatController(object):
                     actionTimerUsage = effectResult.actionTime
                 if effectResult.actionTimeMult is not None:
                     actionTimeMult = effectResult.actionTimeMult
+                if effectResult.bonusAttacks is not None:
+                    [attackResultInfo.addBonusAttack(*bonusAttack) for bonusAttack in effectResult.bonusAttacks]
             elif isinstance(effectFunction, EFBeforeNextAttack_Revert):
                 effectFunction.applyEffect(self, attacker, defender, attackResultInfo)
             elif isinstance(effectFunction, EFBeforeAttacked_Revert):
