@@ -112,7 +112,9 @@ class RandomEntityInputHandler(CombatInputHandler):
                 originalChosenSkill = chosenSkill
 
                 if isinstance(chosenSkill, ActiveSkillDataSelector):
-                    chosenSkill = chosenSkill.selectSkill(random.choice(chosenSkill.options))
+                    availableOptions = [option for option in chosenSkill.options
+                                            if chosenSkill.checkOptionAvailable(option, combatController, self.entity)]
+                    chosenSkill = chosenSkill.selectSkill(random.choice(availableOptions))
 
                 targets = []
                 targetCount = 1 if chosenSkill.expectedTargets is None else chosenSkill.expectedTargets
@@ -211,13 +213,18 @@ class LocalPlayerInputHandler(CombatInputHandler):
                         targetIdx = 2
                         if isinstance(chosenSkill, ActiveSkillDataSelector):
                             try:
-                                chosenSkill = chosenSkill.selectSkill(inpSplit[2].upper())
+                                option = inpSplit[2].upper()
+                                assert(chosenSkill.checkOptionAvailable(option, combatController, self.entity))
+                                chosenSkill = chosenSkill.selectSkill(option)
                                 targetIdx = 3
                             except IndexError:
                                 print("This skill expects additional parameters; check the description.")
                                 continue
                             except KeyError:
                                 print(f"Invalid parameter for this skill, options are: {', '.join(chosenSkill.options)}.")
+                                continue
+                            except AssertionError:
+                                print(f"That selection is not currently available.")
                                 continue
 
                         if not chosenSkill.targetOpponents:
@@ -353,6 +360,7 @@ class EnemyInputHandler(CombatInputHandler):
 
             if isinstance(chosenSkill, ActiveSkillDataSelector):
                 assert(aiDecision.skillSelector) is not None
+                assert(chosenSkill.checkOptionAvailable(aiDecision.skillSelector, combatController, self.entity))
                 chosenSkill = chosenSkill.selectSkill(aiDecision.skillSelector)
 
             skillTargetList = targetList if chosenSkill.targetOpponents else teammateList
@@ -405,10 +413,12 @@ class CombatInterface(object):
         
         for player in startingPlayerHealth:
             healthDelta = self.cc.getCurrentHealth(player) - startingPlayerHealth[player]
-            self.cc.applyDamage(player, player, healthDelta, False, True)
+            if healthDelta > 0:
+                self.cc.applyDamage(player, player, healthDelta, False, True)
         for player in startingPlayerMana:
             manaDelta = self.cc.getCurrentMana(player) - startingPlayerMana[player]
-            self.cc.spendMana(player, manaDelta, True)
+            if manaDelta > 0:
+                self.cc.spendMana(player, manaDelta, True)
 
     def spawnEntity(self, entity : CombatEntity, enemyTeam : bool):
         if not enemyTeam:

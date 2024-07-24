@@ -48,6 +48,8 @@ class CombatStats(Stats):
     OPPORTUNISM = auto()
     INSTANTANEOUS_ETERNITY = auto()
     BASIC_MP_GAIN_MULT = auto()
+    TIGER_INSTINCT = auto()
+    INNER_PEACE = auto()
 
 class SpecialStats(Stats):
     CURRENT_HP = auto()
@@ -79,7 +81,9 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.REPOSITION_ACTION_TIME_MULT: 1,
     CombatStats.OPPORTUNISM: 0,
     CombatStats.INSTANTANEOUS_ETERNITY: 0,
-    CombatStats.BASIC_MP_GAIN_MULT: 1
+    CombatStats.BASIC_MP_GAIN_MULT: 1,
+    CombatStats.TIGER_INSTINCT: 0,
+    CombatStats.INNER_PEACE: 0
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -200,7 +204,13 @@ class EffectStacks(Enum):
     STRIKER_TIGER = auto()
     STRIKER_HORSE = auto()
     STRIKER_CRANE = auto()
+    TIGER_BONUS = auto()
     HORSE_INSTINCTS = auto()
+    HORSE_BONUS = auto()
+    CRANE_BONUS = auto()
+    SECRET_ART_TIGER = auto()
+    SECRET_ART_HORSE = auto()
+    SECRET_ART_CRANE = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
@@ -215,13 +225,20 @@ EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.SALALI_CHARGE: "Voltage",
     EffectStacks.STRIKER_TIGER: "Tiger Stance",
     EffectStacks.STRIKER_HORSE: "Horse Stance",
-    EffectStacks.STRIKER_CRANE: "Crane Stance"
+    EffectStacks.STRIKER_CRANE: "Crane Stance",
+    EffectStacks.HORSE_INSTINCTS: "Horse Instinct",
+    EffectStacks.SECRET_ART_TIGER: "Secret Art T",
+    EffectStacks.SECRET_ART_HORSE: "Secret Art H",
+    EffectStacks.SECRET_ART_CRANE: "Secret Art C"
 }
 
 NO_COUNT_DISPLAY_STACKS : set[EffectStacks] = set((
     EffectStacks.STRIKER_TIGER,
     EffectStacks.STRIKER_HORSE,
-    EffectStacks.STRIKER_CRANE
+    EffectStacks.STRIKER_CRANE,
+    EffectStacks.SECRET_ART_TIGER,
+    EffectStacks.SECRET_ART_HORSE,
+    EffectStacks.SECRET_ART_CRANE
 ))
 
 """ Combat """

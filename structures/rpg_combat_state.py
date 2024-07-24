@@ -278,8 +278,9 @@ class EntityCombatState(object):
                 self.applyFlatStatBonuses(newEnchantment.flatStatBonuses)
                 self.applyMultStatBonuses(newEnchantment.multStatBonuses)
                 newEnchantmentStr = f" (The {newEnchantment.enchantmentAttribute.name} enchantment is now active.)"
-        controller.logMessage(MessageType.EXPIRATION,
-                              f"{self.entity.shortName}'s {enchantmentEffect.enchantmentAttribute.name} enchantment wore off.{newEnchantmentStr}")
+        if enchantmentEffect.effectDuration is not None and enchantmentEffect.effectDuration > 0:
+            controller.logMessage(MessageType.EXPIRATION,
+                                f"{self.entity.shortName}'s {enchantmentEffect.enchantmentAttribute.name} enchantment wore off.{newEnchantmentStr}")
             
     def getCurrentAttackAttribute(self, isPhysical : bool) -> AttackAttribute:
         if len(self.activeEnchantments) > 0:
@@ -678,6 +679,13 @@ class CombatController(object):
         ignoreResistance : float = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.IGNORE_RESISTANCE_MULT)
         attributeMultiplier : float = self.combatStateMap[defender].getAttributeDamageMultiplier(
             attackAttribute, bonusWeaknessDamage, ignoreResistance)
+        
+        if attributeMultiplier > 1:
+            self.logMessage(MessageType.DAMAGE,
+                        f"{defender.shortName} is weak to the {enumName(attackAttribute)} attack!")
+        elif attributeMultiplier < 1:
+            self.logMessage(MessageType.DAMAGE,
+                        f"{defender.shortName} resists the {enumName(attackAttribute)} attack!")
 
         damageReduction : float = self.combatStateMap[defender].getTotalStatValueFloat(CombatStats.DAMAGE_REDUCTION)
         defenseReduction : float = 1
@@ -1299,7 +1307,7 @@ class CombatController(object):
                 if effectResult.actionTime is not None:
                     actionTimerUsage = effectResult.actionTime
                 if effectResult.actionTimeMult is not None:
-                    actionTimeMult = effectResult.actionTimeMult
+                    actionTimeMult *= effectResult.actionTimeMult
                 if effectResult.bonusAttacks is not None:
                     [attackResultInfo.addBonusAttack(*bonusAttack) for bonusAttack in effectResult.bonusAttacks]
             elif isinstance(effectFunction, EFBeforeNextAttack_Revert):

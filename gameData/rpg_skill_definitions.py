@@ -918,7 +918,7 @@ def enlightenmentFn(controller : CombatController, user : CombatEntity, original
         originalOver = originalStats[SpecialStats.CURRENT_MP] / baseMP >= threshold
         newOver = finalStats[SpecialStats.CURRENT_MP] / baseMP >= threshold
     elif BaseStats.MP in originalStats:
-        currentMP = controller.getCurrentHealth(user)
+        currentMP = controller.getCurrentMana(user)
         originalOver =currentMP / originalStats[BaseStats.MP] >= threshold
         newOver = currentMP / finalStats[BaseStats.MP] >= threshold
     else:
@@ -1128,8 +1128,20 @@ strikerStanceDescMap = {
     "HORSE": "enters Horse stance! Their DEF and RES increase, while their SPD and AVO decrease.",
     "CRANE": "enters Crane stance! Their Range and ACC increase, while their DEF and RES decrease."
 }
+strikerHorseStackDR = 0.08
+innerPeaceMap : dict[Stats, float] = {
+    BaseStats.ATK: 1.1,
+    BaseStats.DEF: 1.1,
+    BaseStats.MAG: 1.1,
+    BaseStats.RES: 1.1,
+    BaseStats.ACC: 1.1,
+    BaseStats.AVO: 1.1,
+    BaseStats.SPD: 1.1,
+}
 def deactivateStanceFn(controller : CombatController, user : CombatEntity):
     stateMap = controller.combatStateMap[user]
+    innerPeaceCheck = controller.combatStateMap[user].getTotalStatValue(CombatStats.INNER_PEACE) > 0
+    wasInStance = False
     if stateMap.getStack(EffectStacks.STRIKER_TIGER) > 0:
         controller.revertMultStatBonuses(user, {
             BaseStats.SPD: 1.3,
@@ -1137,7 +1149,12 @@ def deactivateStanceFn(controller : CombatController, user : CombatEntity):
             BaseStats.ATK: 0.85,
             BaseStats.ACC: 0.85
         })
+        if controller.combatStateMap[user].getTotalStatValue(CombatStats.TIGER_INSTINCT) > 0:
+            controller.revertMultStatBonuses(user, {
+                CombatStats.MANA_GAIN_MULT: 1.5
+            })
         stateMap.setStack(EffectStacks.STRIKER_TIGER, 0)
+        wasInStance = True
     if stateMap.getStack(EffectStacks.STRIKER_HORSE) > 0:
         controller.revertMultStatBonuses(user, {
             BaseStats.DEF: 1.3,
@@ -1145,7 +1162,12 @@ def deactivateStanceFn(controller : CombatController, user : CombatEntity):
             BaseStats.SPD: 0.85,
             BaseStats.AVO: 0.85
         })
+        controller.revertFlatStatBonuses(user, {
+            CombatStats.DAMAGE_REDUCTION: controller.combatStateMap[user].getStack(EffectStacks.HORSE_INSTINCTS) * strikerHorseStackDR
+        })
+        stateMap.setStack(EffectStacks.HORSE_INSTINCTS, 0)
         stateMap.setStack(EffectStacks.STRIKER_HORSE, 0)
+        wasInStance = True
     if stateMap.getStack(EffectStacks.STRIKER_CRANE) > 0:
         controller.revertFlatStatBonuses(user, {
             CombatStats.RANGE: 1
@@ -1156,8 +1178,13 @@ def deactivateStanceFn(controller : CombatController, user : CombatEntity):
             BaseStats.RES: 0.85
         })
         stateMap.setStack(EffectStacks.STRIKER_CRANE, 0)
+        wasInStance = True
+
+    if wasInStance and innerPeaceCheck:
+        controller.revertMultStatBonuses(user, innerPeaceMap)
 def activateStanceFn(controller : CombatController, user : CombatEntity, stance : str):
     newStanceMark = strikerStanceMarkMap[stance]
+    innerPeaceCheck = controller.combatStateMap[user].getTotalStatValue(CombatStats.INNER_PEACE) > 0
     if newStanceMark == EffectStacks.STRIKER_TIGER:
         controller.applyMultStatBonuses(user, {
             BaseStats.SPD: 1.3,
@@ -1165,6 +1192,10 @@ def activateStanceFn(controller : CombatController, user : CombatEntity, stance 
             BaseStats.ATK: 0.85,
             BaseStats.ACC: 0.85
         })
+        if controller.combatStateMap[user].getTotalStatValue(CombatStats.TIGER_INSTINCT) > 0:
+            controller.applyMultStatBonuses(user, {
+                CombatStats.MANA_GAIN_MULT: 1.5
+            })
     elif newStanceMark == EffectStacks.STRIKER_HORSE:
         controller.applyMultStatBonuses(user, {
             BaseStats.DEF: 1.3,
@@ -1182,6 +1213,8 @@ def activateStanceFn(controller : CombatController, user : CombatEntity, stance 
             BaseStats.RES: 0.85
         })
     controller.combatStateMap[user].setStack(newStanceMark, 1)
+    if innerPeaceCheck:
+        controller.applyMultStatBonuses(user, innerPeaceMap)
 def horseAoeFn(controller : CombatController, user : CombatEntity, target : CombatEntity, attackInfo : AttackResultInfo, _):
     otherOpponents = [opp for opp in controller.getTargets(user) if opp is not target]
     for bonusTarget in otherOpponents:
@@ -1220,6 +1253,7 @@ ActiveSkillDataSelector("Form Shift", SecretPlayerClassNames.STRIKER, 2, False, 
     optionChecker = lambda stance, controller, user:
         controller.combatStateMap[user].getStack(strikerStanceMarkMap[stance]) == 0)
 
+
 def decreaseDistanceFn(controller : CombatController, user : CombatEntity, target : CombatEntity, _1, result : EffectFunctionResult):
     currentDistance = controller.checkDistance(user, target)
     if currentDistance is not None:
@@ -1231,7 +1265,295 @@ PassiveSkillData("Like A Butterfly", SecretPlayerClassNames.STRIKER, 3, True,
         {}, {},
         lambda controller, user, target, result: void((
             decreaseDistanceFn(controller, user, target, None, result),
-            controller.spendActionTimer(user, DEFAULT_APPROACH_TIMER_USAGE * 0.5)
+            controller.spendActionTimer(user, DEFAULT_APPROACH_TIMER_USAGE * 0.3)
         )) if not controller.checkInRange(user, target) else None,
         None
     )], None)])
+
+def tigerDodgeFn(controller : CombatController, user, attacker, attackInfo, _2):
+    if controller.combatStateMap[user].getStack(EffectStacks.STRIKER_TIGER) == 0:
+        return
+    if attackInfo.inRange and not attackInfo.attackHit:
+        controller.combatStateMap[user].setStack(EffectStacks.TIGER_BONUS, 1)
+        controller.increaseActionTimer(user, 0.35)
+def horseStackFn(controller : CombatController, user, attacker, attackInfo, _2):
+    if controller.combatStateMap[user].getStack(EffectStacks.STRIKER_HORSE) == 0:
+        return
+    if attackInfo.attackHit and controller.combatStateMap[user].getStack(EffectStacks.HORSE_INSTINCTS) < 6:
+        controller.revertFlatStatBonuses(user, {
+            CombatStats.DAMAGE_REDUCTION: controller.combatStateMap[user].getStack(EffectStacks.HORSE_INSTINCTS) * strikerHorseStackDR
+        })
+        controller.combatStateMap[user].addStack(EffectStacks.HORSE_INSTINCTS, 6)
+        controller.applyFlatStatBonuses(user, {
+            CombatStats.DAMAGE_REDUCTION: controller.combatStateMap[user].getStack(EffectStacks.HORSE_INSTINCTS) * strikerHorseStackDR
+        })
+        controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s guard tightens!")
+def craneApplyFn(controller : CombatController, user : CombatEntity, target : CombatEntity, _):
+    if controller.combatStateMap[user].getStack(EffectStacks.STRIKER_CRANE) == 0:
+        return
+    if controller.checkDistanceStrict(user, target) > 0:
+        controller.combatStateMap[user].setStack(EffectStacks.CRANE_BONUS, 1)
+        controller.applyFlatStatBonuses(user, {
+            CombatStats.CRIT_RATE: 0.35,
+            CombatStats.CRIT_DAMAGE: 0.15
+        })
+def craneRevertFn(controller : CombatController, user : CombatEntity, target : CombatEntity, _1, _2):
+    if controller.combatStateMap[user].getStack(EffectStacks.CRANE_BONUS) == 1:
+        controller.combatStateMap[user].setStack(EffectStacks.CRANE_BONUS, 0)
+        controller.revertFlatStatBonuses(user, {
+            CombatStats.CRIT_RATE: 0.35,
+            CombatStats.CRIT_DAMAGE: 0.15
+        })
+PassiveSkillData("Awakened Instincts", SecretPlayerClassNames.STRIKER, 4, False,
+    "In __Tiger Stance__: +50% MP Restoration. Reduce time to next action after dodging. " +
+    "In __Horse Stance__: When you are hit, gain stacking buff increasing Damage Reduction by 8%, up to 6 stacks. " +
+    "In __Crane Stance__: Increase Critical Hit Rate by 35% and Critical Damage by 15% when attacking at Distance 0 or greater.",
+    {CombatStats.TIGER_INSTINCT: 1}, {}, [
+        SkillEffect("", [
+            EFWhenAttacked(tigerDodgeFn),
+            EFWhenAttacked(horseStackFn),
+            EFBeforeNextAttack({}, {}, craneApplyFn, craneRevertFn),
+            EFEndTurn(
+                lambda controller, user, skipDurationTick, _2:
+                    controller.combatStateMap[user].setStack(EffectStacks.TIGER_BONUS, 0)
+                    if not skipDurationTick else None
+            )
+        ], None)
+    ])
+
+def kiTigerApplyFn(controller : CombatController, user : CombatEntity, _1, _2):
+    if controller.combatStateMap[user].getStack(EffectStacks.STRIKER_TIGER) == 0:
+        return
+    if controller.combatStateMap[user].getStack(EffectStacks.TIGER_BONUS) > 0:
+        controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s spirit burns brightly!")
+        controller.applyMultStatBonuses(user, {
+            BaseStats.ATK: 1.5
+        })
+        revertEffect = SkillEffect("", [EFAfterNextAttack(kiTigerRevertFn)], 0)
+        controller.addSkillEffect(user, revertEffect)
+def kiTigerRevertFn(controller : CombatController, user : CombatEntity, _1, _2, result : EffectFunctionResult):
+    controller.revertMultStatBonuses(user, {
+        BaseStats.ATK: 1.5
+    })
+    result.setActionTime(DEFAULT_ATTACK_TIMER_USAGE * 0.2)
+
+def kiHorseApplyFn(controller : CombatController, user : CombatEntity, _1, _2):
+    if controller.combatStateMap[user].getStack(EffectStacks.STRIKER_HORSE) == 0:
+        return
+    instinctStacks = controller.combatStateMap[user].getStack(EffectStacks.HORSE_INSTINCTS)
+    if instinctStacks > 0:
+        controller.combatStateMap[user].setStack(EffectStacks.HORSE_BONUS, instinctStacks)
+        controller.applyMultStatBonuses(user, {
+            BaseStats.ATK: 1 + (0.04 * instinctStacks)
+        })
+        revertEffect = SkillEffect("", [EFAfterNextAttack(kiHorseRevertFn)], 0)
+        controller.addSkillEffect(user, revertEffect)
+def kiHorseRevertFn(controller : CombatController, user : CombatEntity, target : CombatEntity, result : AttackResultInfo, _):
+    instinctStacks = controller.combatStateMap[user].getStack(EffectStacks.HORSE_BONUS)
+    controller.revertMultStatBonuses(user, {
+            BaseStats.ATK: 1 + (0.04 * instinctStacks)
+    })
+    if result.attackHit and instinctStacks >= 2:
+        controller.logMessage(MessageType.EFFECT, f"{user.shortName} delivers a crumpling blow!")
+        controller.applyStatusCondition(target, StunStatusEffect(user, target, instinctStacks // 2))
+
+def kiCraneApplyFn(controller : CombatController, user : CombatEntity, _1, _2):
+    if controller.combatStateMap[user].getStack(EffectStacks.STRIKER_CRANE) == 0:
+        return
+    controller.logMessage(MessageType.EFFECT, f"{user.shortName} executes a precise strike!")
+    controller.applyFlatStatBonuses(user, {
+        CombatStats.CRIT_DAMAGE: 1
+    })
+    revertEffect = SkillEffect("", [EFAfterNextAttack(kiCraneRevertFn)], 0)
+    controller.addSkillEffect(user, revertEffect)
+def kiCraneRevertFn(controller : CombatController, user : CombatEntity, target : CombatEntity, _, result : EffectFunctionResult):
+    controller.revertFlatStatBonuses(user, {
+        CombatStats.CRIT_DAMAGE: 1
+    })
+    decreaseDistanceFn(controller, user, target, _, result)
+
+AttackSkillData("Ki Strike", SecretPlayerClassNames.STRIKER, 5, False, 30,
+    "Attack with 1.2x ATK. If in stance, gains additional effects and exits stance. " +
+    "(__Tiger__ enhanced when used after dodging, __Horse__ enhanced based on Instinct stacks, __Crane__ gains Critical Damage and approaches after)",
+    True, AttackType.MELEE, 1.2, DEFAULT_ATTACK_TIMER_USAGE, [
+        SkillEffect("", [
+            EFBeforeNextAttack({}, {}, kiTigerApplyFn, None),
+            EFBeforeNextAttack({}, {}, kiHorseApplyFn, None),
+            EFBeforeNextAttack({}, {}, kiCraneApplyFn, None),
+
+            EFAfterNextAttack(
+                lambda controller, user, _1, _2, _3: void((
+                    controller.logMessage(MessageType.EFFECT,
+                        f"{user.shortName} returns to a neutral stance!"),
+                    deactivateStanceFn(controller, user)
+                )) if controller.combatStateMap[user].getStack(EffectStacks.STRIKER_TIGER) > 0
+                    or controller.combatStateMap[user].getStack(EffectStacks.STRIKER_HORSE) > 0
+                    or controller.combatStateMap[user].getStack(EffectStacks.STRIKER_CRANE) > 0 else None
+            )
+        ], 0)
+    ])
+
+
+staminaMaxReduction = 0.2
+def staminaFn(controller, user, originalStats, finalStats, _):
+    originalRatio = 1
+    newRatio = 1
+    if SpecialStats.CURRENT_MP in originalStats:
+        baseMP = controller.combatStateMap[user].getTotalStatValue(BaseStats.MP)
+        originalRatio = originalStats[SpecialStats.CURRENT_MP] / baseMP
+        newRatio = finalStats[SpecialStats.CURRENT_MP] / baseMP
+    elif BaseStats.MP in originalStats:
+        currentMP = controller.getCurrentMana(user)
+        originalRatio = currentMP / originalStats[BaseStats.MP]
+        newRatio = currentMP / finalStats[BaseStats.MP]
+    else:
+        return
+    
+    oldMult = 1 - (originalRatio * staminaMaxReduction)
+    newMult = 1 - (newRatio * staminaMaxReduction)
+    controller.revertMultStatBonuses(user, {
+        CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: oldMult
+    })
+    controller.applyMultStatBonuses(user, {
+        CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: newMult
+    })
+PassiveSkillData("Stamina", SecretPlayerClassNames.STRIKER, 6, True,
+    "Decreases the time between your actions by up to 20% based on your remaining MP percentage.",
+    {}, {}, [SkillEffect("", [
+        EFImmediate(
+            lambda controller, user, _1, _2: controller.applyMultStatBonuses(user, {
+                CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 1 - staminaMaxReduction
+            })
+        ),
+        EFOnStatsChange(staminaFn)
+    ], None)])
+
+
+PassiveSkillData("Inner Peace", SecretPlayerClassNames.STRIKER, 7, False,
+    "While in a stance, increase all stats except HP and MP by 10%.",
+    {CombatStats.INNER_PEACE: 1}, {}, [])
+
+
+PassiveSkillData("Combat Aura", SecretPlayerClassNames.STRIKER, 8, True,
+    "Gain 2 stacks of resistance to all Physical attack attributes.",
+    {}, {}, [
+        SkillEffect("", [
+            EFImmediate(
+                lambda controller, user, _1, _2: void((
+                    controller.addResistanceStacks(user, PhysicalAttackAttribute.CRUSHING, 2),
+                    controller.addResistanceStacks(user, PhysicalAttackAttribute.PIERCING, 2),
+                    controller.addResistanceStacks(user, PhysicalAttackAttribute.SLASHING, 2)
+            )))
+        ], None)
+    ])
+
+
+secretArtNameMap = {
+    "TIGER": "Tiger Destruction",
+    "OROCHI": "Orochi Breaker",
+    "HOYOKUSEN": "Hoyokusen",
+    "DEMON": "Raging Demon"
+}
+secretArtEnchantmentMap = {
+    "TIGER": [EnchantmentSkillEffect("", PhysicalAttackAttribute.SLASHING, {}, {}, [], 0)],
+    "OROCHI": [EnchantmentSkillEffect("", PhysicalAttackAttribute.CRUSHING, {}, {}, [], 0)],
+    "HOYOKUSEN": [EnchantmentSkillEffect("", PhysicalAttackAttribute.PIERCING, {}, {}, [], 0)],
+    "DEMON": []
+}
+def secretArtApplyFn(controller : CombatController, user : CombatEntity, target : CombatEntity,
+                     result : EffectFunctionResult, technique : str):
+    if technique != "DEMON":
+        stanceCheck = False
+        statCheck = False
+        hitBonus = None
+        
+        maxStats = set()
+        maxStatVal = 0
+        for stat in BaseStats:
+            if stat in [BaseStats.HP, BaseStats.MP]:
+                continue
+            statVal = controller.combatStateMap[user].getTotalStatValue(stat)
+            if statVal > maxStatVal:
+                maxStatVal = statVal
+                maxStats = set()
+            if statVal == maxStatVal:
+                maxStats.add(stat)
+
+        if technique == "TIGER":
+            stanceCheck = controller.combatStateMap[user].getStack(EffectStacks.STRIKER_TIGER) > 0
+            statCheck = len(maxStats.intersection([BaseStats.SPD, BaseStats.AVO])) > 0
+            hitBonus = EffectStacks.SECRET_ART_TIGER
+        elif technique == "OROCHI":
+            stanceCheck = controller.combatStateMap[user].getStack(EffectStacks.STRIKER_HORSE) > 0
+            statCheck = len(maxStats.intersection([BaseStats.DEF, BaseStats.RES])) > 0
+            hitBonus = EffectStacks.SECRET_ART_HORSE
+        elif technique == "HOYOKUSEN":
+            stanceCheck = controller.combatStateMap[user].getStack(EffectStacks.STRIKER_CRANE) > 0
+            statCheck = len(maxStats.intersection([BaseStats.ATK, BaseStats.MAG, BaseStats.ACC])) > 0
+            hitBonus = EffectStacks.SECRET_ART_CRANE
+
+        if stanceCheck or statCheck:
+            assert hitBonus is not None
+            controller.logMessage(MessageType.EFFECT,
+                f"{user.shortName} brings out the Secret Art's full power!")
+            controller.applyMultStatBonuses(user, {
+                BaseStats.ATK: 2 / 1.5
+            })
+            revertEffect = SkillEffect("", [EFAfterNextAttack(
+                lambda controller, user, _1, result, _2: secretArtNormalRevertFn(controller, user, result, hitBonus)
+            )], 0)
+            controller.addSkillEffect(user, revertEffect)
+    else:
+        controller.logMessage(MessageType.EFFECT,
+            f"***Messatsu.***")
+        shadowingMovementFn(controller, user, [target], result)
+        controller.combatStateMap[user].setStack(EffectStacks.SHADOWING, 0)
+        controller.applyFlatStatBonuses(user, {
+            CombatStats.CRIT_RATE: 1
+        })
+        controller.applyMultStatBonuses(user, {
+            BaseStats.ATK: 3 / 1.5,
+            BaseStats.ACC: 2
+        })
+        revertEffect = SkillEffect("", [EFAfterNextAttack(
+            lambda controller, user, _1, _2, _3: secretArtDemonRevertFn(controller, user)
+        )], 0)
+        controller.addSkillEffect(user, revertEffect)
+def secretArtNormalRevertFn(controller : CombatController, user : CombatEntity, result : AttackResultInfo, hitBonus : EffectStacks):
+    controller.revertMultStatBonuses(user, {
+        BaseStats.ATK: 2 / 1.5
+    })
+    if result.attackHit:
+        controller.combatStateMap[user].setStack(hitBonus, 1)
+def secretArtDemonRevertFn(controller : CombatController, user : CombatEntity):
+    controller.revertFlatStatBonuses(user, {
+        CombatStats.CRIT_RATE: 1
+    })
+    controller.revertMultStatBonuses(user, {
+        BaseStats.ATK: 3 / 1.5,
+        BaseStats.ACC: 2
+    })
+    for stack in [EffectStacks.SECRET_ART_TIGER, EffectStacks.SECRET_ART_HORSE, EffectStacks.SECRET_ART_CRANE]:
+        controller.combatStateMap[user].setStack(stack, 0)
+ActiveSkillDataSelector("Secret Art", SecretPlayerClassNames.STRIKER, 9, True, 40,
+    "Select a technique; attack with 1.5x ATK. Bonus power may apply based on your stance or highest stat, excluding HP and MP.",
+    "__TIGER DESTRUCTION__: Attacks with Slashing damage. +50% ATK if in Tiger stance or highest stat is SPD/AVO.\n" + 
+    "__OROCHI BREAKER__: Attacks with Crushing damage. +50% ATK if in Horse stance or highest stat is DEF/RES.\n" + 
+    "__HOYOKUSEN__: Attacks with Piercing damage. +50% ATK if in Crane stance or highest stat is ATK/MAG/ACC.\n" + 
+    "*(And if you hit all three with their full power...)*",
+    DEFAULT_ATTACK_TIMER_USAGE, 1, True, 
+    lambda technique: AttackSkillData(
+        f"Secret Art: {secretArtNameMap[technique]}", SecretPlayerClassNames.STRIKER, 9, True, 40, "",
+        True, AttackType.MELEE, 1.5, DEFAULT_ATTACK_TIMER_USAGE, secretArtEnchantmentMap[technique] +
+        [
+            SkillEffect("", [
+                EFBeforeNextAttack({}, {},
+                    lambda controller, user, target, result: secretArtApplyFn(controller, user, target, result, technique),
+                    None)
+            ], 0)
+        ], False),
+    ["TIGER", "OROCHI", "HOYOKUSEN", "DEMON"],
+    optionChecker = lambda technique, controller, user:
+            all([controller.combatStateMap[user].getStack(checkStack) == 1
+                 for checkStack in [EffectStacks.SECRET_ART_TIGER, EffectStacks.SECRET_ART_HORSE, EffectStacks.SECRET_ART_CRANE]])
+        if technique == "DEMON" else True)

@@ -1,25 +1,25 @@
 striker
 	warrior; uses stances to change stats and property of other move
 	boosted stats when unarmed based on level, as if it were a weapon (lv1 = common rank 1, 2/3/4 -> rank 3, 6, 10; lv5 = uncommon, lv9 = rare, lv13 = epic, lv17 = legendary)
-		making up for traits, so pretty good weapon; 12 Atk/12 Acc/10 Spd
+		making up for traits, so pretty good weapon; 9 Atk/8 Acc/9 Spd
 
 ~Master hand-to-hand combat to adapt to the needs of any battle!~
 
-Class Passive: When no weapon is equipped, increase ATK, ACC, and SPD based on player level. [Striker's Path]
+Class Passive: When no weapon is equipped, increase ATK, ACC, and SPD based on player level. [Striker's Conditioning]
 Class Active: [Cost 20 MP] Select a stance (that you're not already in); shift into that stance while performing an attack. [Form Shift]
 	{attack happens before form change}
 	Tiger Stance: Attack an enemy for 1.3x ATK. While in stance: +30% SPD, +30% AVO; -15% ATK, -15% ACC
 	Horse Stance: Attack all enemies at R0 for 0.6x ATK. While in stance: +30% DEF, +30% RES; -15% SPD, -15% AVO
 	Crane Stance: Attack an enemy for 1x ATK while retreating 1. While in stance: +1 Range, +30% ACC; -15% DEF, -15% RES
-Free Passive: When attacking from out of range, you automatically approach by 1 before attacking (increasing the time the attack takes). [Fancy Footwork]
+Free Passive: When attacking from out of range, you automatically approach by 1 before attacking (increasing the time the attack takes). [Like A Butterfly]
 Class Passive: Your Stances gain additional effects. [Awakened Instincts]
 	Tiger Stance: Dodging reduces time to next action. MP Restoration increased by 1.5x.
-	Horse Stance: When you are hit, gain a stack increasing Damage Reduction by 2% (max 10 stacks).
+	Horse Stance: When you are hit, gain a stack increasing Damage Reduction by 5% (max 6 stacks).
 	Crane Stance: Increase Critical Hit Rate by 30% at Range 1 or greater.
 Class Active: [Cost 30 MP] Attack with 1.2x ATK. If in a stance, exit the stance and gain additional effects. [Ki Strike]
 	{attack happens before form change}
 	Tiger Stance: If this is a turn after dodging an attack, +50% damage and greatly decrease time to next action.
-	Horse Stance: +2% damage per Horse Instinct stack. Attempt to inflict STUN for 1 turn per 3 Horse Instinct stacks.
+	Horse Stance: +4% ATK per Horse Instinct stack. Attempt to inflict STUN for 1 turn per 2 Horse Instinct stacks.
 	Crane Stance: +100% Crit Damage. Approaches by 1 after attack.
 Free Passive: Decreases the time between your actions by up to 25% based on your remaining MP percentage. [Stamina]
 Class Passive: While in a stance, +10% ATK/DEF/MAG/RES/ACC/AVO/SPD. [Inner Peace]
@@ -41,7 +41,7 @@ alchefist
 
 ~Concoct a variety of additional attack effects by combining ingredients!~
 
-Class Passive: +10% ATK, +10% MAG, +10% ACC. [Alchefist's Reasoning]
+Class Passive: +5% ATK, +5% MAG, +5% ACC, +10% MP. [Alchefist's Reasoning]
 Class Active: [Cost 10 MP] Select an ingredient to combine into your next attack. Attacks use at most two ingredients, and the cost of preparing the same ingredient multiple times in a row will increase. [Corporeal Ingredient]
 	{pretty fast action time; keeps a queue of last 4 ingredients, cost for 0/1/2/3+ appearances is 10/20/30/40}
 	Flour Flower: Prepares Wood Alchefy
@@ -53,7 +53,7 @@ Class Active: [Cost 10 MP] Select an ingredient to combine into your next attack
 	{same rules as corporeal}
 	Solar Sugar: Prepares Fire/Sun Alchefy
 	Lunar Leavener: Prepares Water/Moon Alchefy
-Free Passive: +5% ATK, +5% MAG, +5% ACC, +10% MP [Curiosity]
+Free Passive: +5% ACC, +5% AVO, +10% MP [Curiosity]
 Class Passive: Decreases the time taken by ingredient skills, and allows up to 5 ingredients to be prepared (attacks use the 2 most recently prepared ingredients). [Seasoned Cookware]
 Free Passive: If you do not attack for at least 2 turns in a row, gain 50% ATK/MAG and 30% ACC on your next attack. [Stewing Schemes]
 Free Active: [Cost 0 MP] Gain 45 MP. {Very Slow action, like 2x action bar} [Transcendent Brunch]
