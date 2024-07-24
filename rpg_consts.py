@@ -50,6 +50,8 @@ class CombatStats(Stats):
     BASIC_MP_GAIN_MULT = auto()
     TIGER_INSTINCT = auto()
     INNER_PEACE = auto()
+    ALCHEFY_MAX_PREPARED = auto()
+    ALCHEFY_REPEAT_MEMORY = auto()
 
 class SpecialStats(Stats):
     CURRENT_HP = auto()
@@ -83,7 +85,9 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.INSTANTANEOUS_ETERNITY: 0,
     CombatStats.BASIC_MP_GAIN_MULT: 1,
     CombatStats.TIGER_INSTINCT: 0,
-    CombatStats.INNER_PEACE: 0
+    CombatStats.INNER_PEACE: 0,
+    CombatStats.ALCHEFY_MAX_PREPARED: 2,
+    CombatStats.ALCHEFY_REPEAT_MEMORY: 4
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -211,6 +215,8 @@ class EffectStacks(Enum):
     SECRET_ART_TIGER = auto()
     SECRET_ART_HORSE = auto()
     SECRET_ART_CRANE = auto()
+    ALCHEFY_ACTIVATED = auto()
+    STEWING_SCHEMES = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
@@ -262,6 +268,7 @@ DEFEND_MP_GAIN = 4
 DEFEND_HIT_MP_GAIN = 3
 
 PROXIMITY_AGGRO_BOOST = 3
+HEAL_AGGRO_FACTOR = 0.2
 
 DAMAGE_FORMULA_K = 0.5 # ratio when attack = defense
 DAMAGE_FORMULA_C = 2.0 # scaling, higher means a steeper dropoff/alignment as ratio increases/decreases
@@ -308,6 +315,98 @@ DOT_STACK_SCALING = 0.75
 BLIND_STACK_ACC_MULT = 0.9
 EXHAUST_STACK_SCALING = 0.5
 PERPLEXITY_STACK_SCALING = 0.5
+
+""" Alchefy """
+
+class AlchefyElements(Enum):
+    WOOD = auto()
+    METAL = auto()
+    EARTH = auto()
+    FIRESUN = auto()
+    WATERMOON = auto()
+
+ALCHEFY_ELEMENT_NAMES = {
+    AlchefyElements.WOOD: "Wood",
+    AlchefyElements.METAL: "Metal",
+    AlchefyElements.EARTH: "Earth",
+    AlchefyElements.FIRESUN: "Fire/Sun",
+    AlchefyElements.WATERMOON: "Water/Moon"
+}
+
+class AlchefyProducts(Enum):
+    FLOUR_FLOWER = auto()
+    POLLEN_DOUGH = auto()
+    BUTTERY_SILVER = auto()
+    MERCURY_DRESSING = auto()
+    HATCHING_STONE = auto()
+    QUICKSAND_OMELET = auto()
+    BREAD_DOLL = auto()
+    SYLPHID_NOODLES = auto()
+    BEDROCK_QUICHE = auto()
+    MOLTEN_MONOSACCHARIDE = auto()
+    SOLAR_SUGAR = auto()
+    BASIC_BROTH = auto()
+    LUNAR_LEAVENER = auto()
+    CONFECTIONERS_HAZE = auto()
+    NIGHTBLOOM_TEA = auto()
+    ALLOY_BRULEE = auto()
+    CREAM_OF_BISMUTH = auto()
+    SCRAMBLED_SUNLIGHT = auto()
+    POACHED_JADE = auto()
+    ELIXIR_TEA = auto()
+
+ALCHEFY_PRODUCT_NAMES = {
+    AlchefyProducts.FLOUR_FLOWER: "Flour Flower",
+    AlchefyProducts.POLLEN_DOUGH: "Pollen Dough",
+    AlchefyProducts.BUTTERY_SILVER: "Buttery Silver",
+    AlchefyProducts.MERCURY_DRESSING: "Mercury Dressing",
+    AlchefyProducts.HATCHING_STONE: "Hatching Stone",
+    AlchefyProducts.QUICKSAND_OMELET: "Quicksand Omelet",
+    AlchefyProducts.BREAD_DOLL: "Bread Doll",
+    AlchefyProducts.SYLPHID_NOODLES: "Sylphid Noodles",
+    AlchefyProducts.BEDROCK_QUICHE: "Bedrock Quiche",
+    AlchefyProducts.MOLTEN_MONOSACCHARIDE: "Molten Monosaccharide",
+    AlchefyProducts.SOLAR_SUGAR: "Solar Sugar",
+    AlchefyProducts.BASIC_BROTH: "Basic Broth",
+    AlchefyProducts.LUNAR_LEAVENER: "Lunar Leavener",
+    AlchefyProducts.CONFECTIONERS_HAZE: "Confectioner's Haze",
+    AlchefyProducts.NIGHTBLOOM_TEA: "Night-Bloom Tea",
+    AlchefyProducts.ALLOY_BRULEE: "Alloy Brûlée",
+    AlchefyProducts.CREAM_OF_BISMUTH: "Cream of Bismuth",
+    AlchefyProducts.SCRAMBLED_SUNLIGHT: "Scrambled Sunlight",
+    AlchefyProducts.POACHED_JADE: "Poached Jade",
+    AlchefyProducts.ELIXIR_TEA: "Elixir Tea of Life"
+}
+
+ALCHEFY_PRODUCT_MAP : dict[tuple[AlchefyElements] | tuple[AlchefyElements, AlchefyElements], AlchefyProducts] = {
+    (AlchefyElements.WOOD,): AlchefyProducts.FLOUR_FLOWER,
+    (AlchefyElements.METAL,): AlchefyProducts.BUTTERY_SILVER,
+    (AlchefyElements.EARTH,): AlchefyProducts.HATCHING_STONE,
+    (AlchefyElements.FIRESUN,): AlchefyProducts.MOLTEN_MONOSACCHARIDE,
+    (AlchefyElements.WATERMOON,): AlchefyProducts.BASIC_BROTH,
+
+    (AlchefyElements.WOOD, AlchefyElements.WOOD): AlchefyProducts.POLLEN_DOUGH,
+    (AlchefyElements.METAL, AlchefyElements.METAL): AlchefyProducts.MERCURY_DRESSING,
+    (AlchefyElements.EARTH, AlchefyElements.EARTH): AlchefyProducts.QUICKSAND_OMELET,
+    (AlchefyElements.FIRESUN, AlchefyElements.FIRESUN): AlchefyProducts.SOLAR_SUGAR,
+    (AlchefyElements.WATERMOON, AlchefyElements.WATERMOON): AlchefyProducts.LUNAR_LEAVENER,
+
+    (AlchefyElements.WOOD, AlchefyElements.METAL): AlchefyProducts.BREAD_DOLL,
+    (AlchefyElements.WOOD, AlchefyElements.EARTH): AlchefyProducts.SYLPHID_NOODLES,
+    (AlchefyElements.WOOD, AlchefyElements.FIRESUN): AlchefyProducts.CONFECTIONERS_HAZE,
+    (AlchefyElements.WOOD, AlchefyElements.WATERMOON): AlchefyProducts.NIGHTBLOOM_TEA,
+    (AlchefyElements.METAL, AlchefyElements.EARTH): AlchefyProducts.BEDROCK_QUICHE,
+    (AlchefyElements.METAL, AlchefyElements.FIRESUN): AlchefyProducts.ALLOY_BRULEE,
+    (AlchefyElements.METAL, AlchefyElements.WATERMOON): AlchefyProducts.CREAM_OF_BISMUTH,
+    (AlchefyElements.EARTH, AlchefyElements.FIRESUN): AlchefyProducts.SCRAMBLED_SUNLIGHT,
+    (AlchefyElements.EARTH, AlchefyElements.WATERMOON): AlchefyProducts.POACHED_JADE,
+    (AlchefyElements.FIRESUN, AlchefyElements.WATERMOON): AlchefyProducts.ELIXIR_TEA
+}
+apmReverseMap = {}
+for combo in ALCHEFY_PRODUCT_MAP: # add reverse combinations
+    if len(combo) == 2 and combo[0] != combo[1]:
+        apmReverseMap[(combo[1], combo[0])] = ALCHEFY_PRODUCT_MAP[combo]
+ALCHEFY_PRODUCT_MAP.update(apmReverseMap)
 
 """ Equips """
 
@@ -482,7 +581,7 @@ weaponClassAttributeMap : dict[WeaponClasses, WeaponAttributes] = {
     WeaponClasses.BROADSWORD: WeaponAttributes("Broadsword", WeaponType.SWORD,
             {BaseStats.ATK: 10, BaseStats.ACC: 10, BaseStats.SPD: 5}),
     WeaponClasses.KATANA: WeaponAttributes("Katana", WeaponType.SWORD,
-            {BaseStats.ATK: 7, BaseStats.DEF: 2, BaseStats.RES: 2, BaseStats.ACC: 8, BaseStats.AVO: 2, BaseStats.SPD: 4}),
+            {BaseStats.ATK: 7, BaseStats.MAG: 4, BaseStats.DEF: 2, BaseStats.RES: 2, BaseStats.ACC: 8, BaseStats.AVO: 2, BaseStats.SPD: 4}),
     WeaponClasses.SABRE: WeaponAttributes("Sabre", WeaponType.SWORD,
             {BaseStats.ATK: 8, BaseStats.ACC: 12, BaseStats.SPD: 6}),
     WeaponClasses.SPEAR: WeaponAttributes("Spear", WeaponType.SPEAR,
@@ -490,7 +589,7 @@ weaponClassAttributeMap : dict[WeaponClasses, WeaponAttributes] = {
     WeaponClasses.NAGINATA: WeaponAttributes("Naginata", WeaponType.SPEAR,
             {BaseStats.ATK: 5, BaseStats.ACC: 8, BaseStats.AVO: 8, BaseStats.SPD: 7}),
     WeaponClasses.SCYTHE: WeaponAttributes("Scythe", WeaponType.SPEAR,
-            {BaseStats.ATK: 8, BaseStats.ACC: 9, BaseStats.AVO: 4, BaseStats.SPD: 5}),
+            {BaseStats.ATK: 8, BaseStats.MAG: 4, BaseStats.ACC: 9, BaseStats.AVO: 4, BaseStats.SPD: 5}),
     WeaponClasses.MORNINGSTAR: WeaponAttributes("Morning Star", WeaponType.FLAIL,
             {BaseStats.ATK: 13, BaseStats.ACC: 8, BaseStats.SPD: 2}),
     WeaponClasses.FLAIL: WeaponAttributes("Flail", WeaponType.FLAIL,
@@ -526,19 +625,19 @@ weaponClassAttributeMap : dict[WeaponClasses, WeaponAttributes] = {
     WeaponClasses.SHOTPUTS: WeaponAttributes("Shotputs", WeaponType.ROCKS,
             {BaseStats.ATK: 9, BaseStats.ACC: 7, BaseStats.SPD: 7}),
     WeaponClasses.BOLAS: WeaponAttributes("Bolas", WeaponType.ROCKS,
-            {BaseStats.ATK: 5, BaseStats.ACC: 9, BaseStats.AVO: 3, BaseStats.SPD: 8}),
+            {BaseStats.ATK: 5, BaseStats.MAG: 5, BaseStats.ACC: 9, BaseStats.AVO: 3, BaseStats.SPD: 8}),
     WeaponClasses.RECURVEBOW: WeaponAttributes("Recurve Bow", WeaponType.BOW,
             {BaseStats.ATK: 6, BaseStats.ACC: 9, BaseStats.SPD: 10}),
     WeaponClasses.COMPOUNDBOW: WeaponAttributes("Compound Bow", WeaponType.BOW,
             {BaseStats.ATK: 8, BaseStats.ACC: 8, BaseStats.SPD: 8}),
     WeaponClasses.LONGBOW: WeaponAttributes("Longbow", WeaponType.BOW,
-            {BaseStats.ATK: 6, BaseStats.ACC: 9, BaseStats.AVO: 3, BaseStats.SPD: 7}),
+            {BaseStats.ATK: 6, BaseStats.MAG: 3, BaseStats.ACC: 9, BaseStats.AVO: 3, BaseStats.SPD: 7}),
     WeaponClasses.RECURVECROSSBOW: WeaponAttributes("Recurve Crossbow", WeaponType.CROSSBOW,
             {BaseStats.ATK: 9, BaseStats.ACC: 12, BaseStats.SPD: 5}),
     WeaponClasses.COMPOUNDCROSSBOW: WeaponAttributes("Compound Crossbow", WeaponType.CROSSBOW,
             {BaseStats.ATK: 12, BaseStats.ACC: 12, BaseStats.SPD: 2}),
     WeaponClasses.PISTOLCROSSBOW: WeaponAttributes("Pistol Crossbow", WeaponType.CROSSBOW,
-            {BaseStats.ATK: 8, BaseStats.ACC: 10, BaseStats.SPD: 6}),
+            {BaseStats.ATK: 8, BaseStats.MAG: 4, BaseStats.ACC: 10, BaseStats.SPD: 6}),
     WeaponClasses.RIFLE: WeaponAttributes("Rifle", WeaponType.FIREARM,
             {BaseStats.ATK: 14, BaseStats.ACC: 6, BaseStats.SPD: 2}),
     WeaponClasses.HANDGUN: WeaponAttributes("Handgun", WeaponType.FIREARM,

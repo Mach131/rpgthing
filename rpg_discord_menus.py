@@ -1258,7 +1258,9 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                 instructionContent += '\n'.join(skillDescriptions)
             elif isinstance(chosenSkill, ActiveSkillDataSelector):
                 instructionTitle = "Skill"
-                instructionContent = f"Options for {chosenSkill.skillName}:\n{chosenSkill.optionDescription}"
+                optionDescription = chosenSkill.optionDescription if isinstance(chosenSkill.optionDescription, str) \
+                    else chosenSkill.optionDescription(combatInterface.cc, player)
+                instructionContent = f"Options for {chosenSkill.skillName}:\n{optionDescription}"
                 for option in chosenSkill.options:
                     optionName = option[0] + option[1:].lower()
                     optionAvailable = chosenSkill.checkOptionAvailable(option, combatInterface.cc, player)
@@ -1482,6 +1484,10 @@ def partyDetailContent(session : GameSession, view : InterfaceView, playerTeam :
     buffString = combatInterface.getEntityBuffs(focusEntity)
     if len(buffString) > 0:
         embed.add_field(name="Ongoing Effects:", value=buffString, inline=False)
+
+    alchefyString = combatInterface.getEntityAlchefy(focusEntity)
+    if alchefyString is not None:
+        embed.add_field(name="Alchefy:", value=alchefyString)
     
     return embed
 COMBAT_PARTY_PAGE = InterfacePage("Party", discord.ButtonStyle.secondary, [],

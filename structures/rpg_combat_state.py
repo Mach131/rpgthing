@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Generator
 import random
 import math
 
@@ -45,6 +45,9 @@ class EntityCombatState(object):
         self.currentStatusEffects : dict[StatusConditionNames, StatusEffect] = {}
 
         self.aggroMap : dict[CombatEntity, float] = {}
+
+        self.alchefyPrepared : list[AlchefyElements] = []
+        self.alchefyRepeatQueue : list[AlchefyElements] = []
 
     def phaseReset(self, controller : CombatController, keepStacks : set[EffectStacks]):
         keepStacks.add(EffectStacks.ENEMY_PHASE_COUNTER)
@@ -156,6 +159,33 @@ class EntityCombatState(object):
 
         stackBuffString = '\n'.join(weaknessList + resistanceList + noDurationBuffList + durationBuffList + stackStringList) 
         return stackBuffString
+    
+    def getAlchefyString(self) -> str:
+        result = ""
+        if len(self.alchefyPrepared) > 0:
+            nextIngredients = (self.alchefyPrepared[0],)
+            ingredientStrings = [ALCHEFY_ELEMENT_NAMES[element] for element in self.alchefyPrepared]
+            ingredientStrings[0] = f"**{ingredientStrings[0]}**"
+
+            if len(self.alchefyPrepared) > 1:
+                nextIngredients = (self.alchefyPrepared[0], self.alchefyPrepared[1])
+                ingredientStrings[1] = f"**{ingredientStrings[1]}**"
+
+            ingredientString = ", ".join(ingredientStrings)
+            preparedProduct = ALCHEFY_PRODUCT_MAP[nextIngredients]
+
+            result = f"__Current Combination__: {ALCHEFY_PRODUCT_NAMES[preparedProduct]}\n"
+            result += f"__Prepared Ingredients__: {ingredientString}"
+        else:
+            result = "*(No Ingredients Prepared)*"
+        return result
+    
+    def getAlchefyProduct(self) -> AlchefyProducts | None:
+        if len(self.alchefyPrepared) > 0:
+            nextIngredients = (self.alchefyPrepared[0],)
+            if len(self.alchefyPrepared) > 1:
+                nextIngredients = (self.alchefyPrepared[0], self.alchefyPrepared[1])
+            return ALCHEFY_PRODUCT_MAP[nextIngredients]
 
     def getFullStatusStatString(self, stat : Stats) -> str:
         baseStatValue = self.entity.getStatValue(stat)
@@ -236,11 +266,15 @@ class EntityCombatState(object):
         [self.removeEnchantmentEffect(enchantment, controller) for enchantment in removeEnchantments]
         return self.durationCheck()
 
-    def getEffectFunctions(self, effectTiming : EffectTimings) -> list:
-        result = []
-        for skillEffect in self.activeSkillEffects:
-            result += list(filter(lambda effectFunction : effectFunction.effectTiming == effectTiming, skillEffect.effectFunctions))
-        return result
+    def getEffectFunctions(self, effectTiming : EffectTimings) -> Generator:
+        checkedSkillEffects = set()
+        while len(checkedSkillEffects) < len(self.activeSkillEffects):
+            allSkillEffects = set(self.activeSkillEffects.keys())
+            uncheckedSkillEffects = allSkillEffects - checkedSkillEffects
+            skillEffect = list(uncheckedSkillEffects)[0]
+            for effectFunction in list(filter(lambda effectFunction : effectFunction.effectTiming == effectTiming, skillEffect.effectFunctions)):
+                yield effectFunction
+            checkedSkillEffects.add(skillEffect)
     
     """
         Updates the current weapon attribute (previous enchantments are remembered, but not expressed.)
@@ -292,6 +326,9 @@ class EntityCombatState(object):
         return weaponAttribute
     
     def getDefaultAttackType(self) -> AttackType:
+        if len(self.activeEnchantments) > 0:
+            if self.activeEnchantments[-1].forceMagicAttack:
+                return AttackType.MAGIC
         return self.entity.basicAttackType
     
     """
@@ -716,9 +753,7 @@ class CombatController(object):
                 self.logMessage(MessageType.DAMAGE,
                             f"{defender.shortName} takes **{damageTaken} damage{critString}**!")
                 
-            aggroMult = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.AGGRO_MULT)
-            self.combatStateMap[defender].aggroMap[attacker] = self.combatStateMap[defender].aggroMap.get(attacker, 0) + \
-                                                                damageTaken * aggroMult
+            self._applyAggro(attacker, defender, damageTaken)
             
             # TODO: may need to do something with result
             for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
@@ -730,6 +765,11 @@ class CombatController(object):
                             f"**{defender.name} is defeated!**")
 
         return originalHP - self.combatStateMap[defender].currentHP
+    
+    def _applyAggro(self, attacker, defender, damageValue):
+        aggroMult = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.AGGRO_MULT)
+        self.combatStateMap[defender].aggroMap[attacker] = self.combatStateMap[defender].aggroMap.get(attacker, 0) + \
+                                                            damageValue * aggroMult
 
     """
         Makes a target gain health, subject to healing effectiveness. Returns actual health gained.
@@ -1150,10 +1190,13 @@ class CombatController(object):
     def getSkillManaCost(self, entity : CombatEntity, skill : SkillData) -> int | None:
         if skill.mpCost is None:
             return None
+        
+        baseCost = skill.mpCost if isinstance(skill.mpCost, int) else skill.mpCost(self, entity)
+
         costMult = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_COST_MULT)
         if isinstance(skill, AttackSkillData):
             costMult *= self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.ATTACK_SKILL_MANA_COST_MULT)
-        return round(skill.mpCost * costMult)
+        return round(baseCost * costMult)
     
     def getSkillManaCostFromValue(self, entity : CombatEntity, cost : int, isAttack : bool) -> int:
         costMult = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_COST_MULT)
@@ -1227,15 +1270,17 @@ class CombatController(object):
     
     def _doSingleAttack(self, attacker : CombatEntity, defender : CombatEntity,
                         isPhysical : bool, attackType : AttackType | None, isBasic : bool, isBonus : bool) -> AttackResultInfo:
-        if attackType is None:
-            attackType = self.combatStateMap[attacker].getDefaultAttackType()
-        
         savedBonusAttacks = []
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
             effectResult = effectFunction.applyEffect(self, attacker, defender)
             if effectResult.bonusAttacks is not None:
                 savedBonusAttacks += effectResult.bonusAttacks
+
+        if attackType is None:
+            attackType = self.combatStateMap[attacker].getDefaultAttackType()
+            isPhysical = attackType != AttackType.MAGIC
+
         for ally in self.getTeammates(defender):
             for effectFunction in self.combatStateMap[ally].getEffectFunctions(EffectTimings.BEFORE_ATTACKED):
                 if ally == defender:
@@ -1344,6 +1389,10 @@ class CombatController(object):
         baseHealAmount = math.ceil(rawHealValue * variationFactor * critFactor)
     
         totalHealAmount = self.gainHealth(target, baseHealAmount, isCritical)
+
+        baseHealAggro = totalHealAmount * HEAL_AGGRO_FACTOR
+        for opponent in self.getTargets(healer):
+            self._applyAggro(healer, opponent, baseHealAggro)
 
         for effectFunction in self.combatStateMap[healer].getEffectFunctions(EffectTimings.ON_HEAL_SKILL):
             if isinstance(effectFunction, EFOnHealSkill):

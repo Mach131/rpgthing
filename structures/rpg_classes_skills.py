@@ -139,15 +139,15 @@ classDataList = [
 class SkillData(object):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int,
             isActiveSkill : bool, isFreeSkill : bool, description : str,
-            mpCost : int | None, actionTime : float | None, causesAttack : bool, skillEffects : list[SkillEffect],
-            expectedTargets : int | None, attackTargetIndex : int, targetOpponents : bool, register : bool = True) -> None:
+            mpCost : int | Callable[[CombatController, CombatEntity], int] | None, actionTime : float | None, causesAttack : bool,
+            skillEffects : list[SkillEffect], expectedTargets : int | None, attackTargetIndex : int, targetOpponents : bool, register : bool = True) -> None:
         self.skillName : str = skillName
         self.playerClass : PlayerClassNames = playerClass
         self.rank : int = rank
         self.isActiveSkill : bool = isActiveSkill
         self.isFreeSkill : bool = isFreeSkill
         self.description : str = description
-        self.mpCost : int | None = mpCost if isActiveSkill else None
+        self.mpCost = mpCost if isActiveSkill else None
         self.actionTime : float | None = actionTime if isActiveSkill else None
         self.causesAttack : bool = causesAttack
         self.skillEffects : list[SkillEffect] = skillEffects[:]
@@ -221,7 +221,8 @@ class AttackSkillData(SkillData):
         self.skillEffects.append(basicAttackSkillEffects)
 
 class ActiveBuffSkillData(SkillData):
-    def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
+    def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool,
+            mpCost : int | Callable[[CombatController, CombatEntity], int], description : str,
             actionTime : float, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float], skillEffects : list[SkillEffect],
             expectedTargets : int | None, attackTargetIndex : int, targetOpponents : bool, register : bool = True):
         super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False, skillEffects,
@@ -254,8 +255,8 @@ class PrepareParrySkillData(SkillData):
         
 class ActiveSkillDataSelector(SkillData):
     def __init__(self, skillName : str, playerClass : PlayerClassNames, rank : int, isFreeSkill : bool, mpCost : int, description : str,
-            optionDescription : str, actionTime : float, expectedTargets : int | None, targetOpponents : bool,
-            skillGenerator : Callable[[str], SkillData], options : list[str], register : bool = True,
+            optionDescription : str | Callable[[CombatController, CombatEntity], str], actionTime : float, expectedTargets : int | None,
+            targetOpponents : bool, skillGenerator : Callable[[str], SkillData], options : list[str], register : bool = True,
             optionChecker : Callable[[str, CombatController, CombatEntity], bool] | None = None):
         super().__init__(skillName, playerClass, rank, True, isFreeSkill, description, mpCost, actionTime, False,
                          [], expectedTargets, 0, targetOpponents, register)
@@ -286,10 +287,11 @@ class SkillEffect(object):
         self.expirationEffects : list[EFImmediate] = expirationEffects
 
 class EnchantmentSkillEffect(SkillEffect):
-    def __init__(self, effectName : str, enchantmentAttribute : AttackAttribute, flatStatBonuses : dict[Stats, float],
+    def __init__(self, effectName : str, enchantmentAttribute : AttackAttribute, forceMagicAttack : bool, flatStatBonuses : dict[Stats, float],
                  multStatBonuses : dict[Stats, float], effectFunctions : list[EffectFunction], effectDuration : int | None):
         super().__init__(effectName, effectFunctions, effectDuration)
         self.enchantmentAttribute : AttackAttribute = enchantmentAttribute
+        self.forceMagicAttack : bool = forceMagicAttack
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
 

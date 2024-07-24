@@ -629,7 +629,7 @@ PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, Tr
     {}, {}, [SkillEffect("", [
         EFBeforeNextAttack({}, {}, 
             lambda controller, user, _1, _2:
-                controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s ATK/MAG was increased by Unrelenting Assault!")
+                controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s ATK/MAG were increased by Unrelenting Assault!")
                     if controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 0 else None,
             None),
         EFAfterNextAttack(
@@ -808,7 +808,7 @@ PassiveSkillData("Wizard's Wisdom", AdvancedPlayerClassNames.WIZARD, 1, False,
     {}, {BaseStats.MAG: 1.15, BaseStats.ACC: 1.1}, [])
 
 natureBlessingEnchantments = {
-    "FIRE": EnchantmentSkillEffect("Nature's Blessing (Fire)", MagicalAttackAttribute.FIRE, {}, {}, [
+    "FIRE": EnchantmentSkillEffect("Nature's Blessing (Fire)", MagicalAttackAttribute.FIRE, False, {}, {}, [
         EFBeforeNextAttack({}, {}, 
             lambda controller, user, _1, _2: void((
                 controller.combatStateMap[user].setStack(
@@ -827,7 +827,7 @@ natureBlessingEnchantments = {
                 target, BurnStatusEffect(user, target, 3, math.ceil(controller.combatStateMap[user].getTotalStatValue(BaseStats.MAG) * 0.25))
                 ) if attackResult.attackHit else None))
     ], 8),
-    "ICE": EnchantmentSkillEffect("Nature's Blessing (Ice)", MagicalAttackAttribute.ICE, {CombatStats.CRIT_RATE: 0.1}, {}, [
+    "ICE": EnchantmentSkillEffect("Nature's Blessing (Ice)", MagicalAttackAttribute.ICE, False, {CombatStats.CRIT_RATE: 0.1}, {}, [
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void((
                 controller.applyMultStatBonuses(target, {
                     BaseStats.SPD: 0.925,
@@ -837,7 +837,7 @@ natureBlessingEnchantments = {
                                     f"{target.shortName}'s SPD and AVO are lowered by {user.shortName}'s Ice enchantment!")
             )) if attackResult.attackHit and attackResult.isCritical else None),
     ], 8),
-    "WIND": EnchantmentSkillEffect("Nature's Blessing (Wind)", MagicalAttackAttribute.WIND, {
+    "WIND": EnchantmentSkillEffect("Nature's Blessing (Wind)", MagicalAttackAttribute.WIND, False, {
         CombatStats.RANGE: 1
     }, {
         CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.65
@@ -999,14 +999,14 @@ PassiveSkillData("Aura of Peace", AdvancedPlayerClassNames.SAINT, 4, False,
     ], None)])
 
 spiritBlessingEnchantments = {
-    "LIGHT": EnchantmentSkillEffect("Spirits' Blessing (Light)", MagicalAttackAttribute.LIGHT, {}, {
+    "LIGHT": EnchantmentSkillEffect("Spirits' Blessing (Light)", MagicalAttackAttribute.LIGHT, False, {}, {
         BaseStats.DEF: 1.1,
         BaseStats.RES: 1.1,
         BaseStats.AVO: 1.1
     }, [EFAfterNextAttack(lambda controller, user, _1, attackResult, _2:
             void(controller.gainHealth(user, math.ceil(controller.getMaxHealth(user) * 0.07))) if attackResult.attackHit else None)
     ], 6),
-    "DARK": EnchantmentSkillEffect("Spirits' Blessing (Dark)", MagicalAttackAttribute.DARK, {}, {
+    "DARK": EnchantmentSkillEffect("Spirits' Blessing (Dark)", MagicalAttackAttribute.DARK, False, {}, {
         BaseStats.ATK: 1.1,
         BaseStats.MAG: 1.1,
         BaseStats.ACC: 1.1
@@ -1455,9 +1455,9 @@ secretArtNameMap = {
     "DEMON": "Raging Demon"
 }
 secretArtEnchantmentMap = {
-    "TIGER": [EnchantmentSkillEffect("", PhysicalAttackAttribute.SLASHING, {}, {}, [], 0)],
-    "OROCHI": [EnchantmentSkillEffect("", PhysicalAttackAttribute.CRUSHING, {}, {}, [], 0)],
-    "HOYOKUSEN": [EnchantmentSkillEffect("", PhysicalAttackAttribute.PIERCING, {}, {}, [], 0)],
+    "TIGER": [EnchantmentSkillEffect("", PhysicalAttackAttribute.SLASHING, False, {}, {}, [], 0)],
+    "OROCHI": [EnchantmentSkillEffect("", PhysicalAttackAttribute.CRUSHING, False, {}, {}, [], 0)],
+    "HOYOKUSEN": [EnchantmentSkillEffect("", PhysicalAttackAttribute.PIERCING, False, {}, {}, [], 0)],
     "DEMON": []
 }
 def secretArtApplyFn(controller : CombatController, user : CombatEntity, target : CombatEntity,
@@ -1557,3 +1557,369 @@ ActiveSkillDataSelector("Secret Art", SecretPlayerClassNames.STRIKER, 9, True, 4
             all([controller.combatStateMap[user].getStack(checkStack) == 1
                  for checkStack in [EffectStacks.SECRET_ART_TIGER, EffectStacks.SECRET_ART_HORSE, EffectStacks.SECRET_ART_CRANE]])
         if technique == "DEMON" else True)
+
+
+# Alchefist
+
+##### yippee ######
+
+def alchefyProductEffectFn(controller : CombatController, user : CombatEntity, target : CombatEntity,
+                           result : EffectFunctionResult, alchefyProduct : AlchefyProducts):
+    controller.logMessage(
+        MessageType.EFFECT, f"{user.name}'s Alchefy activates: {ALCHEFY_PRODUCT_NAMES[alchefyProduct]}!")
+    
+    if alchefyProduct == AlchefyProducts.FLOUR_FLOWER:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack is enveloped by magic!")
+        controller.addSkillEffect(
+            user, EnchantmentSkillEffect("", MagicalAttackAttribute.NEUTRAL, True, {}, {
+                BaseStats.MAG: 1.2
+            }, [], 0))
+        
+    elif alchefyProduct == AlchefyProducts.POLLEN_DOUGH:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack is enveloped by magic!")
+        controller.addSkillEffect(
+            user, EnchantmentSkillEffect("", MagicalAttackAttribute.NEUTRAL, True, {}, {
+                BaseStats.MAG: 1.5
+            }, [
+                EFAfterNextAttack(
+                    lambda _controller, _user, _target, _attackResult, _: void((
+                        _controller.applyMultStatBonuses(_target, {
+                            BaseStats.ACC: 0.92
+                        }),
+                        _controller.logMessage(MessageType.EFFECT, f"{_target.shortName}'s ACC was lowered!")
+                    )) if _attackResult.attackHit else None
+                )
+            ], 0))
+
+    elif alchefyProduct == AlchefyProducts.BUTTERY_SILVER:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack flies swiftly through the air!")
+        controller.addSkillEffect(
+            user, SkillEffect("", [
+                EFBeforeNextAttack(
+                    {}, { BaseStats.ATK: 0.8 }, None, None
+                ),
+                EFAfterNextAttack(
+                    lambda _controller, _user, _1, _2, _result:
+                        _result.setActionTimeMult(0.5)
+                )
+            ], 0)
+        )
+
+    elif alchefyProduct == AlchefyProducts.MERCURY_DRESSING:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack slashes swiftly through the air!")
+        controller.addSkillEffect(
+            user, EnchantmentSkillEffect("", PhysicalAttackAttribute.SLASHING, False, {}, { BaseStats.ATK: 1.2 }, [
+                EFAfterNextAttack(
+                    lambda _controller, _user, _target, _attackResult, _result: void((
+                        _result.setActionTimeMult(0.3),
+                        (
+                            _controller.applyMultStatBonuses(_target, {
+                                BaseStats.DEF: 0.94,
+                                BaseStats.RES: 0.94
+                            }),
+                            _controller.logMessage(MessageType.EFFECT, f"{_target.shortName}'s DEF and RES were lowered!")
+                        ) if _attackResult.attackHit else None
+                    ))
+                )
+            ], 0)
+        )
+
+    elif alchefyProduct == AlchefyProducts.HATCHING_STONE:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack hurtles towards {target.shortName}!")
+        controller.addSkillEffect(
+            user, SkillEffect("", [
+                EFBeforeNextAttack(
+                    {}, { BaseStats.ATK: 1.2 }, None, None
+                )
+            ], 0)
+        )
+
+    elif alchefyProduct == AlchefyProducts.QUICKSAND_OMELET:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack crashes towards {target.shortName}!")
+        controller.addSkillEffect(
+            user, EnchantmentSkillEffect("", PhysicalAttackAttribute.CRUSHING, False, {}, { BaseStats.ATK: 1.5 }, [
+                EFAfterNextAttack(
+                    lambda _controller, _user, _target, _attackResult, _: void((
+                        _controller.applyMultStatBonuses(_target, {
+                            BaseStats.SPD: 0.93
+                        }),
+                        _controller.logMessage(MessageType.EFFECT, f"{_target.shortName}'s SPD was lowered!")
+                    )) if _attackResult.attackHit else None
+                )
+            ], 0)
+        )
+
+    elif alchefyProduct == AlchefyProducts.BREAD_DOLL:
+        controller.logMessage(
+            MessageType.EFFECT, f"The piercing attack seeks additional targets!")
+        pass # TODO
+
+    elif alchefyProduct == AlchefyProducts.SYLPHID_NOODLES:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack creates a headwind for their party, increasing SPD of all allies!")
+        pass # TODO
+
+    elif alchefyProduct == AlchefyProducts.BEDROCK_QUICHE:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack obstructs {target.shortName}'s projectiles, reducing ATK/MAG/ACC for Ranged and Magic attacks!")
+        pass # TODO
+
+    elif alchefyProduct == AlchefyProducts.MOLTEN_MONOSACCHARIDE:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack is enveloped by fire!")
+        pass # TODO
+
+    elif alchefyProduct == AlchefyProducts.SOLAR_SUGAR:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack is enveloped by light!")
+        pass # TODO
+
+    elif alchefyProduct == AlchefyProducts.BASIC_BROTH:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack is enveloped by ice!")
+        pass # TODO
+
+    elif alchefyProduct == AlchefyProducts.LUNAR_LEAVENER:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack is enveloped by darkness!")
+        pass # TODO
+
+    elif alchefyProduct == AlchefyProducts.CONFECTIONERS_HAZE:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack bursts into disorienting magic!")
+        pass # TODO
+    
+    elif alchefyProduct == AlchefyProducts.NIGHTBLOOM_TEA:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack's magic seeps ominously into {target.shortName}!")
+        pass # TODO
+    
+    elif alchefyProduct == AlchefyProducts.ALLOY_BRULEE:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack briefly but violently explodes on impact!")
+        pass # TODO
+    
+    elif alchefyProduct == AlchefyProducts.CREAM_OF_BISMUTH:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack rapidly spirals towards {target.shortName}!")
+        pass # TODO
+    
+    elif alchefyProduct == AlchefyProducts.SCRAMBLED_SUNLIGHT:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack's magic shines brightly upon their allies, reducing the time between actions!")
+        pass # TODO
+    
+    elif alchefyProduct == AlchefyProducts.POACHED_JADE:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack's magic shines calmingly upon their allies, reducing MP costs!")
+        pass # TODO
+    
+    elif alchefyProduct == AlchefyProducts.ELIXIR_TEA:
+        controller.logMessage(
+            MessageType.EFFECT, f"The attack's sooting magic rains down on their allies!")
+        pass # TODO
+    
+    else:
+        assert(False, "Unexpected Alchefy Product") # type: ignore
+
+#####
+
+def activateAlchefyFn(controller : CombatController, user : CombatEntity, target : CombatEntity, result : EffectFunctionResult):
+    preparedAlchefy = controller.combatStateMap[user].getAlchefyProduct()
+    if preparedAlchefy is not None and controller.combatStateMap[user].getStack(EffectStacks.ALCHEFY_ACTIVATED) == 0:
+        alchefyProductEffectFn(controller, user, target, result, preparedAlchefy)
+        controller.combatStateMap[user].alchefyPrepared = controller.combatStateMap[user].alchefyPrepared[2:]
+        controller.combatStateMap[user].setStack(EffectStacks.ALCHEFY_ACTIVATED, 1)
+PassiveSkillData("Alchefist's Reasoning", SecretPlayerClassNames.ALCHEFIST, 1, False,
+    "Increases ATK/MAG/ACC by 5% and MP by 10%.",
+    {}, {
+        BaseStats.ATK: 1.05,
+        BaseStats.MAG: 1.05,
+        BaseStats.ACC: 1.05,
+        BaseStats.MP: 1.1
+    }, [
+        # Secretly activates alchefy skills
+        SkillEffect(
+            "", [
+                EFBeforeNextAttack({}, {}, activateAlchefyFn, None),
+                EFEndTurn(
+                    lambda controller, user, _1, _2: controller.combatStateMap[user].setStack(EffectStacks.ALCHEFY_ACTIVATED, 0)
+                )
+            ], None
+        )
+    ])
+
+selectorToElementMap = {
+    "FLOUR": AlchefyElements.WOOD,
+    "BUTTER": AlchefyElements.METAL,
+    "EGG": AlchefyElements.EARTH,
+    "SUGAR": AlchefyElements.FIRESUN,
+    "YEAST": AlchefyElements.WATERMOON
+}
+def alchefyCheckCostFn(controller : CombatController, user : CombatEntity, selectedElement : str):
+    element = selectorToElementMap[selectedElement]
+    repeats = controller.combatStateMap[user].alchefyRepeatQueue.count(element)
+    return min(10 * (repeats + 1), 40)
+def alchefyAddElementFn(controller : CombatController, user : CombatEntity, selectedElement : str):
+    element = selectorToElementMap[selectedElement]
+    stateMap = controller.combatStateMap[user]
+    maxPrepared = stateMap.getTotalStatValue(CombatStats.ALCHEFY_MAX_PREPARED)
+    repeatQueue = stateMap.getTotalStatValue(CombatStats.ALCHEFY_REPEAT_MEMORY)
+
+    stateMap.alchefyPrepared.insert(0, element)
+    if len(stateMap.alchefyPrepared) > maxPrepared:
+        stateMap.alchefyPrepared = stateMap.alchefyPrepared[:maxPrepared]
+
+    stateMap.alchefyRepeatQueue.insert(0, element)
+    if len(stateMap.alchefyRepeatQueue) > repeatQueue:
+        stateMap.alchefyRepeatQueue = stateMap.alchefyRepeatQueue[:repeatQueue]
+
+    newProduct = stateMap.getAlchefyProduct()
+    if newProduct is not None:
+        controller.logMessage(
+            MessageType.EFFECT, f"{user.shortName} readies {ALCHEFY_ELEMENT_NAMES[element]} Alchefy! " + 
+                                f"\"{ALCHEFY_PRODUCT_NAMES[newProduct]}\" is now prepared!")
+ActiveSkillDataSelector("Corporeal Ingredients", SecretPlayerClassNames.ALCHEFIST, 2, False, 10,
+    "Select an ingredient to combine into your next attack. Attacks use up to 2 ingredients, and " +
+    "the MP cost of preparing the same ingredient multiple times will increase.",
+    lambda controller, user:
+        f"__FLOUR__: Prepares Wood Alchefy. (Current Cost: {alchefyCheckCostFn(controller, user, 'FLOUR')} MP)\n" + 
+        f"__BUTTER__: Prepares Metal Alchefy (Current Cost: {alchefyCheckCostFn(controller, user, 'BUTTER')} MP).\n" + 
+        f"__EGG__: Prepares Earth Alchefy (Current Cost: {alchefyCheckCostFn(controller, user, 'EGG')} MP).",
+    MAX_ACTION_TIMER * 0.45, 0, False,
+    lambda element: ActiveBuffSkillData(
+        f"Alchefy Ingredient ({element[0] + element[1:].lower()})", SecretPlayerClassNames.ALCHEFIST, 2, False,
+        lambda controller, user: alchefyCheckCostFn(controller, user, element), "",
+        MAX_ACTION_TIMER * 0.45, {}, {}, [
+            SkillEffect("", [
+                EFImmediate(
+                    lambda controller, user, _1, _2: void((
+                        alchefyAddElementFn(controller, user, element),
+                        controller.applyMultStatBonuses(user, {
+                            CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.5
+                        }) if controller.combatStateMap[user].getTotalStatValue(CombatStats.ALCHEFY_MAX_PREPARED) > 2 else None
+                    ))
+                ),
+                EFEndTurn(
+                    lambda controller, user, _1, _2: controller.revertMultStatBonuses(user, {
+                            CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.5
+                    }) if controller.combatStateMap[user].getTotalStatValue(CombatStats.ALCHEFY_MAX_PREPARED) > 2 else None
+                )
+            ], 0)
+        ], 0, 0, False, False),
+    ["FLOUR", "BUTTER", "EGG"])
+
+
+def mirrorKnifeFn(controller : CombatController, user : CombatEntity):
+    weapon = controller.combatStateMap[user].checkWeapon()
+    if weapon is not None:
+        statMap = weapon.getStatMap()
+        weaponAtk = statMap.get(BaseStats.ATK, 0)
+        weaponMag = statMap.get(BaseStats.MAG, 0)
+        newOffense = math.ceil(max(weaponAtk, weaponMag) * 0.8)
+        controller.applyFlatStatBonuses(user, {
+            BaseStats.ATK: newOffense - weaponAtk,
+            BaseStats.MAG: newOffense - weaponMag
+        })
+PassiveSkillData("Mirror Knife", SecretPlayerClassNames.ALCHEFIST, 3, True,
+    "In battle, the ATK and MAG of equipped weapons both become equal to 80% of the higher of the two.",
+    {}, {}, [
+        SkillEffect("", [
+            EFImmediate(
+                lambda controller, user, _1, _2: mirrorKnifeFn(controller, user)
+            )
+        ], None)
+    ])
+
+
+PassiveSkillData("Philosopher's Scone", SecretPlayerClassNames.ALCHEFIST, 4, False,
+    "Reduces the number of recent ingredients considered when determining their MP cost.",
+    {CombatStats.ALCHEFY_REPEAT_MEMORY: -2}, {}, [])
+
+
+ActiveSkillDataSelector("Ethereal Ingredients", SecretPlayerClassNames.ALCHEFIST, 5, False, 10,
+    "Select an ingredient to combine into your next attack. Similar to Corporeal Ingredients.",
+    lambda controller, user:
+        f"__SUGAR__: Prepares Fire and Sun Alchefy. (Current Cost: {alchefyCheckCostFn(controller, user, 'SUGAR')} MP)\n" + 
+        f"__YEAST__: Prepares Water and Moon Alchefy (Current Cost: {alchefyCheckCostFn(controller, user, 'YEAST')} MP).",
+    MAX_ACTION_TIMER * 0.45, 0, False,
+    lambda element: ActiveBuffSkillData(
+        f"Alchefy Ingredient ({element[0] + element[1:].lower()})", SecretPlayerClassNames.ALCHEFIST, 5, False,
+        lambda controller, user: alchefyCheckCostFn(controller, user, element), "",
+        MAX_ACTION_TIMER * 0.45, {}, {}, [
+            SkillEffect("", [
+                EFImmediate(
+                    lambda controller, user, _1, _2: void((
+                        alchefyAddElementFn(controller, user, element),
+                        controller.applyMultStatBonuses(user, {
+                            CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.5
+                        }) if controller.combatStateMap[user].getTotalStatValue(CombatStats.ALCHEFY_MAX_PREPARED) > 2 else None
+                    ))
+                ),
+                EFEndTurn(
+                    lambda controller, user, _1, _2: controller.revertMultStatBonuses(user, {
+                            CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.5
+                    }) if controller.combatStateMap[user].getTotalStatValue(CombatStats.ALCHEFY_MAX_PREPARED) > 2 else None
+                )
+            ], 0)
+        ], 0, 0, False, False),
+    ["SUGAR", "YEAST"])
+
+
+PassiveSkillData("Curiosity", SecretPlayerClassNames.ALCHEFIST, 6, True,
+    "Increases ACC, AVO, and MP by 10%.",
+    {}, {
+        BaseStats.ACC: 1.1,
+        BaseStats.AVO: 1.1,
+        BaseStats.MP: 1.1
+    }, [])
+
+
+PassiveSkillData("Seasoned Cookware", SecretPlayerClassNames.ALCHEFIST, 7, False,
+    "Decreases the time taken by ingredient skills, and allows up to 5 ingredients to be prepared (attacks will use the 2 most recently prepared).",
+    {CombatStats.ALCHEFY_MAX_PREPARED: 3}, {}, [])
+
+
+PassiveSkillData("Stewing Schemes", SecretPlayerClassNames.ALCHEFIST, 8, True,
+    "After taking at least 3 turns without attacking, gain 50% ATK/MAG/ACC on your next attack.",
+    {}, {}, [SkillEffect("", [
+        EFImmediate(
+            lambda controller, user, _1, _2:
+                controller.combatStateMap[user].setStack(EffectStacks.STEWING_SCHEMES, 1)
+        ),
+        EFBeforeNextAttack({}, {}, 
+            lambda controller, user, _1, _2: void((
+                controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s ATK, MAG, and ACC were increased by Stewing Schemes!"),
+                controller.applyMultStatBonuses(user, {
+                    BaseStats.ATK: 1.5,
+                    BaseStats.MAG: 1.5,
+                    BaseStats.ACC: 1.5
+                })
+            )) if controller.combatStateMap[user].getStack(EffectStacks.STEWING_SCHEMES) >= 3 else None,
+            lambda controller, user, _1, _2, _3: void((
+                controller.revertMultStatBonuses(user, {
+                    BaseStats.ATK: 1.5,
+                    BaseStats.MAG: 1.5,
+                    BaseStats.ACC: 1.5
+                }) if controller.combatStateMap[user].getStack(EffectStacks.STEWING_SCHEMES) >= 3 else None,
+                controller.combatStateMap[user].setStack(EffectStacks.STEWING_SCHEMES, 0)
+            ))),
+        EFEndTurn(
+            lambda controller, user, skipDurationTick, _: 
+                controller.combatStateMap[user].addStack(EffectStacks.STEWING_SCHEMES, 3)
+                if not skipDurationTick else None
+        )
+    ], None)])
+
+
+ActiveBuffSkillData("Transcendent Brunch", SecretPlayerClassNames.ALCHEFIST, 9, True, 0,
+    "Gain 45 MP.",
+    MAX_ACTION_TIMER * 2.5, {}, {}, [
+        SkillEffect("", [EFImmediate(lambda controller, user, _1, _2: void(controller.gainMana(user, 45)))], 0)
+    ], 0, 0, False)

@@ -117,7 +117,7 @@ tp_saint.changeClass(AdvancedPlayerClassNames.SAINT)
 rerollWeapon(tp_saint, testRarity)
 rerollOtherEquips(tp_saint, testRarity)
 
-tp_striker = Player("charlotte", BasePlayerClassNames.WARRIOR)
+tp_striker = Player("fleet", BasePlayerClassNames.WARRIOR)
 tp_striker.level = 3
 tp_striker.freeStatPoints = 12
 tp_striker.assignStatPoints([BaseStats.ATK, BaseStats.AVO, BaseStats.ACC, BaseStats.MP,
@@ -129,6 +129,19 @@ tp_striker.changeClass(SecretPlayerClassNames.STRIKER)
 [tp_striker._rankUp() for i in range(9-1)]
 tp_striker.unequipItem(EquipmentSlot.WEAPON)
 rerollOtherEquips(tp_striker, testRarity)
+
+tp_alchefist = Player("eos", BasePlayerClassNames.RANGER)
+tp_alchefist.level = 3
+tp_alchefist.freeStatPoints = 12
+tp_alchefist.assignStatPoints([BaseStats.ATK, BaseStats.MAG, BaseStats.ACC, BaseStats.MP,
+                        BaseStats.ATK, BaseStats.MAG, BaseStats.ACC, BaseStats.MP,
+                        BaseStats.ATK, BaseStats.MP, BaseStats.SPD, BaseStats.HP])
+tp_alchefist.classRanks[BasePlayerClassNames.RANGER] = 3
+tp_alchefist.milestones.add(Milestones.CLASS_ALCHEFIST_UNLOCKED)
+tp_alchefist.changeClass(SecretPlayerClassNames.ALCHEFIST)
+[tp_alchefist._rankUp() for i in range(9-1)]
+rerollWeapon(tp_alchefist, testRarity)
+rerollOtherEquips(tp_alchefist, testRarity)
 
 
 

@@ -212,19 +212,24 @@ class LocalPlayerInputHandler(CombatInputHandler):
 
                         targetIdx = 2
                         if isinstance(chosenSkill, ActiveSkillDataSelector):
+                            optionDescription = chosenSkill.optionDescription if isinstance(chosenSkill.optionDescription, str) \
+                                else chosenSkill.optionDescription(combatController, self.entity)
                             try:
                                 option = inpSplit[2].upper()
                                 assert(chosenSkill.checkOptionAvailable(option, combatController, self.entity))
                                 chosenSkill = chosenSkill.selectSkill(option)
                                 targetIdx = 3
                             except IndexError:
-                                print("This skill expects additional parameters; check the description.")
+                                print("This skill expects additional parameters:")
+                                print(optionDescription)
                                 continue
                             except KeyError:
-                                print(f"Invalid parameter for this skill, options are: {', '.join(chosenSkill.options)}.")
+                                print(f"Invalid parameter for this skill:")
+                                print(optionDescription)
                                 continue
                             except AssertionError:
-                                print(f"That selection is not currently available.")
+                                print(f"That selection is not currently available:")
+                                print(optionDescription)
                                 continue
 
                         if not chosenSkill.targetOpponents:
@@ -331,6 +336,9 @@ class LocalPlayerInputHandler(CombatInputHandler):
             print(f"Current distance: {distance}")
 
         if target == self.player and len(self.player.availableActiveSkills) > 0:
+            if isinstance(target, Player) and target.currentPlayerClass == SecretPlayerClassNames.ALCHEFIST:
+                print("Alchefy Info:")
+                print(combatController.combatStateMap[target].getAlchefyString())
             print("Your Skills:")
             for idx, skill in enumerate(self.player.availableActiveSkills):
                 print(f"[{idx+1}] {skill.skillName} ({combatController.getSkillManaCost(target, skill)} MP): {skill.description}")
@@ -539,6 +547,11 @@ class CombatInterface(object):
     
     def getEntityBuffs(self, entity : CombatEntity):
         return self.cc.getBuffStatusStringFor(entity)
+    
+    def getEntityAlchefy(self, entity : CombatEntity):
+        if isinstance(entity, Player) and entity.currentPlayerClass == SecretPlayerClassNames.ALCHEFIST:
+            return self.cc.combatStateMap[entity].getAlchefyString()
+        return None
     
     def getRange(self, entity : CombatEntity):
         return self.cc.combatStateMap[entity].getTotalStatValue(CombatStats.RANGE)
