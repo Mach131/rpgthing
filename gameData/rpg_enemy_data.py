@@ -1784,12 +1784,17 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect("", [
             EFBeforeNextAttack({ CombatStats.RANGE: 1 }, { BaseStats.ACC: 1.5 },
                 lambda controller, user, target, _2: void((
-                    controller.applyMultStatBonuses(user, {BaseStats.ATK: 1 + (controller.checkDistanceStrict(user, target) * 0.5)}),
+                    controller.combatStateMap[user].setStack(EffectStacks.SAVED_DISTANCE, controller.checkDistanceStrict(user, target)),
+                    controller.applyMultStatBonuses(user, {
+                        BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SAVED_DISTANCE) * 0.5)
+                    }),
                     controller.applyFlatStatBonuses(user, {CombatStats.CRIT_RATE: 1})
-                        if len(controller.combatStateMap[target].currentStatusEffects) > 0 else None
+                        if len(controller.combatStateMap[target].currentStatusEffects) > 0 else None,
                 )),
                 lambda controller, user, target, attackResult, _: void((
-                    controller.revertMultStatBonuses(user, {BaseStats.ATK: 1 + (attackResult.originalDistance * 0.5)}),
+                    controller.revertMultStatBonuses(user, {
+                        BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SAVED_DISTANCE) * 0.5)
+                    }),
                     controller.revertFlatStatBonuses(user, {CombatStats.CRIT_RATE: 1})
                         if len(controller.combatStateMap[target].currentStatusEffects) > 0 else None
                 ))

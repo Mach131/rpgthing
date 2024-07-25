@@ -217,6 +217,10 @@ class EffectStacks(Enum):
     SECRET_ART_CRANE = auto()
     ALCHEFY_ACTIVATED = auto()
     STEWING_SCHEMES = auto()
+    SAVED_DISTANCE = auto()
+    CONFRONTATION_BONUS = auto()
+    CAMOUFLAGE_DISTANCE = auto()
+    ALLOY_BRULEE = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
@@ -581,7 +585,7 @@ weaponClassAttributeMap : dict[WeaponClasses, WeaponAttributes] = {
     WeaponClasses.BROADSWORD: WeaponAttributes("Broadsword", WeaponType.SWORD,
             {BaseStats.ATK: 10, BaseStats.ACC: 10, BaseStats.SPD: 5}),
     WeaponClasses.KATANA: WeaponAttributes("Katana", WeaponType.SWORD,
-            {BaseStats.ATK: 7, BaseStats.MAG: 4, BaseStats.DEF: 2, BaseStats.RES: 2, BaseStats.ACC: 8, BaseStats.AVO: 2, BaseStats.SPD: 4}),
+            {BaseStats.ATK: 7, BaseStats.MAG: 3, BaseStats.DEF: 2, BaseStats.RES: 2, BaseStats.ACC: 8, BaseStats.AVO: 2, BaseStats.SPD: 4}),
     WeaponClasses.SABRE: WeaponAttributes("Sabre", WeaponType.SWORD,
             {BaseStats.ATK: 8, BaseStats.ACC: 12, BaseStats.SPD: 6}),
     WeaponClasses.SPEAR: WeaponAttributes("Spear", WeaponType.SPEAR,
@@ -589,7 +593,7 @@ weaponClassAttributeMap : dict[WeaponClasses, WeaponAttributes] = {
     WeaponClasses.NAGINATA: WeaponAttributes("Naginata", WeaponType.SPEAR,
             {BaseStats.ATK: 5, BaseStats.ACC: 8, BaseStats.AVO: 8, BaseStats.SPD: 7}),
     WeaponClasses.SCYTHE: WeaponAttributes("Scythe", WeaponType.SPEAR,
-            {BaseStats.ATK: 8, BaseStats.MAG: 4, BaseStats.ACC: 9, BaseStats.AVO: 4, BaseStats.SPD: 5}),
+            {BaseStats.ATK: 8, BaseStats.MAG: 3, BaseStats.ACC: 9, BaseStats.AVO: 4, BaseStats.SPD: 5}),
     WeaponClasses.MORNINGSTAR: WeaponAttributes("Morning Star", WeaponType.FLAIL,
             {BaseStats.ATK: 13, BaseStats.ACC: 8, BaseStats.SPD: 2}),
     WeaponClasses.FLAIL: WeaponAttributes("Flail", WeaponType.FLAIL,
@@ -625,7 +629,7 @@ weaponClassAttributeMap : dict[WeaponClasses, WeaponAttributes] = {
     WeaponClasses.SHOTPUTS: WeaponAttributes("Shotputs", WeaponType.ROCKS,
             {BaseStats.ATK: 9, BaseStats.ACC: 7, BaseStats.SPD: 7}),
     WeaponClasses.BOLAS: WeaponAttributes("Bolas", WeaponType.ROCKS,
-            {BaseStats.ATK: 5, BaseStats.MAG: 5, BaseStats.ACC: 9, BaseStats.AVO: 3, BaseStats.SPD: 8}),
+            {BaseStats.ATK: 5, BaseStats.MAG: 4, BaseStats.ACC: 9, BaseStats.AVO: 3, BaseStats.SPD: 8}),
     WeaponClasses.RECURVEBOW: WeaponAttributes("Recurve Bow", WeaponType.BOW,
             {BaseStats.ATK: 6, BaseStats.ACC: 9, BaseStats.SPD: 10}),
     WeaponClasses.COMPOUNDBOW: WeaponAttributes("Compound Bow", WeaponType.BOW,

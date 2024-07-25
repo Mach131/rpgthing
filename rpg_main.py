@@ -62,10 +62,10 @@ if __name__ == '__main__':
 
     # asyncio.run(betterCombatSimulation([tp_acrobat], [basicDummy({})]))
 
-    print(tp_mercenary.getTotalStatString())
-    print("--")
-    print(tp_striker.getTotalStatString())
-    print("--")
+    # print(tp_mercenary.getTotalStatString())
+    # print("--")
+    # print(tp_striker.getTotalStatString())
+    # print("--")
     asyncio.run(simpleCombatSimulation([tp_alchefist], [tp_knight], False, False, 0))
 
     while True:

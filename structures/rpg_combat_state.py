@@ -176,6 +176,7 @@ class EntityCombatState(object):
 
             result = f"__Current Combination__: {ALCHEFY_PRODUCT_NAMES[preparedProduct]}\n"
             result += f"__Prepared Ingredients__: {ingredientString}"
+            result += f" ({len(self.alchefyPrepared)}/{self.getTotalStatValue(CombatStats.ALCHEFY_MAX_PREPARED)})"
         else:
             result = "*(No Ingredients Prepared)*"
         return result
@@ -1217,6 +1218,7 @@ class CombatController(object):
         # initial attack
         attackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, attackType, isBasic, False)
         if attackResultInfo.repeatAttack:
+            self._cleanupEffects(attacker, True)
             repeatAttackResultInfo : AttackResultInfo = self._doSingleAttack(attacker, defender, isPhysical, attackType, False, True)
             attackResultInfo.addBonusResultInfo(repeatAttackResultInfo)
         self._cleanupEffects(attacker)
@@ -1338,7 +1340,7 @@ class CombatController(object):
                                 f"{attacker.shortName}'s attack misses {defender.shortName}!")
 
         attackAttribute : AttackAttribute = self.combatStateMap[attacker].getCurrentAttackAttribute(isPhysical)
-        attackResultInfo = AttackResultInfo(attacker, defender, originalDistance, inRange, checkHit, damageDealt,
+        attackResultInfo = AttackResultInfo(attacker, defender, inRange, checkHit, damageDealt,
                                             isCritical, isBonus, isPhysical, attackType, attackAttribute)
         if savedBonusAttacks is not None:
             [attackResultInfo.addBonusAttack(*bonusAttack) for bonusAttack in savedBonusAttacks]
@@ -1401,8 +1403,11 @@ class CombatController(object):
     """
         Cleanup after an attack. At the moment, just removes single-attack skills.
     """
-    def _cleanupEffects(self, player) -> None:
+    def _cleanupEffects(self, player, beforeBonus : bool = False) -> None:
         for expiredEffect in self.combatStateMap[player].durationCheck():
+            if beforeBonus:
+                if not expiredEffect.forRevert:
+                    continue
             self.removeSkillEffect(player, expiredEffect)
             if expiredEffect.expirationMessage is not None:
                 self.logMessage(MessageType.EFFECT, f"{player.shortName}'s {expiredEffect.expirationMessage}")
@@ -1481,12 +1486,11 @@ class RepositionResultInfo(object):
         self.additionalAttacks : list[tuple[CombatEntity, CombatEntity, AttackSkillData]] = additionalAttacks
 
 class AttackResultInfo(object):
-    def __init__(self, attacker : CombatEntity, defender : CombatEntity, originalDistance : int, inRange : bool,
+    def __init__(self, attacker : CombatEntity, defender : CombatEntity, inRange : bool,
                  attackHit : bool, damageDealt : int, isCritical : bool, isBonus : bool,
                  isPhysical : bool, attackType : AttackType, attackAttribute : AttackAttribute) -> None:
         self.attacker : CombatEntity = attacker
         self.defender : CombatEntity = defender
-        self.originalDistance : int = originalDistance
         self.inRange : bool = inRange
         self.attackHit : bool = attackHit
         self.damageDealt : int = damageDealt

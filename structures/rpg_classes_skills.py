@@ -279,12 +279,13 @@ class ActiveSkillDataSelector(SkillData):
 
 class SkillEffect(object):
     def __init__(self, effectName : str, effectFunctions : list[EffectFunction], effectDuration : int | None,
-                 expirationMessage : str | None = None, expirationEffects : list[EFImmediate] = []):
+                 expirationMessage : str | None = None, expirationEffects : list[EFImmediate] = [], forRevert : bool = False):
         self.effectName : str = effectName
         self.effectFunctions : list[EffectFunction] = effectFunctions[:]
         self.effectDuration : int | None = effectDuration
         self.expirationMessage : str | None = expirationMessage
         self.expirationEffects : list[EFImmediate] = expirationEffects
+        self.forRevert : bool = forRevert
 
 class EnchantmentSkillEffect(SkillEffect):
     def __init__(self, effectName : str, enchantmentAttribute : AttackAttribute, forceMagicAttack : bool, flatStatBonuses : dict[Stats, float],
@@ -351,7 +352,8 @@ class EFBeforeNextAttack(EffectFunction):
         result = EffectFunctionResult(self)
         if self.applyFunc is not None:
             self.applyFunc(controller, user, target, result)
-        revertEffect : SkillEffect = SkillEffect("", [EFBeforeNextAttack_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
+        revertEffect : SkillEffect = SkillEffect("", [EFBeforeNextAttack_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0,
+                                                 forRevert = True)
         controller.addSkillEffect(user, revertEffect)
 
         return result
@@ -392,7 +394,8 @@ class EFBeforeAttacked(EffectFunction):
 
         if self.applyFunc is not None:
             self.applyFunc(controller, user, attacker)
-        revertEffect : SkillEffect = SkillEffect("", [EFBeforeAttacked_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0)
+        revertEffect : SkillEffect = SkillEffect("", [EFBeforeAttacked_Revert(self.flatStatBonuses, self.multStatBonuses, self.revertFunc)], 0,
+                                                 forRevert = True)
         controller.addSkillEffect(attacker, revertEffect)
 
         return EffectFunctionResult(self)
