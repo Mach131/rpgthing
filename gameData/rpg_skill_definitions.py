@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING, Callable
 import math
 
 from rpg_consts import *
-from structures.rpg_classes_skills import EFEndTurn, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDistanceChange, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
+from structures.rpg_classes_skills import EFBeforeAttacked, EFEndTurn, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDistanceChange, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
-        EFOnParry, EFBeforeAllyAttacked
+        EFOnParry, EFBeforeAllyAttacked, EFOnOpponentDotDamage
 from gameData.rpg_status_definitions import BlindStatusEffect, BurnStatusEffect, ExhaustionStatusEffect, FearStatusEffect, MisfortuneStatusEffect, PerplexityStatusEffect, \
     PoisonStatusEffect, RestrictStatusEffect, StatusEffect, StunStatusEffect, TargetStatusEffect
 
@@ -30,7 +30,7 @@ PassiveSkillData("Endurance", BasePlayerClassNames.WARRIOR, 3, True,
     {}, {}, [SkillEffect("", [EFEndTurn(
         lambda controller, user, skipDurationTick, _: void(
           controller.gainHealth(user, round(controller.getMaxHealth(user) * 0.02))
-        ) if not skipDurationTick else None
+        ) if not skipDurationTick and controller.getCurrentHealth(user) > 0 else None
     )], None)])
 
 
@@ -1058,7 +1058,7 @@ PassiveSkillData("Faith", AdvancedPlayerClassNames.SAINT, 6, True,
     {}, {BaseStats.RES: 1.1, BaseStats.MAG: 1.1, BaseStats.MP: 1.05}, [])
 
 def prayerFn(controller : CombatController, user : CombatEntity, skipDurationTick : bool, _):
-    if skipDurationTick:
+    if skipDurationTick or controller.getCurrentHealth(user) <= 0:
         return
     prayerLog = False
     for ally in controller.getTeammates(user):
@@ -1953,8 +1953,8 @@ def alchefyProductEffectFn(controller : CombatController, user : CombatEntity, t
                 )
             ], 0))
     
-    else:
-        assert(False, "Unexpected Alchefy Product") # type: ignore
+    # else:
+    #     assert(False, "Unexpected Alchefy Product") # type: ignore
 
 #####
 
@@ -2155,3 +2155,339 @@ ActiveBuffSkillData("Transcendent Brunch", SecretPlayerClassNames.ALCHEFIST, 9, 
     MAX_ACTION_TIMER * 2, {}, {}, [
         SkillEffect("", [EFImmediate(lambda controller, user, _1, _2: void(controller.gainMana(user, 45)))], 0)
     ], 0, 0, False)
+
+
+# Saboteur
+
+PassiveSkillData("Saboteur's Interference", SecretPlayerClassNames.SABOTEUR, 1, False,
+    "Apply a stacking debuff when hitting opponents (max 10). Gain 5% ATK per stack on target when attacking. " + 
+    "*(Inevitability: Remove all stacks; apply POISON for 5 turns with 6% Strength per mark.)*",
+    {}, {}, [
+        SkillEffect("", [
+            EFBeforeNextAttack(
+                {}, {},
+                lambda controller, user, target, _: void((
+                    controller.combatStateMap[user].setStack(
+                        EffectStacks.SABOTEUR_INTERFERENCE_STORED, controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_INTERFERENCE)),
+                    controller.applyMultStatBonuses(user, {
+                        BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_INTERFERENCE_STORED) * 0.05)
+                    })
+                )),
+                lambda controller, user, _1, _2, _3: void((
+                    controller.revertMultStatBonuses(user, {
+                        BaseStats.ATK: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_INTERFERENCE_STORED) * 0.05)
+                    })
+                ))
+            ),
+            EFAfterNextAttack(
+                lambda controller, _1, target, attackResult, _2: void((
+                    controller.combatStateMap[target].addStack(EffectStacks.SABOTEUR_INTERFERENCE, 10)
+                )) if attackResult.attackHit else None
+            )
+        ], None)
+    ])
+
+def siphonSetPowerBonusFn(controller : CombatController, user : CombatEntity, target : CombatEntity):
+    targetStatusEffects = controller.combatStateMap[target].currentStatusEffects
+    totalDotPower = 0
+    effectString = ""
+
+    poisonEffect = targetStatusEffects.get(StatusConditionNames.POISON)
+    if poisonEffect is not None and isinstance(poisonEffect, PoisonStatusEffect):
+        totalDotPower += poisonEffect.poisonStrength
+        effectString = "POISON"
+
+    burnEffect = targetStatusEffects.get(StatusConditionNames.BURN)
+    if burnEffect is not None and isinstance(burnEffect, BurnStatusEffect):
+        totalDotPower += burnEffect.burnStrength
+        if len(effectString) > 0:
+            effectString += " and "
+        effectString += "BURN"
+    
+    controller.logMessage(
+        MessageType.EFFECT, f"{user.shortName} exploits the {effectString} applied to {target.shortName}!"
+    )
+    controller.combatStateMap[user].setStack(
+        EffectStacks.SABOTEUR_SIPHON_BONUS, math.ceil(totalDotPower * 1)
+    )
+AttackSkillData("Inevitability", SecretPlayerClassNames.SABOTEUR, 2, False, 30,
+    "Attack with 1x ATK. The Inevitability effects of Saboteur debuffs on the target will activate if there are a sufficient number of stacks.",
+    True, None, 1, DEFAULT_ATTACK_TIMER_USAGE, [
+        SkillEffect("", [
+            EFAfterNextAttack(
+                lambda controller, user, target, attackResult, _: void((
+                    (
+                        controller.applyStatusCondition(
+                            target, PoisonStatusEffect(user, target, 5, math.ceil(
+                                controller.combatStateMap[user].getTotalStatValue(BaseStats.ATK) *
+                                (controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_INTERFERENCE) * 0.06)))
+                        ),
+                        controller.combatStateMap[target].setStack(EffectStacks.SABOTEUR_INTERFERENCE, 0)
+                    ) if controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_INTERFERENCE) > 0 else None,
+
+                    (
+                        controller.logMessage(
+                            MessageType.EFFECT, f"{user.shortName}'s actions become Traceless, greatly reducing MP costs!"
+                        ),
+                        controller.applyMultStatBonuses(user, {
+                            CombatStats.MANA_COST_MULT: 0.35
+                        }),
+                        controller.addSkillEffect(
+                            user, SkillEffect("Traceless Actions", [], 3, "Traceless Actions wore off.", [
+                                EFImmediate(
+                                    lambda controller, user, _1, _2: controller.revertMultStatBonuses(user, {
+                                        CombatStats.MANA_COST_MULT: 0.35
+                                    })
+                                )
+                            ])
+                        ),
+                        [controller.combatStateMap[target].removeStack(EffectStacks.SABOTEUR_TRACELESS) for i in range(4)]
+                    ) if controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_TRACELESS) >= 4 else None,
+
+                    (
+                        controller.logMessage(
+                            MessageType.EFFECT, f"{user.shortName}'s Infiltration increases their Critical Hit Rate!"
+                        ),
+                        controller.applyFlatStatBonuses(user, {
+                            CombatStats.CRIT_RATE: 0.05
+                        }),
+                        [controller.combatStateMap[target].removeStack(EffectStacks.SABOTEUR_INFILTRATION) for i in range(3)]
+                    ) if controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_INFILTRATION) >= 3 else None,
+                )) if attackResult.attackHit else None
+            ),
+
+            EFBeforeNextAttack(
+                {}, {},
+                lambda controller, user, target, _: void((
+                    (
+                        siphonSetPowerBonusFn(controller, user, target),
+                        controller.applyFlatStatBonuses(
+                            user, {
+                                BaseStats.ATK: controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_SIPHON_BONUS)
+                            }
+                        )
+                    ) if controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_SIPHON) >= 3 else None,
+
+                    (
+                        controller.applyFlatStatBonuses(
+                            user, {
+                                CombatStats.CRIT_RATE: 0.35
+                            }
+                        )
+                    ) if controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_BLACKOUT) >= 2 else None
+                )),
+                lambda controller, user, target, attackResult, effectResult: void((
+                    (
+                        controller.revertFlatStatBonuses(
+                            user, {
+                                BaseStats.ATK: controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_SIPHON_BONUS)
+                            }
+                        ),
+                        controller.combatStateMap[target].setStack(EffectStacks.SABOTEUR_SIPHON_BONUS, 0),
+                        [controller.combatStateMap[target].removeStack(EffectStacks.SABOTEUR_SIPHON) for i in range(3)]
+                            if attackResult.attackHit else None
+                    ) if controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_SIPHON) >= 3 else None,
+
+                    (
+                        controller.revertFlatStatBonuses(
+                            user, {
+                                CombatStats.CRIT_RATE: 0.35
+                            }
+                        ),
+                        (
+                            controller.logMessage(
+                                MessageType.EFFECT, f"{user.shortName} capitalizes on the Blackout appllied to {target.shortName}!"
+                            ),
+                            effectResult.setActionTimeMult(0.5),
+                            [controller.combatStateMap[target].removeStack(EffectStacks.SABOTEUR_BLACKOUT) for i in range(2)]
+                        ) if attackResult.attackHit else None
+                    ) if controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_BLACKOUT) >= 2 else None
+                ))
+            )
+        ], 0)
+    ])
+
+PassiveSkillData("Siphon", SecretPlayerClassNames.SABOTEUR, 3, True,
+    "Apply a stacking debuff when opponents take POISON/BURN damage (max 5). Restore 1% of max HP/MP per stack on target when attacking. " + 
+    "*(Inevitability: Remove 3 stacks; increase attack's ATK by the strength of target's active POISON/BURN effects.)*",
+    {}, {}, [
+        SkillEffect("", [
+            EFOnOpponentDotDamage(
+                lambda controller, _1, target, _2, _3: void((
+                    controller.combatStateMap[target].addStack(EffectStacks.SABOTEUR_SIPHON, 5)
+                ))
+            ),
+            EFAfterNextAttack(
+                lambda controller, user, target, attackResult, _: void((
+                    controller.gainHealth(user, math.ceil(
+                        controller.getMaxHealth(user) * (controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_SIPHON) * 0.01))
+                    ),
+                    controller.gainMana(user, math.ceil(
+                        controller.getMaxMana(user) * (controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_SIPHON) * 0.01))
+                    )
+                )) if attackResult.attackHit and controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_SIPHON) > 0 else None 
+            )
+        ], None)
+    ])
+
+PassiveSkillData("Blackout", SecretPlayerClassNames.SABOTEUR, 4, False,
+    "Apply a stacking debuff when dodging an attack (max 6). Gain 10% ACC/AVO per stack on target or attacker. " + 
+    "*(Inevitability: Remove 2 stacks; increase attack's Critical Hit Rate by 35% and decrease time to next action.)*",
+    {}, {}, [
+        SkillEffect("", [
+            EFBeforeNextAttack(
+                {}, {},
+                lambda controller, user, target, _: void((
+                    controller.combatStateMap[user].setStack(
+                        EffectStacks.SABOTEUR_BLACKOUT_STORED, controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_BLACKOUT)),
+                    controller.applyMultStatBonuses(user, {
+                        BaseStats.ACC: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_BLACKOUT_STORED) * 0.1)
+                    })
+                )),
+                lambda controller, user, _1, _2, _3: void((
+                    controller.revertMultStatBonuses(user, {
+                        BaseStats.ACC: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_BLACKOUT_STORED) * 0.1)
+                    })
+                ))
+            ),
+            EFBeforeAttacked(
+                {}, {},
+                lambda controller, user, attacker: void((
+                    controller.combatStateMap[user].setStack(
+                        EffectStacks.SABOTEUR_BLACKOUT_STORED, controller.combatStateMap[attacker].getStack(EffectStacks.SABOTEUR_BLACKOUT)),
+                    controller.applyMultStatBonuses(user, {
+                        BaseStats.AVO: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_BLACKOUT_STORED) * 0.1)
+                    })
+                )),
+                lambda controller, user, _1, _2: void((
+                    controller.revertMultStatBonuses(user, {
+                        BaseStats.AVO: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_BLACKOUT_STORED) * 0.1)
+                    })
+                ))
+            ),
+            EFWhenAttacked(
+                lambda controller, _1, attacker, attackResult, _2: void((
+                    controller.combatStateMap[attacker].addStack(EffectStacks.SABOTEUR_BLACKOUT, 6)
+                )) if attackResult.inRange and not attackResult.attackHit else None
+            )
+        ], None)
+    ])
+
+def tamperingFn(controller : CombatController, user : CombatEntity, target : CombatEntity):
+    targetStatusEffects = controller.combatStateMap[target].currentStatusEffects
+    totalDotPower = 0
+
+    poisonEffect = targetStatusEffects.get(StatusConditionNames.POISON)
+    if poisonEffect is not None and isinstance(poisonEffect, PoisonStatusEffect):
+        totalDotPower += poisonEffect.poisonStrength
+
+    burnEffect = targetStatusEffects.get(StatusConditionNames.BURN)
+    if burnEffect is not None and isinstance(burnEffect, BurnStatusEffect):
+        totalDotPower += burnEffect.burnStrength
+    
+    if totalDotPower > 0:
+        newDotPower = math.ceil(totalDotPower * 0.5)
+        controller.applyStatusCondition(target, PoisonStatusEffect(user, target, 3, newDotPower))
+        controller.applyStatusCondition(target, BurnStatusEffect(user, target, 3, newDotPower))
+AttackSkillData("Tampering", SecretPlayerClassNames.SABOTEUR, 5, False, 20,
+    "Attack with 1x ATK. If the opponent is POISONED or BURNED, inflict both conditions for 3 turns with a strength based on the existing ones.",
+    True, None, 1, DEFAULT_ATTACK_TIMER_USAGE, [
+        SkillEffect("", [
+            EFAfterNextAttack(
+                lambda controller, user, target, result, _:
+                    tamperingFn(controller, user, target) if result.attackHit else None
+            )
+        ], 0)
+    ])
+
+PassiveSkillData("Efficiency", SecretPlayerClassNames.SABOTEUR, 6, True,
+    "Increases critical hit rate by 5%. On a critical hit, reduce the time to your next action.",
+    {CombatStats.CRIT_RATE: 0.05}, {}, [SkillEffect("", [EFAfterNextAttack(
+        lambda controller, user, _1, attackInfo, result:
+            void(result.setActionTimeMult(0.85)) if attackInfo.isCritical else None
+    )], None)])
+
+PassiveSkillData("Traceless", SecretPlayerClassNames.SABOTEUR, 7, False,
+    "Apply a stacking debuff when landing an attacking skill (max 4). Status application success rate +10% per stack on target when attacking. " + 
+    "*(Inevitability: Remove 4 stacks; reduce MP costs by 65% for the next 2 turns.)*",
+    {}, {}, [
+        SkillEffect("", [
+            EFOnAttackSkill(
+                lambda controller, user, _1, _2: void((
+                    controller.addSkillEffect(user, SkillEffect("", [
+                        EFAfterNextAttack(
+                            lambda controller, _1, target, attackResult, _2: void((
+                                controller.combatStateMap[target].addStack(EffectStacks.SABOTEUR_TRACELESS, 4)
+                            )) if attackResult.attackHit else None
+                        )
+                    ], 0))
+                ))
+            ),
+            EFBeforeNextAttack(
+                {}, {},
+                lambda controller, user, target, _: void((
+                    controller.combatStateMap[user].setStack(
+                        EffectStacks.SABOTEUR_TRACELESS_STORED, controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_TRACELESS)),
+                    controller.applyMultStatBonuses(user, {
+                        CombatStats.STATUS_APPLICATION_TOLERANCE_MULTIPLIER:
+                            1 - (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_TRACELESS_STORED) * 0.1)
+                    })
+                )),
+                None
+            ),
+            EFEndTurn(
+                lambda controller, user, _1, _2: void((
+                    controller.revertMultStatBonuses(user, {
+                        CombatStats.STATUS_APPLICATION_TOLERANCE_MULTIPLIER:
+                            1 - (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_TRACELESS_STORED) * 0.1)
+                    }),
+                    controller.combatStateMap[user].setStack(EffectStacks.SABOTEUR_TRACELESS_STORED, 0)
+                )) if controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_TRACELESS_STORED) > 0 else None
+            )
+        ], None)
+    ])
+
+PassiveSkillData("Infiltration", SecretPlayerClassNames.SABOTEUR, 8, True,
+    "Apply a stacking debuff when landing critical hits (max 5). Gain 4% Critical Damage per stack on target when attacking. " + 
+    "*(Inevitability: Remove 3 stacks; increase Critical Hit Rate by 5%.)*",
+    {}, {}, [
+        SkillEffect("", [
+            EFBeforeNextAttack(
+                {}, {},
+                lambda controller, user, target, _: void((
+                    controller.combatStateMap[user].setStack(
+                        EffectStacks.SABOTEUR_INFILTRATION_STORED, controller.combatStateMap[target].getStack(EffectStacks.SABOTEUR_INFILTRATION)),
+                    controller.applyFlatStatBonuses(user, {
+                        CombatStats.CRIT_DAMAGE: controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_INFILTRATION_STORED) * 0.04
+                    })
+                )),
+                lambda controller, user, _1, _2, _3: void((
+                    controller.revertFlatStatBonuses(user, {
+                        CombatStats.CRIT_DAMAGE: controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_INFILTRATION_STORED) * 0.04
+                    })
+                ))
+            ),
+
+            EFAfterNextAttack(
+                lambda controller, _1, target, attackResult, _2: void((
+                    controller.combatStateMap[target].addStack(EffectStacks.SABOTEUR_INFILTRATION, 5)
+                )) if attackResult.attackHit and attackResult.isCritical else None
+            )
+        ], None)
+    ])
+
+AttackSkillData("No Witnesses", SecretPlayerClassNames.SABOTEUR, 9, True, 45,
+    "Attack with 0.65x ATK and 0.7x ACC. If this defeats an opponent, restore HP and MP equal to your maximum.",
+    True, None, 0.65, DEFAULT_ATTACK_TIMER_USAGE, [
+        SkillEffect("", [
+            EFBeforeNextAttack(
+                {}, { BaseStats.ACC: 0.7 }, None, None
+            ),
+            EFAfterNextAttack(
+                lambda controller, user, target, _1, _2: void((
+                    controller.gainHealth(user, controller.getMaxHealth(user)),
+                    controller.gainMana(user, controller.getMaxMana(user))
+                )) if controller.getCurrentHealth(target) <= 0 else None
+            )
+        ], 0)
+    ])

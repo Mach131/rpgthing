@@ -96,6 +96,9 @@ class RandomEntityInputHandler(CombatInputHandler):
                 availableCommands.append("attack")
             if len(availableSkills) > 0:
                 availableCommands.append("skill")
+                availableCommands.append("skill")
+                availableCommands.append("skill")
+                availableCommands.append("skill")
             if len(approachTargets) > 0:
                 availableCommands.append("approach")
             if len(retreatTargets) > 0:

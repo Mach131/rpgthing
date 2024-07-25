@@ -511,6 +511,17 @@ class EFOnHealSkill(EffectFunction):
         self.func(controller, user, target, healAmount, result)
         return result
     
+"""A reaction to an opponent taking damage from a DOT (POISON/BURN)."""
+class EFOnOpponentDotDamage(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, int, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.ON_OPPONENT_DOT)
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity, int, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity, damageAmount : int) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, target, damageAmount, result)
+        return result
+    
 """An effect that always occurs at the beginning of a turn."""
 class EFStartTurn(EffectFunction):
     def __init__(self, func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None]):

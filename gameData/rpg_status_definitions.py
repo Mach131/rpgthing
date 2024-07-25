@@ -45,7 +45,7 @@ class PoisonStatusEffect(StatusEffect):
         if not skipDurationTick:
             controller.logMessage(MessageType.EFFECT,
                                   f"{target.shortName} takes damage from POISON!")
-            controller.applyDamage(self.inflicter, target, self.poisonStrength)
+            controller.applyDamage(self.inflicter, target, self.poisonStrength, fromDot=True)
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, PoisonStatusEffect):
@@ -62,7 +62,7 @@ class BurnStatusEffect(StatusEffect):
         if not skipDurationTick:
             controller.logMessage(MessageType.EFFECT,
                                   f"{target.shortName} takes damage from BURN!")
-            controller.applyDamage(self.inflicter, target, self.burnStrength)
+            controller.applyDamage(self.inflicter, target, self.burnStrength, fromDot=True)
 
     def amplifyStatus(self, controller : CombatController, target : CombatEntity, newStatus : StatusEffect, randRoll : float) -> int:
         if isinstance(newStatus, BurnStatusEffect):

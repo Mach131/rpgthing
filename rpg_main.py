@@ -66,7 +66,7 @@ if __name__ == '__main__':
     # print("--")
     # print(tp_striker.getTotalStatString())
     # print("--")
-    asyncio.run(simpleCombatSimulation([tp_alchefist], [tp_knight], False, False, 0))
+    asyncio.run(simpleCombatSimulation([tp_saboteur], [tp_knight, bgp_mage], False, False, 0))
 
     while True:
         inp = input("> ")

@@ -4,7 +4,7 @@ import random
 import math
 
 from rpg_consts import *
-from structures.rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnHealSkill, EFOnStatusApplied, EFOnToggle, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from structures.rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnOpponentDotDamage, EFOnHealSkill, EFOnStatusApplied, EFOnToggle, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
 from structures.rpg_combat_entity import Player
@@ -742,7 +742,7 @@ class CombatController(object):
         Makes a target take damage. Returns actual damage taken.
     """
     def applyDamage(self, attacker : CombatEntity, defender : CombatEntity, damageTaken : int,
-                    isCritical : bool = False, silent : bool = False) -> int:
+                    isCritical : bool = False, silent : bool = False, fromDot : bool = False) -> int:
         # If doing anything with attacker, first ensure it's not the same as the defender (e.g. weapon curse)
         originalHP : int = self.combatStateMap[defender].currentHP
         newHP : int = max(0, originalHP - damageTaken)
@@ -760,6 +760,11 @@ class CombatController(object):
             for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
                 assert(isinstance(effectFunction, EFOnStatsChange))
                 effectFunction.applyEffect(self, defender, {SpecialStats.CURRENT_HP: originalHP}, {SpecialStats.CURRENT_HP: newHP})
+            if fromDot:
+                for opponent in self.getTargets(defender):
+                    for effectFunction in self.combatStateMap[opponent].getEffectFunctions(EffectTimings.ON_OPPONENT_DOT):
+                        assert(isinstance(effectFunction, EFOnOpponentDotDamage))
+                        effectFunction.applyEffect(self, opponent, defender, damageTaken)
         
         if newHP == 0 and not silent:
             self.logMessage(MessageType.BASIC,
@@ -883,7 +888,7 @@ class CombatController(object):
         Returns updated timer amount.
     """
     def increaseActionTimer(self, entity : CombatEntity, fraction : float) -> float:
-        self.combatStateMap[entity].actionTimer += round(MAX_ACTION_TIMER * fraction)
+        self.combatStateMap[entity].actionTimer += MAX_ACTION_TIMER * fraction
         if self.combatStateMap[entity].actionTimer >= MAX_ACTION_TIMER:
             self.combatStateMap[entity].actionTimer = MAX_ACTION_TIMER - EPSILON
         return self.combatStateMap[entity].actionTimer
@@ -1349,19 +1354,22 @@ class CombatController(object):
         actionTimeMult : float = 1
 
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.AFTER_ATTACK):
+            effectResult = None
             if isinstance(effectFunction, EFAfterNextAttack):
                 effectResult = effectFunction.applyEffect(self, attacker, defender, attackResultInfo)
+            elif isinstance(effectFunction, EFBeforeNextAttack_Revert):
+                effectResult = effectFunction.applyEffect(self, attacker, defender, attackResultInfo)
+            elif isinstance(effectFunction, EFBeforeAttacked_Revert):
+                # note that defender is the user here
+                effectResult = effectFunction.applyEffect(self, defender, attacker)
+
+            if effectResult is not None:
                 if effectResult.actionTime is not None:
                     actionTimerUsage = effectResult.actionTime
                 if effectResult.actionTimeMult is not None:
                     actionTimeMult *= effectResult.actionTimeMult
                 if effectResult.bonusAttacks is not None:
                     [attackResultInfo.addBonusAttack(*bonusAttack) for bonusAttack in effectResult.bonusAttacks]
-            elif isinstance(effectFunction, EFBeforeNextAttack_Revert):
-                effectFunction.applyEffect(self, attacker, defender, attackResultInfo)
-            elif isinstance(effectFunction, EFBeforeAttacked_Revert):
-                # note that defender is the user here
-                effectFunction.applyEffect(self, defender, attacker)
         for effectFunction in self.combatStateMap[defender].getEffectFunctions(EffectTimings.AFTER_ATTACKED):
             if isinstance(effectFunction, EFWhenAttacked):
                 effectFunction.applyEffect(self, defender, attacker, attackResultInfo)
@@ -1371,6 +1379,13 @@ class CombatController(object):
                 BASIC_ATTACK_MP_GAIN * self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.BASIC_MP_GAIN_MULT))
             self.gainMana(attacker, basicMpGain)
             self.spendActionTimer(attacker, actionTimerUsage * actionTimeMult)
+        else:
+            if actionTimeMult != 1:
+                # Assumes that the responsible skill or action has already spent the action time
+                spentActionTime = MAX_ACTION_TIMER - self.combatStateMap[attacker].actionTimer
+                adjustedActionTime = spentActionTime * actionTimeMult
+                actionTimeDelta = spentActionTime - adjustedActionTime
+                self.increaseActionTimer(attacker, actionTimeDelta / MAX_ACTION_TIMER)
 
         return attackResultInfo
     

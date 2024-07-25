@@ -182,6 +182,7 @@ class EffectTimings(Enum):
     START_TURN = auto()
     END_TURN = auto()
     ADVANCE_TURN = auto()
+    ON_OPPONENT_DOT = auto()
 
 class EffectStacks(Enum):
     STEADY_HAND = auto()
@@ -221,6 +222,16 @@ class EffectStacks(Enum):
     CONFRONTATION_BONUS = auto()
     CAMOUFLAGE_DISTANCE = auto()
     ALLOY_BRULEE = auto()
+    SABOTEUR_INTERFERENCE = auto()
+    SABOTEUR_INTERFERENCE_STORED = auto()
+    SABOTEUR_SIPHON = auto()
+    SABOTEUR_SIPHON_BONUS = auto()
+    SABOTEUR_BLACKOUT = auto()
+    SABOTEUR_BLACKOUT_STORED = auto()
+    SABOTEUR_TRACELESS = auto()
+    SABOTEUR_TRACELESS_STORED = auto()
+    SABOTEUR_INFILTRATION = auto()
+    SABOTEUR_INFILTRATION_STORED = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
@@ -239,7 +250,12 @@ EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.HORSE_INSTINCTS: "Horse Instinct",
     EffectStacks.SECRET_ART_TIGER: "Secret Art T",
     EffectStacks.SECRET_ART_HORSE: "Secret Art H",
-    EffectStacks.SECRET_ART_CRANE: "Secret Art C"
+    EffectStacks.SECRET_ART_CRANE: "Secret Art C",
+    EffectStacks.SABOTEUR_INTERFERENCE: "(Saboteur) Interference",
+    EffectStacks.SABOTEUR_SIPHON: "(Saboteur) Siphon",
+    EffectStacks.SABOTEUR_BLACKOUT: "(Saboteur) Blackout",
+    EffectStacks.SABOTEUR_TRACELESS: "(Saboteur) Traceless",
+    EffectStacks.SABOTEUR_INFILTRATION: "(Saboteur) Infiltration"
 }
 
 NO_COUNT_DISPLAY_STACKS : set[EffectStacks] = set((

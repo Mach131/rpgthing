@@ -57,7 +57,7 @@ tp_sniper.changeClass(AdvancedPlayerClassNames.SNIPER)
 rerollWeapon(tp_sniper, testRarity)
 rerollOtherEquips(tp_sniper, testRarity)
 
-tp_wizard = Player("sienna", BasePlayerClassNames.MAGE)
+tp_wizard = Player("irae", BasePlayerClassNames.MAGE)
 tp_wizard.level = 3
 tp_wizard.freeStatPoints = 12
 tp_wizard.assignStatPoints([BaseStats.MAG, BaseStats.MP, BaseStats.ACC, BaseStats.HP,
@@ -142,6 +142,19 @@ tp_alchefist.changeClass(SecretPlayerClassNames.ALCHEFIST)
 [tp_alchefist._rankUp() for i in range(9-1)]
 rerollWeapon(tp_alchefist, testRarity)
 rerollOtherEquips(tp_alchefist, testRarity)
+
+tp_saboteur = Player("sienna", BasePlayerClassNames.ROGUE)
+tp_saboteur.level = 3
+tp_saboteur.freeStatPoints = 12
+tp_saboteur.assignStatPoints([BaseStats.ATK, BaseStats.SPD, BaseStats.ACC, BaseStats.MP,
+                        BaseStats.ATK, BaseStats.SPD, BaseStats.AVO, BaseStats.MP,
+                        BaseStats.ATK, BaseStats.MP, BaseStats.SPD, BaseStats.AVO])
+tp_saboteur.classRanks[BasePlayerClassNames.ROGUE] = 3
+tp_saboteur.milestones.add(Milestones.CLASS_SABOTEUR_UNLOCKED)
+tp_saboteur.changeClass(SecretPlayerClassNames.SABOTEUR)
+[tp_saboteur._rankUp() for i in range(9-1)]
+rerollWeapon(tp_saboteur, testRarity)
+rerollOtherEquips(tp_saboteur, testRarity)
 
 
 
