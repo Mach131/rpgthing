@@ -103,7 +103,4 @@ In Combat:
 	
 
 Todos:
-	- buff/stack display
-	- logging filters
 
-	- add description of current class as a separate field in class window

@@ -3,7 +3,7 @@ import asyncio
 import random
 
 from structures.rpg_classes_skills import ActiveSkillDataSelector, ActiveToggleSkillData, AttackSkillData, SkillData
-from structures.rpg_combat_entity import CombatEntity, Enemy, Player
+from structures.rpg_combat_entity import CombatEntity, Enemy, NPCEntity, Player, PlayerSummon
 from structures.rpg_combat_state import ActionResultInfo, CombatController
 from rpg_consts import *
 from structures.rpg_messages import MessageCollector
@@ -350,10 +350,10 @@ class LocalPlayerInputHandler(CombatInputHandler):
             print(f"Time to next action: {nextActionTime:.3f}")
         print()
 
-class EnemyInputHandler(CombatInputHandler):
-    def __init__(self, enemy : Enemy):
-        super().__init__(enemy)
-        self.enemy : Enemy = enemy
+class NPCInputHandler(CombatInputHandler):
+    def __init__(self, entity : NPCEntity):
+        super().__init__(entity)
+        self.enemy : NPCEntity = entity
 
     async def takeTurn(self, combatController : CombatController) -> None:
         targetList = combatController.getTargets(self.entity)
@@ -433,10 +433,13 @@ class CombatInterface(object):
 
     def spawnEntity(self, entity : CombatEntity, enemyTeam : bool):
         if not enemyTeam:
-            raise Exception("spawning for player team not supported yet")
+            assert isinstance(entity, PlayerSummon)
+            summonHandler = NPCInputHandler(entity)
+            self.players.append(entity)
+            self.handlerMap[entity] = summonHandler
         else:
             assert isinstance(entity, Enemy)
-            enemyHandler = EnemyInputHandler(entity)
+            enemyHandler = NPCInputHandler(entity)
             self.opponents.append(entity)
             self.handlerMap[entity] = enemyHandler
         
@@ -472,7 +475,7 @@ class CombatInterface(object):
         self.sendAllLatestMessages()
 
     def removePlayer(self, player : Player):
-        self.cc.applyDamage(player, player, self.cc.getCurrentHealth(player), False, True)
+        self.cc.applyDamage(player, player, self.cc.getCurrentHealth(player), False, silent=True, queueRemove=True)
         if self.activePlayer is not None and self.activePlayer == player:
             self.handlerMap[self.activePlayer].onPlayerLeaveDungeon()
 

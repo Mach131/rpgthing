@@ -25,7 +25,8 @@ class InterfacePage(object):
     def __init__(self, buttonName : str, buttonStyle : discord.ButtonStyle, subPages : list[InterfacePage],
                  contentFn : Callable[[GameSession, InterfaceView], discord.Embed] | None, enabledFn : Callable[[GameSession], bool],
                  callbackFn : Callable[[GameSession, InterfacePage, discord.Interaction], Coroutine],
-                 buttonStyleFn : Callable[[GameSession, InterfaceView], discord.ButtonStyle] | None = None):
+                 buttonStyleFn : Callable[[GameSession, InterfaceView], discord.ButtonStyle] | None = None,
+                 hiddenFn : Callable[[GameSession, InterfaceView], bool] | None = None):
         self.buttonName = buttonName
         self.buttonStyle = buttonStyle
         self.contentFn = contentFn
@@ -33,6 +34,7 @@ class InterfacePage(object):
         self.enabledFn = enabledFn
         self.callbackFn = callbackFn
         self.buttonStyleFn = buttonStyleFn
+        self.hiddenFn = hiddenFn
 
         self.buttonDepth = 0
         if len(self.subPages) == 0:
@@ -65,6 +67,11 @@ class InterfacePage(object):
     def getCallback(self, session : GameSession):
         return (lambda interaction: self.callbackFn(session, self, interaction)
                     if interaction.user.id == session.userId else asyncio.sleep(0))
+    
+    def checkHidden(self, session : GameSession, view : InterfaceView):
+        if self.hiddenFn is None:
+            return False
+        return self.hiddenFn(session, view)
     
 class InterfaceConfirmation(object):
     def __init__(self, prompt : str, confirmText : str, cancelText : str, dataKey : str):
@@ -403,8 +410,9 @@ def characterClassSkillsContent(session : GameSession, view : InterfaceView):
     embed.add_field(name="__Passive Skills:__", value=passiveSkillString)
 
     return embed
-def getSkillDescription(skill : SkillData, includeFreeSkillTag : bool) -> str:
-    skillString = f"**{skill.skillName}** ({skill.playerClass.name[0] + skill.playerClass.name[1:].lower()} Rank {skill.rank})\n"
+def getSkillDescription(skill : SkillData, includeFreeSkillTag : bool, overrideClassName : str = "") -> str:
+    className = overrideClassName if len(overrideClassName) > 0 else enumName(skill.playerClass)
+    skillString = f"**{skill.skillName}** ({className} Rank {skill.rank})\n"
     skillString += f"{skill.description}"
     if skill.isActiveSkill:
         skillString += f"\nMP Cost: {skill.mpCost} \\|| Speed: {getSkillSpeed(skill)}"
@@ -417,7 +425,9 @@ def getSkillSpeed(skill : SkillData) -> str:
     skillSpeed = skill.actionTime
     if skillSpeed is None:
         return "None"
-    speedString = "Slow"
+    speedString = "Very Slow"
+    if skillSpeed <= MAX_ACTION_TIMER:
+        speedString = "Slow"
     if skillSpeed <= DEFAULT_ATTACK_TIMER_USAGE:
         speedString = "Normal"
     if skillSpeed <= MAX_ACTION_TIMER / 2:
@@ -429,6 +439,61 @@ def getSkillSpeed(skill : SkillData) -> str:
     return speedString 
 CHARACTER_CLASS_SKILLS_SUBPAGE = InterfacePage("Class Skills", discord.ButtonStyle.secondary, [],
                                                characterClassSkillsContent,  lambda session: True, changePageCallback)
+
+def characterSummonSkillsContent(session : GameSession, view : InterfaceView):
+    player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
+    embed = discord.Embed(title=f"Summon Skills",
+                          description=f"{player.summonName} Rank {player.classRanks[SecretPlayerClassNames.SUMMONER]}")
+    
+    activeSkillStrings = []
+    passiveSkillStrings = []
+    for skill in PlayerClassData.getSkillsForRank(SecretPlayerClassNames.SNAPS, player.classRanks[SecretPlayerClassNames.SUMMONER]):
+        targetArray = activeSkillStrings if skill.isActiveSkill else passiveSkillStrings
+        targetArray.append(getSkillDescription(skill, True, player.summonName))
+
+    activeSkillString = "*None Yet*" if len(activeSkillStrings) == 0 else '\n\n'.join(activeSkillStrings)
+    passiveSkillString = "*None Yet*" if len(passiveSkillStrings) == 0 else '\n\n'.join(passiveSkillStrings)
+    embed.add_field(name="__Active Skills:__", value=activeSkillString)
+    embed.add_field(name="__Passive Skills:__", value=passiveSkillString)
+
+    return embed
+CHARACTER_SUMMON_SKILLS_SUBPAGE = InterfacePage("Summon Skills", discord.ButtonStyle.secondary, [],
+                                                characterSummonSkillsContent,  lambda session: True, changePageCallback,
+                                                hiddenFn=lambda session, view:
+                                                    GLOBAL_STATE.accountDataMap[session.userId].currentCharacter.currentPlayerClass != SecretPlayerClassNames.SUMMONER)
+
+
+def characterAlchefySkillsContent(session : GameSession, view : InterfaceView):
+    player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
+    basicRecipiesUnlocked = player.classRanks[SecretPlayerClassNames.ALCHEFIST] >= 2
+    advancedRecipiesUnlocked = player.classRanks[SecretPlayerClassNames.ALCHEFIST] >= 5
+    embed = discord.Embed(title=f"Alchefy Recipe Book",
+                          description=f"Alchefist Rank {player.classRanks[SecretPlayerClassNames.ALCHEFIST]}")
+    
+    knownRecipes : dict[AlchefyProducts, str] = {}
+    unknownsMessage = ""
+    if basicRecipiesUnlocked:
+        knownRecipes.update(ALCHEFY_DESCRIPTIONS_BASIC)
+        if advancedRecipiesUnlocked:
+            knownRecipes.update(ALCHEFY_DESCRIPTIONS_ADVANCED)
+        else:
+            unknownsMessage = "*(More ingredients are out there! Get to Alchefist Rank 5 to unlock them all!)*"
+    else:
+        unknownsMessage = "*(None available yet! Get to Alchefist Rank 2 to begin cooking!)*"
+    
+    for recipeProduct in knownRecipes:
+        ingredients = [ALCHEFY_ELEMENT_NAMES[ing] for ing in ALCHEFY_PRODUCT_MAP_REV[recipeProduct]]
+        fullDescription = f"*{' + '.join(ingredients)}*\n{knownRecipes[recipeProduct]}"
+        embed.add_field(name=ALCHEFY_PRODUCT_NAMES[recipeProduct], value=fullDescription)
+
+    if len(unknownsMessage) > 0:
+        embed.add_field(name="", value=unknownsMessage, inline=False)
+
+    return embed
+CHARACTER_ALCHEFY_SKILLS_SUBPAGE = InterfacePage("Recipe Book", discord.ButtonStyle.secondary, [],
+                                                characterAlchefySkillsContent,  lambda session: True, changePageCallback,
+                                                hiddenFn=lambda session, view:
+                                                    GLOBAL_STATE.accountDataMap[session.userId].currentCharacter.currentPlayerClass != SecretPlayerClassNames.ALCHEFIST)
 
 def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
     player = GLOBAL_STATE.accountDataMap[session.userId].currentCharacter
@@ -523,7 +588,8 @@ CHARACTER_FREE_SKILLS_SUBPAGE = InterfacePage("Free Skills", discord.ButtonStyle
                                                characterFreeSkillsContent,  checkFreeSkillAvailable, changePageCallback)
 
 CHARACTER_SKILLS_SUBPAGE = InterfacePage("Skills", discord.ButtonStyle.secondary,
-                                         [CHARACTER_CLASS_SKILLS_SUBPAGE, CHARACTER_FREE_SKILLS_SUBPAGE],
+                                         [CHARACTER_CLASS_SKILLS_SUBPAGE, CHARACTER_ALCHEFY_SKILLS_SUBPAGE,
+                                          CHARACTER_SUMMON_SKILLS_SUBPAGE, CHARACTER_FREE_SKILLS_SUBPAGE],
                                          None, lambda session: True, changePageCallback)
 
 CHARACTER_PAGE = InterfacePage("Character", discord.ButtonStyle.secondary,
@@ -1268,7 +1334,8 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                     optionButton = discord.ui.Button(label=optionName, style=discord.ButtonStyle.blurple, disabled=not optionAvailable)
                     optionButton.callback = (lambda _os: lambda interaction:
                                             updateDataMapCallbackFn(interaction, session, view, ACTION_CHOICE_DATA, 'chosenSkill', _os))(optionSkill)
-                    optionButton.disabled = not combatInterface.canPayForSkill(player, optionSkill)
+                    if not combatInterface.canPayForSkill(player, optionSkill):
+                        optionButton.disabled = True
                     view.add_item(optionButton)
             else:
                 selectedTargets : set[CombatEntity] = actionChoiceData.get('skillTargets', set())

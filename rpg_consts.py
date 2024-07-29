@@ -52,7 +52,12 @@ class CombatStats(Stats):
     INNER_PEACE = auto()
     ALCHEFY_MAX_PREPARED = auto()
     ALCHEFY_REPEAT_MEMORY = auto()
-
+    DEFEND_ACTION_TIME_MULT = auto()
+    DEFEND_ACTION_DAMAGE_MULT = auto()
+    COOPERATION_BONUS_CRIT = auto()
+    SNAPS_DELEGATOR = auto()
+    UNWAVERING_TRUST = auto()
+    SUPEREROGATOR_RESET = auto()
 class SpecialStats(Stats):
     CURRENT_HP = auto()
     CURRENT_MP = auto()
@@ -87,7 +92,13 @@ baseCombatStats : dict[CombatStats, float] = {
     CombatStats.TIGER_INSTINCT: 0,
     CombatStats.INNER_PEACE: 0,
     CombatStats.ALCHEFY_MAX_PREPARED: 2,
-    CombatStats.ALCHEFY_REPEAT_MEMORY: 4
+    CombatStats.ALCHEFY_REPEAT_MEMORY: 4,
+    CombatStats.DEFEND_ACTION_TIME_MULT: 1,
+    CombatStats.DEFEND_ACTION_DAMAGE_MULT: 1,
+    CombatStats.COOPERATION_BONUS_CRIT: 0,
+    CombatStats.SNAPS_DELEGATOR: 0,
+    CombatStats.UNWAVERING_TRUST: 0,
+    CombatStats.SUPEREROGATOR_RESET: 0
 }
 
 baseStatValues_base : dict[BaseStats, int] = {
@@ -139,6 +150,7 @@ class SecretPlayerClassNames(PlayerClassNames):
     ALCHEFIST = auto()
     SABOTEUR = auto()
     SUMMONER = auto()
+    SNAPS = auto()
 
 CLASS_DESCRIPTION : dict[PlayerClassNames, str] = {
     BasePlayerClassNames.WARRIOR: "Confront opponents face-on!",
@@ -158,7 +170,9 @@ CLASS_DESCRIPTION : dict[PlayerClassNames, str] = {
     SecretPlayerClassNames.STRIKER: "Master unarmed combat to adapt to the needs of any battle!",
     SecretPlayerClassNames.ALCHEFIST: "Concoct a variety of additional attack effects by combining ingredients!",
     SecretPlayerClassNames.SABOTEUR: "Wear down your targets, growing stronger each time they falter!",
-    SecretPlayerClassNames.SUMMONER: "Fight alongside a summoned creature, overwhelming opponents from two angles!"
+    SecretPlayerClassNames.SUMMONER: "Fight alongside a summoned creature, overwhelming opponents from two angles!",
+
+    SecretPlayerClassNames.SNAPS: "[shouldn't be viewable]"
 }
 
 MAX_BASE_CLASS_RANK = 3
@@ -183,6 +197,7 @@ class EffectTimings(Enum):
     END_TURN = auto()
     ADVANCE_TURN = auto()
     ON_OPPONENT_DOT = auto()
+    ON_DEFEND = auto()
 
 class EffectStacks(Enum):
     STEADY_HAND = auto()
@@ -232,6 +247,11 @@ class EffectStacks(Enum):
     SABOTEUR_TRACELESS_STORED = auto()
     SABOTEUR_INFILTRATION = auto()
     SABOTEUR_INFILTRATION_STORED = auto()
+    SNAPS_BEHAVIOR_MODE = auto()
+    SUMMONER_SHARED_VISION = auto()
+    SNAPS_PREPARE_CASTIGATOR = auto()
+    COOPERATION = auto()
+    COOPERATION_USED = auto()
 
 EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.STEADY_HAND: "Steady Hand",
@@ -255,7 +275,8 @@ EFFECT_STACK_NAMES : dict[EffectStacks, str] = {
     EffectStacks.SABOTEUR_SIPHON: "(Saboteur) Siphon",
     EffectStacks.SABOTEUR_BLACKOUT: "(Saboteur) Blackout",
     EffectStacks.SABOTEUR_TRACELESS: "(Saboteur) Traceless",
-    EffectStacks.SABOTEUR_INFILTRATION: "(Saboteur) Infiltration"
+    EffectStacks.SABOTEUR_INFILTRATION: "(Saboteur) Infiltration",
+    EffectStacks.COOPERATION: "Cooperation Mark"
 }
 
 NO_COUNT_DISPLAY_STACKS : set[EffectStacks] = set((
@@ -264,7 +285,8 @@ NO_COUNT_DISPLAY_STACKS : set[EffectStacks] = set((
     EffectStacks.STRIKER_CRANE,
     EffectStacks.SECRET_ART_TIGER,
     EffectStacks.SECRET_ART_HORSE,
-    EffectStacks.SECRET_ART_CRANE
+    EffectStacks.SECRET_ART_CRANE,
+    EffectStacks.COOPERATION
 ))
 
 """ Combat """
@@ -273,7 +295,7 @@ DEFAULT_ATTACK_TIMER_USAGE = 70
 DEFAULT_APPROACH_TIMER_USAGE = 42.5
 DEFAULT_RETREAT_TIMER_USAGE = 50
 DEFAULT_MULTI_REPOSITION_TIMER_USAGE = 7.5
-FORMATION_ACTION_TIMER_PENALTY = 50
+FORMATION_ACTION_TIMER_PENALTY = 30
 
 MAX_SINGLE_REPOSITION = 2
 MAX_DISTANCE = 3
@@ -423,10 +445,56 @@ ALCHEFY_PRODUCT_MAP : dict[tuple[AlchefyElements] | tuple[AlchefyElements, Alche
     (AlchefyElements.FIRESUN, AlchefyElements.WATERMOON): AlchefyProducts.ELIXIR_TEA
 }
 apmReverseMap = {}
+ALCHEFY_PRODUCT_MAP_REV : dict[AlchefyProducts, tuple[AlchefyElements] | tuple[AlchefyElements, AlchefyElements]] = {}
+
 for combo in ALCHEFY_PRODUCT_MAP: # add reverse combinations
+    ALCHEFY_PRODUCT_MAP_REV[ALCHEFY_PRODUCT_MAP[combo]] = combo
     if len(combo) == 2 and combo[0] != combo[1]:
         apmReverseMap[(combo[1], combo[0])] = ALCHEFY_PRODUCT_MAP[combo]
 ALCHEFY_PRODUCT_MAP.update(apmReverseMap)
+
+
+ALCHEFY_DESCRIPTIONS_BASIC = {
+    AlchefyProducts.FLOUR_FLOWER: "Neutral Magic, 1.2x MAG.",
+    AlchefyProducts.POLLEN_DOUGH: "Neutral Magic, 1.5x MAG. Decreases target's ACC.",
+    AlchefyProducts.BUTTERY_SILVER: "Physical, 0.8x ATK. Fast attack speed.",
+    AlchefyProducts.MERCURY_DRESSING: "Slashing Physical, 1.2x ATK. Fast attack speed. Decreases target's DEF/RES.",
+    AlchefyProducts.HATCHING_STONE: "Physical, 1.2x ATK.",
+    AlchefyProducts.QUICKSAND_OMELET: "Crushing Physical, 1.5x ATK. Decrease target's SPD.",
+    AlchefyProducts.BREAD_DOLL: "Piercing Physical, 1x ATK. Attacks a random additional target with 0.9x ATK.",
+    AlchefyProducts.SYLPHID_NOODLES: "Wind Magic, 1.3x MAG. Increases a random stat for all allies.",
+    AlchefyProducts.BEDROCK_QUICHE: "Physical, 1.2x ATK. For 5 turns, reduces ATK/MAG/ACC of target's attacks based on distance."
+}
+ALCHEFY_DESCRIPTIONS_ADVANCED = {
+    AlchefyProducts.MOLTEN_MONOSACCHARIDE: "Fire Magic, 1.2x MAG.",
+    AlchefyProducts.SOLAR_SUGAR: "Light Magic, 1.5x MAG. Increase ACC of all allies.",
+    AlchefyProducts.BASIC_BROTH: "Ice Magic, 1.2x MAG.",
+    AlchefyProducts.LUNAR_LEAVENER: "Dark Magic, 1.5x MAG. Increase AVO of all allies.",
+    AlchefyProducts.CONFECTIONERS_HAZE: "Neutral Magic, 1.2x MAG. Lowers a random stat of the target.",
+    AlchefyProducts.NIGHTBLOOM_TEA: "Neutral Magic, 1.2x MAG. Attempts to apply a random debuff.",
+    AlchefyProducts.ALLOY_BRULEE: "Physical, 1x ATK + 0.6x MAG.",
+    AlchefyProducts.CREAM_OF_BISMUTH: "Physical, 1.1x ATK, 30% additional Critical Hit Rate. On crit, attack repeats once.",
+    AlchefyProducts.SCRAMBLED_SUNLIGHT: "Light Magic, 0.8x MAG. For 4 turns, all allies have 25% less time between actions.",
+    AlchefyProducts.POACHED_JADE: "Dark Magic, 0.6x MAG. For 4 turns, all allies have 30% reduced MP costs.",
+    AlchefyProducts.ELIXIR_TEA: "Neutral Magic, 1x ATK. Heals all allies with 1.7x strength."
+}
+
+""" Summoner """
+
+DEFAULT_SUMMON_NAMES = [
+    "Snaps",
+    "Mirtu",
+    "Ferali",
+    "Brock",
+    "Allison",
+    "Irwin",
+    "Susie",
+    "Ade",
+    "Bea",
+    "Later",
+    "Gummy",
+    "Bratty"
+]
 
 """ Equips """
 
@@ -823,6 +891,7 @@ class Milestones(Enum):
     CLASS_ALCHEFIST_UNLOCKED = auto()
     CLASS_SABOTEUR_UNLOCKED = auto()
     CLASS_SUMMONER_UNLOCKED = auto()
+    NULL = auto()
 
 MAX_USER_CHARACTERS = 4
 MAX_NAME_LENGTH = 15
@@ -868,7 +937,7 @@ TOGGLE_LOG_FILTER_DEFAULTS : dict[MessageType, bool] = {
     MessageType.POSITIONING: True,
     MessageType.EXPIRATION: True,
     MessageType.EFFECT: True,
-    MessageType.PROBABILITY: False
+    MessageType.PROBABILITY: True
 }
 
 DISPLAY_LOG_THRESHOLD = 512

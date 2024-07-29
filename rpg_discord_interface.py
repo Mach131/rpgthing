@@ -203,6 +203,9 @@ class InterfaceView(discord.ui.View):
         self._extendCurrentPageStack(depth)
 
         for idx, page in enumerate(pageList):
+            if page.checkHidden(self.session, self):
+                continue
+            
             self.indexMap[page] = idx
             button = page.getButton(self.session, self)
             button.callback = page.getCallback(self.session)
@@ -639,6 +642,27 @@ async def delete_character_error(ctx, error : Exception):
         response += '\n'.join(f"[{i+1}] {char.name}, Level {char.level}" for i, char in enumerate(charList))
         await ctx.send(response, ephemeral=True)
 
+@bot.hybrid_command()
+async def name_summon(ctx : commands.Context, summonName : str | None = None):
+    if GLOBAL_STATE.loaded:
+        if summonName is not None:
+            if len(summonName) <= MAX_NAME_LENGTH:
+                userId = ctx.author.id
+                if GLOBAL_STATE.idRegistered(userId):
+                    currentPlayer = GLOBAL_STATE.accountDataMap[userId].session.getPlayer()
+                    assert(currentPlayer is not None)
+                    currentPlayer.summonName = summonName
+                    await ctx.send(f"Gator name for {currentPlayer.name} set to {summonName}! Just curious.", ephemeral=True)
+                else:
+                    await ctx.send("You don't have a character yet! Use the 'new_character [name]' command first.", ephemeral=True)
+            else:
+                await ctx.send(f"Please choose a name with {MAX_NAME_LENGTH} characters or fewer.", ephemeral=True)
+        else:
+            await ctx.send("Hypothetically, if you had a pet alligator or something similar, what would you name it...?\n" +
+                            "Use '/name_summon [name]' to choose for your current character.", ephemeral=True)
+    else:
+        await respondNotLoaded(ctx)
+
 @bot.command(brief="[OWNER] Save bot state",
                     description=f"[BOT OWNER ONLY] Force-saves the bot state. This should automatically happen periodically without calling this command.")
 async def save(ctx : commands.Context):
@@ -647,6 +671,31 @@ async def save(ctx : commands.Context):
         await ctx.send("saved state")
     else:
         await ctx.send("This is a dev-only command; progress should be periodically saved automatically.")
+
+@bot.command(brief="[OWNER] Toggle secrets",
+                    description=f"[BOT OWNER ONLY] This command should be commented out")
+async def toggle_secrets(ctx : commands.Context):
+    if ctx.author.id == MY_ID:
+        userId = ctx.author.id
+        if GLOBAL_STATE.idRegistered(userId):
+            currentPlayer = GLOBAL_STATE.accountDataMap[userId].session.getPlayer()
+            assert(currentPlayer is not None)
+            secretMilestones = set([
+                Milestones.CLASS_ALCHEFIST_UNLOCKED,
+                Milestones.CLASS_SABOTEUR_UNLOCKED,
+                Milestones.CLASS_STRIKER_UNLOCKED,
+                Milestones.CLASS_SUMMONER_UNLOCKED
+            ])
+            if Milestones.CLASS_STRIKER_UNLOCKED not in currentPlayer.milestones:
+                currentPlayer.milestones = currentPlayer.milestones.union(secretMilestones)
+                await ctx.send(f"secrets enabled", ephemeral=True)
+            else:
+                currentPlayer.milestones = currentPlayer.milestones.difference(secretMilestones)
+                await ctx.send(f"secrets disabled", ephemeral=True)
+        else:
+            await ctx.send("wher character", ephemeral=True)
+    else:
+        await ctx.send("This is a dev-only command.")
 
 # Logging
 logger = logging.getLogger('discord')

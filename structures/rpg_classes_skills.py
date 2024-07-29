@@ -15,7 +15,7 @@ class PlayerClassData(object):
 
     def __init__(self, className : PlayerClassNames, classRequirements : list[PlayerClassNames], milestoneRequirements : list[Milestones] = []) -> None:
         self.className : PlayerClassNames = className
-        self.isBaseClass : bool = len(classRequirements) == 0
+        self.isBaseClass : bool = className in BasePlayerClassNames
         self.classRequirements : list[PlayerClassNames] = classRequirements
         self.milestoneRequirements : list[Milestones] = milestoneRequirements
 
@@ -131,7 +131,9 @@ classDataList = [
     PlayerClassData(SecretPlayerClassNames.STRIKER, [BasePlayerClassNames.WARRIOR], [Milestones.CLASS_STRIKER_UNLOCKED]),
     PlayerClassData(SecretPlayerClassNames.ALCHEFIST, [BasePlayerClassNames.RANGER], [Milestones.CLASS_ALCHEFIST_UNLOCKED]),
     PlayerClassData(SecretPlayerClassNames.SABOTEUR, [BasePlayerClassNames.ROGUE], [Milestones.CLASS_SABOTEUR_UNLOCKED]),
-    PlayerClassData(SecretPlayerClassNames.SUMMONER, [BasePlayerClassNames.MAGE], [Milestones.CLASS_SUMMONER_UNLOCKED])
+    PlayerClassData(SecretPlayerClassNames.SUMMONER, [BasePlayerClassNames.MAGE], [Milestones.CLASS_SUMMONER_UNLOCKED]),
+
+    PlayerClassData(SecretPlayerClassNames.SNAPS, [], [Milestones.NULL])
 ]
 
 ### Skills
@@ -333,16 +335,29 @@ class EFOnAttackSkill(EffectFunction):
         self.func(controller, user, targets, result)
         return result
 
+"""An effect called upon defending."""
+class EFOnDefend(EffectFunction):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None]):
+        super().__init__(EffectTimings.ON_DEFEND)
+        self.func : Callable[[CombatController, CombatEntity, EffectFunctionResult], None] = func
+
+    def applyEffect(self, controller : CombatController, user : CombatEntity) -> EffectFunctionResult:
+        result = EffectFunctionResult(self)
+        self.func(controller, user, result)
+        return result
+
 """(Usually) a temporary bonus before performing the next attack."""
 class EFBeforeNextAttack(EffectFunction):
     def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
             applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None],
-            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
+            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None],
+            basicOnly : bool = False):
         super().__init__(EffectTimings.BEFORE_ATTACK)
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
         self.applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = applyFunc
         self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None] = revertFunc
+        self.basicOnly : bool = basicOnly
 
 
     def applyEffect(self, controller : CombatController, user : CombatEntity, target : CombatEntity) -> EffectFunctionResult:
@@ -380,12 +395,12 @@ class EFBeforeNextAttack_Revert(EffectFunction):
 class EFBeforeAttacked(EffectFunction):
     def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
             applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity], None],
-            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
         super().__init__(EffectTimings.BEFORE_ATTACKED)
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
         self.applyFunc : None | Callable[[CombatController, CombatEntity, CombatEntity], None] = applyFunc
-        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = revertFunc
+        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None] = revertFunc
 
 
     def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity) -> EffectFunctionResult:
@@ -403,19 +418,19 @@ class EFBeforeAttacked(EffectFunction):
 # Note: tracked by attacker, so that it gets cleared at the end of the attack
 class EFBeforeAttacked_Revert(EffectFunction):
     def __init__(self, flatStatBonuses : dict[Stats, float], multStatBonuses : dict[Stats, float],
-            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+            revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None]):
         super().__init__(EffectTimings.AFTER_ATTACK)
         self.flatStatBonuses : dict[Stats, float] = flatStatBonuses
         self.multStatBonuses : dict[Stats, float] = multStatBonuses
-        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, EffectFunctionResult], None] = revertFunc
+        self.revertFunc : None | Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo, EffectFunctionResult], None] = revertFunc
 
-    def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity) -> EffectFunctionResult:
+    def applyEffect(self, controller : CombatController, user : CombatEntity, attacker : CombatEntity, attackResult : AttackResultInfo) -> EffectFunctionResult:
         controller.revertFlatStatBonuses(user, self.flatStatBonuses)
         controller.revertMultStatBonuses(user, self.multStatBonuses)
 
         result = EffectFunctionResult(self)
         if self.revertFunc is not None:
-            self.revertFunc(controller, user, attacker, result)
+            self.revertFunc(controller, user, attacker, attackResult, result)
         return result
 
 """A reaction to the results of the next attack."""
@@ -546,14 +561,14 @@ class EFEndTurn(EffectFunction):
     
 """An effect that occurs when determining the next player to move, between End and Start turn effects."""
 class EFOnAdvanceTurn(EffectFunction):
-    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity, CombatEntity, EffectFunctionResult], None]):
+    def __init__(self, func : Callable[[CombatController, CombatEntity, CombatEntity | None, CombatEntity, float, EffectFunctionResult], None]):
         super().__init__(EffectTimings.ADVANCE_TURN)
-        self.func : Callable[[CombatController, CombatEntity, CombatEntity, CombatEntity, EffectFunctionResult], None] = func
+        self.func : Callable[[CombatController, CombatEntity, CombatEntity | None, CombatEntity, float, EffectFunctionResult], None] = func
 
     def applyEffect(self, controller : CombatController, user : CombatEntity,
-            previousTurnPlayer : CombatEntity, nextTurnPlayer : CombatEntity) -> EffectFunctionResult:
+            previousTurnPlayer : CombatEntity | None, nextTurnPlayer : CombatEntity, timePassed : float) -> EffectFunctionResult:
         result = EffectFunctionResult(self)
-        self.func(controller, user, previousTurnPlayer, nextTurnPlayer, result)
+        self.func(controller, user, previousTurnPlayer, nextTurnPlayer, timePassed, result)
         return result
 
 class EffectFunctionResult(object):

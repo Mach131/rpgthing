@@ -4,10 +4,10 @@ import random
 import math
 
 from rpg_consts import *
-from structures.rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnOpponentDotDamage, EFOnHealSkill, EFOnStatusApplied, EFOnToggle, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
+from structures.rpg_classes_skills import EFBeforeAttacked, EFBeforeAttacked_Revert, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDefend, EFOnOpponentDotDamage, EFOnHealSkill, EFOnStatusApplied, EFOnToggle, EFStartTurn, EnchantmentSkillEffect, SkillData, AttackSkillData, ActiveToggleSkillData, SkillEffect, \
     EFImmediate, EFBeforeNextAttack, EFBeforeNextAttack_Revert, EFAfterNextAttack, EFWhenAttacked, \
     EFOnDistanceChange, EFOnStatsChange, EFOnParry, EFBeforeAllyAttacked, EFEndTurn
-from structures.rpg_combat_entity import Player
+from structures.rpg_combat_entity import Player, PlayerSummon
 from structures.rpg_messages import MessageCollector, makeTeamString
 from gameData.rpg_status_definitions import StatusEffect
 
@@ -174,7 +174,7 @@ class EntityCombatState(object):
             ingredientString = ", ".join(ingredientStrings)
             preparedProduct = ALCHEFY_PRODUCT_MAP[nextIngredients]
 
-            result = f"__Current Combination__: {ALCHEFY_PRODUCT_NAMES[preparedProduct]}\n"
+            result = f"__Current Combination__: **{ALCHEFY_PRODUCT_NAMES[preparedProduct]}**\n"
             result += f"__Prepared Ingredients__: {ingredientString}"
             result += f" ({len(self.alchefyPrepared)}/{self.getTotalStatValue(CombatStats.ALCHEFY_MAX_PREPARED)})"
         else:
@@ -209,8 +209,10 @@ class EntityCombatState(object):
         return (MAX_ACTION_TIMER - self.actionTimer) / (self.getTotalStatValue(BaseStats.SPD) ** 0.5)
 
     """ As above, increases the actionTimer to reflect some amount of time passing. """
-    def increaseActionTimer(self, timePassed : float) -> float:
+    def increaseActionTimer(self, timePassed : float, capTimer : bool = False) -> float:
         self.actionTimer += timePassed * (self.getTotalStatValue(BaseStats.SPD) ** 0.5)
+        if capTimer and self.actionTimer >= MAX_ACTION_TIMER:
+            self.actionTimer = MAX_ACTION_TIMER - EPSILON
         return self.actionTimer
 
     def applyFlatStatBonuses(self, flatStatMap : dict[Stats, float]) -> None:
@@ -433,6 +435,7 @@ class CombatController(object):
         self.loggers : dict[CombatEntity, MessageCollector] = loggers
         self.spawnerCallback : Callable[[CombatEntity, bool], None] = spawnerCallback
 
+        self.removeQueue = []
         self.opponentNameCount = {}
         self.namedOpponentMemory = {}
         for opponent in self.opponentTeam:
@@ -497,6 +500,7 @@ class CombatController(object):
             self._removeDuplicateOpponentNames(entity)
         else:
             self.playerTeam.append(entity)
+            self.distanceMap[entity] = {}
             for opponent in self.opponentTeam:
                 self.distanceMap[entity][opponent] = DEFAULT_STARTING_DISTANCE
 
@@ -557,6 +561,13 @@ class CombatController(object):
         In the case of a tie, a random selection is made.
     """
     def advanceToNextPlayer(self) -> CombatEntity:
+        for removeEntity in self.removeQueue:
+            if removeEntity in self.playerTeam and len(self.playerTeam) > 1:
+                self.playerTeam.remove(removeEntity)
+            elif removeEntity in self.opponentTeam and len(self.opponentTeam) > 1:
+                self.opponentTeam.remove(removeEntity)
+        self.removeQueue = []
+
         actionTimeMap : dict[CombatEntity, float] = {entity : self.combatStateMap[entity].getTimeToFullAction() for entity in self.combatStateMap}
         livingEntities = list(filter(lambda entity: self.combatStateMap[entity].currentHP > 0, self.combatStateMap.keys()))
         nextEntity : CombatEntity = min(livingEntities, key = lambda entity: actionTimeMap[entity])
@@ -567,10 +578,9 @@ class CombatController(object):
 
         for entity in livingEntities:
             self.combatStateMap[entity].increaseActionTimer(actionTimeMap[nextEntity])
-            if self.previousTurnEntity is not None:
-                for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ADVANCE_TURN):
-                    assert(isinstance(effectFunction, EFOnAdvanceTurn))
-                    effectFunction.applyEffect(self, entity, self.previousTurnEntity, nextEntity)
+            for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ADVANCE_TURN):
+                assert(isinstance(effectFunction, EFOnAdvanceTurn))
+                effectFunction.applyEffect(self, entity, self.previousTurnEntity, nextEntity, actionTimeMap[nextEntity])
 
         return nextEntity
 
@@ -729,6 +739,7 @@ class CombatController(object):
         defenseReduction : float = 1
         if self.combatStateMap[defender].defendActive:
             defenseReduction *= DEFEND_DAMAGE_MULTIPLIER
+            defenseReduction *= self.combatStateMap[defender].getTotalStatValueFloat(CombatStats.DEFEND_ACTION_DAMAGE_MULT)
             self.gainMana(defender, DEFEND_HIT_MP_GAIN)
             self.combatStateMap[defender].defendActive = False
 
@@ -742,7 +753,7 @@ class CombatController(object):
         Makes a target take damage. Returns actual damage taken.
     """
     def applyDamage(self, attacker : CombatEntity, defender : CombatEntity, damageTaken : int,
-                    isCritical : bool = False, silent : bool = False, fromDot : bool = False) -> int:
+                    isCritical : bool = False, silent : bool = False, fromDot : bool = False, queueRemove : bool = False) -> int:
         # If doing anything with attacker, first ensure it's not the same as the defender (e.g. weapon curse)
         originalHP : int = self.combatStateMap[defender].currentHP
         newHP : int = max(0, originalHP - damageTaken)
@@ -766,11 +777,34 @@ class CombatController(object):
                         assert(isinstance(effectFunction, EFOnOpponentDotDamage))
                         effectFunction.applyEffect(self, opponent, defender, damageTaken)
         
-        if newHP == 0 and not silent:
-            self.logMessage(MessageType.BASIC,
-                            f"**{defender.name} is defeated!**")
+        if newHP == 0:
+            if not silent:
+                self.logMessage(MessageType.BASIC,
+                                f"**{defender.name} is defeated!**")
+            
+            for summon in self.getActiveSummons(defender):
+                if not silent:
+                    self.logMessage(MessageType.BASIC,
+                                    f"**The connection to {summon.name} is disrupted!**")
+                self.combatStateMap[summon].currentHP = 0
+            
+            if queueRemove:
+                self.removeQueue.append(defender)
 
         return originalHP - self.combatStateMap[defender].currentHP
+    
+    def getActiveSummons(self, entity : CombatEntity) -> list[PlayerSummon]:
+        result = []
+        for ally in self.getTeammates(entity):
+            if isinstance(ally, PlayerSummon) and ally.summoner == entity:
+                if self.getCurrentHealth(ally) > 0:
+                    result.append(ally)
+        return result
+    
+    def getSummoner(self, entity : CombatEntity) -> CombatEntity | None:
+        if isinstance(entity, PlayerSummon):
+            if self.getCurrentHealth(entity.summoner) > 0:
+                return entity.summoner
     
     def _applyAggro(self, attacker, defender, damageValue):
         aggroMult = self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.AGGRO_MULT)
@@ -824,7 +858,7 @@ class CombatController(object):
     """
         Makes a target gain mana. Returns actual mana gained.
     """
-    def gainMana(self, entity : CombatEntity, mpGain : int, silent : bool = False) -> int:
+    def gainMana(self, entity : CombatEntity, mpGain : int, silent : bool = False, canUnwaveringTrust : bool = False) -> int:
         originalMP : int = self.combatStateMap[entity].currentMP
 
         manaGainMult = self.combatStateMap[entity].getTotalStatValueFloat(CombatStats.MANA_GAIN_MULT)
@@ -843,6 +877,12 @@ class CombatController(object):
             for effectFunction in self.combatStateMap[entity].getEffectFunctions(EffectTimings.ON_STAT_CHANGE):
                 assert(isinstance(effectFunction, EFOnStatsChange))
                 effectFunction.applyEffect(self, entity, {SpecialStats.CURRENT_MP: originalMP}, {SpecialStats.CURRENT_MP: originalMP + manaGained})
+
+            if canUnwaveringTrust and self.combatStateMap[entity].getTotalStatValue(CombatStats.UNWAVERING_TRUST) > 0:
+                for ally in self.getTeammates(entity):
+                    if ally == entity:
+                        continue
+                    self.gainMana(ally, manaGained)
         return manaGained
 
     def getCurrentHealth(self, entity : CombatEntity) -> int:
@@ -1064,7 +1104,7 @@ class CombatController(object):
         realTimerCost = (timerPerDistance + (DEFAULT_MULTI_REPOSITION_TIMER_USAGE * (len(targets) - 1))) * abs(totalDistanceChange)
         realTimerCost *= self.combatStateMap[user].getTotalStatValueFloat(CombatStats.REPOSITION_ACTION_TIME_MULT)
         if totalDistanceChange > 0:
-            self.gainMana(user, REPOSITION_MP_GAIN)
+            self.gainMana(user, REPOSITION_MP_GAIN, canUnwaveringTrust=True)
             self.spendActionTimer(user, realTimerCost)
         else:
             return RepositionResultInfo(False, {}, False, None, None, None, [])
@@ -1119,8 +1159,14 @@ class CombatController(object):
         self.logMessage(MessageType.ACTION,
                         f"{user.shortName} defends themselves against the next attack!")
 
-        self.gainMana(user, DEFEND_MP_GAIN)
-        self.spendActionTimer(user, MAX_ACTION_TIMER)
+        self.gainMana(user, DEFEND_MP_GAIN, canUnwaveringTrust=True)
+        defendTime = MAX_ACTION_TIMER * self.combatStateMap[user].getTotalStatValueFloat(CombatStats.DEFEND_ACTION_TIME_MULT)
+
+        for effectFunction in self.combatStateMap[user].getEffectFunctions(EffectTimings.ON_DEFEND):
+            if isinstance(effectFunction, EFOnDefend):
+                effectFunction.applyEffect(self, user) # not expected to do much beyond message logging
+
+        self.spendActionTimer(user, defendTime)
         self._endPlayerTurn(user)
 
     """-
@@ -1280,6 +1326,8 @@ class CombatController(object):
         savedBonusAttacks = []
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
+            if effectFunction.basicOnly and not isBasic:
+                continue
             effectResult = effectFunction.applyEffect(self, attacker, defender)
             if effectResult.bonusAttacks is not None:
                 savedBonusAttacks += effectResult.bonusAttacks
@@ -1361,7 +1409,7 @@ class CombatController(object):
                 effectResult = effectFunction.applyEffect(self, attacker, defender, attackResultInfo)
             elif isinstance(effectFunction, EFBeforeAttacked_Revert):
                 # note that defender is the user here
-                effectResult = effectFunction.applyEffect(self, defender, attacker)
+                effectResult = effectFunction.applyEffect(self, defender, attacker, attackResultInfo)
 
             if effectResult is not None:
                 if effectResult.actionTime is not None:
@@ -1377,7 +1425,7 @@ class CombatController(object):
         if isBasic:
             basicMpGain = math.ceil(
                 BASIC_ATTACK_MP_GAIN * self.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.BASIC_MP_GAIN_MULT))
-            self.gainMana(attacker, basicMpGain)
+            self.gainMana(attacker, basicMpGain, canUnwaveringTrust=True)
             self.spendActionTimer(attacker, actionTimerUsage * actionTimeMult)
         else:
             if actionTimeMult != 1:

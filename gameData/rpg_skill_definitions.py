@@ -3,16 +3,17 @@ from typing import TYPE_CHECKING, Callable
 import math
 
 from rpg_consts import *
-from structures.rpg_classes_skills import EFBeforeAttacked, EFEndTurn, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDistanceChange, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
+from structures.rpg_classes_skills import EFBeforeAttacked, EFEndTurn, EFOnAdvanceTurn, EFOnAttackSkill, EFOnDefend, EFOnDistanceChange, EFOnHealSkill, EFOnStatusApplied, EFStartTurn, EnchantmentSkillEffect, PassiveSkillData, AttackSkillData, ActiveBuffSkillData, ActiveToggleSkillData, CounterSkillData, \
     ActiveSkillDataSelector, PrepareParrySkillData, \
     SkillEffect, EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked, EFOnStatsChange, \
         EFOnParry, EFBeforeAllyAttacked, EFOnOpponentDotDamage
 from gameData.rpg_status_definitions import BlindStatusEffect, BurnStatusEffect, ExhaustionStatusEffect, FearStatusEffect, MisfortuneStatusEffect, PerplexityStatusEffect, \
     PoisonStatusEffect, RestrictStatusEffect, StatusEffect, StunStatusEffect, TargetStatusEffect
+from structures.rpg_npc_ai import *
 
 if TYPE_CHECKING:
     from structures.rpg_classes_skills import EffectFunctionResult, EffectFunction
-    from structures.rpg_combat_entity import CombatEntity
+    from structures.rpg_combat_entity import CombatEntity, EntityAI, EntityAIAction
     from structures.rpg_combat_state import CombatController, AttackResultInfo
 
 # Warrior
@@ -294,8 +295,8 @@ PassiveSkillData("Sniper's Aim", AdvancedPlayerClassNames.SNIPER, 1, False,
     {}, {BaseStats.ACC: 1.25, BaseStats.SPD: 1.10}, [])
 
 AttackSkillData("Target Lock", AdvancedPlayerClassNames.SNIPER, 2, False, 10,
-    "Attack with 1x ATK, attempting to inflict TARGET for 4 turns. (Attacks against a TARGETED opponent always hit.)",
-    True, AttackType.RANGED, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect("", [
+    "Attack with 1.2x ATK, attempting to inflict TARGET for 4 turns. (Attacks against a TARGETED opponent always hit.)",
+    True, AttackType.RANGED, 1.2, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect("", [
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
                         controller.applyStatusCondition(target, TargetStatusEffect(user, target, 4)) if attackResult.attackHit else None))
     ], 0)])
@@ -667,7 +668,7 @@ PassiveSkillData("Unrelenting Assault", AdvancedPlayerClassNames.ASSASSIN, 8, Tr
             )) if not attackResult.isBonus else None
         ),
         EFOnAdvanceTurn(
-            lambda controller, user, _1, nextPlayer, _2: void((
+            lambda controller, user, _1, nextPlayer, _2, _3: void((
                 controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s Unrelenting Assault ends.")
                     if controller.combatStateMap[user].getStack(EffectStacks.UNRELENTING_ASSAULT) > 1 else None,
                 controller.revertMultStatBonuses(user, {
@@ -1126,7 +1127,7 @@ def conditioningFn(controller : CombatController, user : CombatEntity):
     if controller.combatStateMap[user].checkWeapon() is not None:
         return None
     sampleRarity = min((user.level - 1) // 4, MAX_ITEM_RARITY)
-    sampleRank = math.floor(((user.level % 4) / 3) * MAX_ITEM_RANK)
+    sampleRank = math.floor((((user.level - 1) % 4) / 3) * MAX_ITEM_RANK)
     controller.applyFlatStatBonuses(user, strikerWeaponStatScaler(sampleRarity, sampleRank))
 PassiveSkillData("Striker's Conditioning", SecretPlayerClassNames.STRIKER, 1, False,
     "When no weapon is equipped, increase ATK, ACC and SPD based on player level.",
@@ -1636,7 +1637,7 @@ def alchefyProductEffectFn(controller : CombatController, user : CombatEntity, t
                 ),
                 EFAfterNextAttack(
                     lambda _controller, _user, _1, _2, _result:
-                        _result.setActionTimeMult(0.5)
+                        _result.setActionTimeMult(0.4)
                 )
             ], 0)
         )
@@ -1648,7 +1649,7 @@ def alchefyProductEffectFn(controller : CombatController, user : CombatEntity, t
             user, EnchantmentSkillEffect("", PhysicalAttackAttribute.SLASHING, False, {}, { BaseStats.ATK: 1.2 }, [
                 EFAfterNextAttack(
                     lambda _controller, _user, _target, _attackResult, _result: void((
-                        _result.setActionTimeMult(0.3),
+                        _result.setActionTimeMult(0.2),
                         (
                             _controller.applyMultStatBonuses(_target, {
                                 BaseStats.DEF: 0.94,
@@ -1699,7 +1700,7 @@ def alchefyProductEffectFn(controller : CombatController, user : CombatEntity, t
                             _user,
                             _controller.rng.choice([bonusTarget for bonusTarget in _controller.getTargets(_user)
                                                     if _controller.checkInRange(_user, bonusTarget)]),
-                            CounterSkillData(True, AttackType.RANGED, 0.75, [])
+                            CounterSkillData(True, AttackType.RANGED, 0.9, [])
                         )
                     ))
                 )
@@ -1946,7 +1947,7 @@ def alchefyProductEffectFn(controller : CombatController, user : CombatEntity, t
                 EFAfterNextAttack(
                     lambda _controller, _user, _1, _2, _3: void((
                         [
-                            _controller.doHealSkill(user, ally, 1.2)
+                            _controller.doHealSkill(user, ally, 1.7)
                             for ally in _controller.getTeammates(_user)
                         ]
                     ))
@@ -1975,7 +1976,7 @@ PassiveSkillData("Alchefist's Reasoning", SecretPlayerClassNames.ALCHEFIST, 1, F
         # Secretly activates alchefy skills
         SkillEffect(
             "", [
-                EFBeforeNextAttack({}, {}, activateAlchefyFn, None),
+                EFBeforeNextAttack({}, {}, activateAlchefyFn, None, basicOnly=True),
                 EFEndTurn(
                     lambda controller, user, _1, _2: controller.combatStateMap[user].setStack(EffectStacks.ALCHEFY_ACTIVATED, 0)
                 )
@@ -1983,8 +1984,8 @@ PassiveSkillData("Alchefist's Reasoning", SecretPlayerClassNames.ALCHEFIST, 1, F
         )
     ])
 
-baseAlchefyTime = 0.45
-enhancedAlchefyTimeMult = 0.3 / baseAlchefyTime
+baseAlchefyTime = 0.35
+enhancedAlchefyTimeMult = 0.25 / baseAlchefyTime
 
 selectorToElementMap = {
     "FLOUR": AlchefyElements.WOOD,
@@ -2018,10 +2019,10 @@ def alchefyAddElementFn(controller : CombatController, user : CombatEntity, sele
             MessageType.EFFECT, f"{user.shortName} readies {ALCHEFY_ELEMENT_NAMES[element]} Alchefy! " + 
                                 f"\"{ALCHEFY_PRODUCT_NAMES[newProduct]}\" is now prepared!")
 ActiveSkillDataSelector("Corporeal Ingredients", SecretPlayerClassNames.ALCHEFIST, 2, False, 10,
-    "Select an ingredient to combine into your next attack. Attacks use up to 2 ingredients, and " +
+    "Select an ingredient to combine into your next basic attack. Attacks use up to 2 ingredients, and " +
     "the MP cost of preparing the same ingredient multiple times will increase.",
     lambda controller, user:
-        f"__FLOUR__: Prepares Wood Alchefy. (Current Cost: {alchefyCheckCostFn(controller, user, 'FLOUR', True)} MP)\n" + 
+        f"__FLOUR__: Prepares Wood Alchefy. (Current Cost: {alchefyCheckCostFn(controller, user, 'FLOUR', True)} MP).\n" + 
         f"__BUTTER__: Prepares Metal Alchefy (Current Cost: {alchefyCheckCostFn(controller, user, 'BUTTER', True)} MP).\n" + 
         f"__EGG__: Prepares Earth Alchefy (Current Cost: {alchefyCheckCostFn(controller, user, 'EGG', True)} MP).",
     MAX_ACTION_TIMER * baseAlchefyTime, 0, False,
@@ -2076,9 +2077,9 @@ PassiveSkillData("Philosopher's Scone", SecretPlayerClassNames.ALCHEFIST, 4, Fal
 
 
 ActiveSkillDataSelector("Ethereal Ingredients", SecretPlayerClassNames.ALCHEFIST, 5, False, 10,
-    "Select an ingredient to combine into your next attack. Similar to Corporeal Ingredients.",
+    "Select an ingredient to combine into your next basic attack. Similar to Corporeal Ingredients.",
     lambda controller, user:
-        f"__SUGAR__: Prepares Fire and Sun Alchefy. (Current Cost: {alchefyCheckCostFn(controller, user, 'SUGAR', True)} MP)\n" + 
+        f"__SUGAR__: Prepares Fire and Sun Alchefy. (Current Cost: {alchefyCheckCostFn(controller, user, 'SUGAR', True)} MP).\n" + 
         f"__YEAST__: Prepares Water and Moon Alchefy (Current Cost: {alchefyCheckCostFn(controller, user, 'YEAST', True)} MP).",
     MAX_ACTION_TIMER * baseAlchefyTime, 0, False,
     lambda element: ActiveBuffSkillData(
@@ -2359,7 +2360,7 @@ PassiveSkillData("Blackout", SecretPlayerClassNames.SABOTEUR, 4, False,
                         BaseStats.AVO: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_BLACKOUT_STORED) * 0.1)
                     })
                 )),
-                lambda controller, user, _1, _2: void((
+                lambda controller, user, _1, _2, _3: void((
                     controller.revertMultStatBonuses(user, {
                         BaseStats.AVO: 1 + (controller.combatStateMap[user].getStack(EffectStacks.SABOTEUR_BLACKOUT_STORED) * 0.1)
                     })
@@ -2491,3 +2492,556 @@ AttackSkillData("No Witnesses", SecretPlayerClassNames.SABOTEUR, 9, True, 45,
             )
         ], 0)
     ])
+
+# Summoner
+
+def setSnapsTargetFn(controller : CombatController, user : CombatEntity, target : CombatEntity):
+    if len(controller.getActiveSummons(user)) > 0:
+        controller.getActiveSummons(user)[0].ai.data["lastSummonerTarget"] = target
+PassiveSkillData("Summoner's Pact", SecretPlayerClassNames.SUMMONER, 1, False,
+    "At the beginning of combat, summon an ancient reptilian creature. " +
+    "(Note that parties cannot contain more than 8 entities.)",
+    {}, {}, [
+        SkillEffect("", [
+            EFOnAdvanceTurn(
+                lambda controller, user, previousPlayer, _2, timePassed, _3: void((
+                    controller.spawnNewEntity(snapsSummonFn(user), False)
+                        if len(controller.getTeammates(user)) < 8 else None,
+                    [controller.combatStateMap[summon].increaseActionTimer(timePassed, True)
+                     for summon in controller.getActiveSummons(user)]
+                )) if previousPlayer is None else None
+            ),
+
+            # Handles aggro for snaps
+            EFBeforeNextAttack(
+                {}, {},
+                lambda controller, user, target, _: setSnapsTargetFn(controller, user, target),
+                None
+            ),
+            EFWhenAttacked(
+                lambda controller, user, attacker, attackResult, _: void((
+                    controller._applyAggro(attacker, controller.getActiveSummons(user)[0], attackResult.damageDealt * 0.25)
+                )) if len(controller.getActiveSummons(user)) > 0 else None
+            ),
+            EFAfterNextAttack(
+                lambda controller, user, _1, attackResult, _2: void((
+                    controller.increaseActionTimer(controller.getActiveSummons(user)[0], 0.2)
+                )) if len(controller.getActiveSummons(user)) > 0 and
+                controller.combatStateMap[controller.getActiveSummons(user)[0]].getTotalStatValue(CombatStats.SNAPS_DELEGATOR) > 0 and
+                attackResult.attackHit else None
+            )
+        ], None)
+    ])
+
+class SNAPS_COMMAND(Enum):
+    GOWILD = 0
+    LETSRIDE = 1
+    FOLLOWME = 2
+    HOLDON = 3
+snapsCommands = ["Go Wild!", "Let's Ride!", "Follow Me!", "Hold On!"]
+snapsCommandEffectString : list[Callable[[CombatEntity, CombatEntity], str]] = [
+    lambda s, u: f"{s.shortName} follows its natural instincts!",
+    lambda s, u: f"{s.shortName} focuses on enemies {u.name} is attacking!",
+    lambda s, u: f"{s.shortName} runs over to {u.name}!",
+    lambda s, u: f"{s.shortName} stands its ground!"
+]
+
+ActiveSkillDataSelector("Command", SecretPlayerClassNames.SUMMONER, 2, False, 5,
+    "Select a command; your summon will change its combat priorities accordingly.",
+    "__Go Wild!__: They will attack anything that draws their ire.\n" +
+    "__Let's Ride!__: They will attack the target which you attacked most recently.\n" +
+    "__Follow Me!__: They will immediately reposition to match your distances to enemies, then focus on following you.\n" +
+    "__Hold On!__: They will Defend until further notice.",
+    MAX_ACTION_TIMER / 10, 0, False,
+    lambda command: ActiveBuffSkillData(
+        f"Command ({snapsCommands[SNAPS_COMMAND[command].value]})", SecretPlayerClassNames.SUMMONER, 2, False, 5, "",
+        MAX_ACTION_TIMER / 10, {}, {}, [
+            SkillEffect(
+                "", [
+                    EFImmediate(
+                        lambda controller, user, _1, _2: void((
+                            controller.combatStateMap[controller.getActiveSummons(user)[0]].setStack(
+                                EffectStacks.SNAPS_BEHAVIOR_MODE, SNAPS_COMMAND[command].value),
+                            controller.logMessage(
+                                MessageType.EFFECT,
+                                snapsCommandEffectString[SNAPS_COMMAND[command].value](controller.getActiveSummons(user)[0], user)
+                            ),
+                            [
+                                controller.updateDistance(
+                                    controller.getActiveSummons(user)[0], opponent,
+                                    controller.checkDistanceStrict(user, opponent))
+                                for opponent in controller.getTargets(user)
+                            ] if command == "FOLLOWME" else None
+                        )) if len(controller.getActiveSummons(user)) > 0 else None
+                    )
+                ], 0
+            )
+        ], 0, 0, False, False
+    ),
+    [command.name for command in SNAPS_COMMAND],
+    optionChecker=lambda command, controller, user:
+        controller.combatStateMap[controller.getActiveSummons(user)[0]].getStack(EffectStacks.SNAPS_BEHAVIOR_MODE) != SNAPS_COMMAND[command].value
+            if len(controller.getActiveSummons(user)) > 0 else False)
+
+guardianSpiritNormalFlavorText : list[Callable[[CombatEntity, CombatEntity], str]] = [
+    lambda s, u: f"{u.shortName} pets {s.shortName}. It rumbles contentedly.",
+    lambda s, u: f"{s.shortName} chases its tail playfuly at {u.shortName}'s feet.",
+    lambda s, u: f"{s.shortName} stretches and yawns."
+]
+guardianSpiritWeakFlavorText : list[Callable[[CombatEntity, CombatEntity], str]] = [
+    lambda s, u: f"{u.shortName} pets {s.shortName}. It rumbles weakly.",
+    lambda s, u: f"{s.shortName} curls protectively around {u.shortName}'s feet.",
+    lambda s, u: f"{s.shortName} stretches warily."
+]
+def guardianSpiritFlavorFn(controller : CombatController, user : CombatEntity):
+    if len(controller.getActiveSummons(user)) > 0:
+        summon = controller.getActiveSummons(user)[0]
+        if all([controller.checkDistanceStrict(user, opponent) == controller.checkDistanceStrict(summon, opponent)
+                for opponent in controller.getTargets(user)]):
+            lowHealth = controller.getCurrentHealth(summon) / controller.getMaxHealth(summon) <= 0.25 or \
+                        controller.getCurrentHealth(user) / controller.getMaxHealth(user) <= 0.25
+            message = controller.rng.choice(guardianSpiritNormalFlavorText if not lowHealth else guardianSpiritWeakFlavorText)
+            controller.logMessage(MessageType.DIALOGUE, message(summon, user))
+PassiveSkillData("Guardian Spirit", SecretPlayerClassNames.SUMMONER, 3, True,
+    "The Defend action takes 25% less time and provides 15% additional damage reduction.",
+    {}, {
+        CombatStats.DEFEND_ACTION_DAMAGE_MULT: 0.85,
+        CombatStats.DEFEND_ACTION_TIME_MULT: 0.75
+    }, [
+        SkillEffect("", [
+            EFOnDefend(
+                lambda controller, user, _: guardianSpiritFlavorFn(controller, user)
+            )
+        ], None)
+    ])
+
+PassiveSkillData("Shared Vision", SecretPlayerClassNames.SUMMONER, 4, False,
+    "When attacking targets closer to your summon than you are, accuracy is calculated as if you are at your summon's distance.",
+    {}, {}, [
+        SkillEffect("", [
+            EFBeforeNextAttack(
+                {}, {},
+                lambda controller, user, target, _: void((
+                    (
+                        controller.combatStateMap[user].setStack(
+                            EffectStacks.SUMMONER_SHARED_VISION,
+                            controller.checkDistanceStrict(controller.getActiveSummons(user)[0], target) -
+                            controller.checkDistanceStrict(user, target)),
+                        controller.applyFlatStatBonuses(user, {
+                            CombatStats.ACC_EFFECTIVE_DISTANCE_MOD:
+                                controller.combatStateMap[user].getStack(EffectStacks.SUMMONER_SHARED_VISION)
+                        })
+                    ) if controller.checkDistanceStrict(user, target) >
+                         controller.checkDistanceStrict(controller.getActiveSummons(user)[0], target) else None
+                )) if len(controller.getActiveSummons(user)) > 0 else None,
+                lambda controller, user, _1, _2, _3: void((
+                    controller.revertFlatStatBonuses(user, {
+                        CombatStats.ACC_EFFECTIVE_DISTANCE_MOD:
+                            controller.combatStateMap[user].getStack(EffectStacks.SUMMONER_SHARED_VISION)
+                    }),
+                    controller.combatStateMap[user].setStack(EffectStacks.SUMMONER_SHARED_VISION, 0)
+                )) if controller.combatStateMap[user].getStack(EffectStacks.SUMMONER_SHARED_VISION) > 0 else None
+            )
+        ], None)
+    ])
+
+def talkToThemFn(controller : CombatController, user : CombatEntity):
+    if len(controller.getActiveSummons(user)) > 0:
+        summon = controller.getActiveSummons(user)[0]
+        for cdKey in ["castigatorCd", "supererogatorCd"]:
+            summon.ai.data[cdKey] -= 2
+        controller.combatStateMap[summon].setStack(EffectStacks.SNAPS_PREPARE_CASTIGATOR, 1)
+AttackSkillData("Talk To Them!", SecretPlayerClassNames.SUMMONER, 5, False, 25,
+    "Attack with 1.2x MAG from any range. " +
+    "Your summon's Castigator and Supererogator cooldowns are reduced by 2 turns, and Castigator will be prioritized when next available.",
+    False, AttackType.MAGIC, 1.2, DEFAULT_ATTACK_TIMER_USAGE, [
+        SkillEffect("", [
+            EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None),
+            EFAfterNextAttack(
+                lambda controller, user, _1, _2, _3: talkToThemFn(controller, user)
+            )
+        ], 0)
+    ])
+
+def supererogatorResetFn(controller : CombatController, summon):
+    summon.ai.data["supererogatorCd"] = 0
+    controller.logMessage(
+        MessageType.EFFECT, f"{summon.shortName} roars with newfound energy!"
+    )
+cooperationEffect = SkillEffect("", [
+    EFBeforeAttacked(
+        {}, {},
+        lambda controller, user, attacker: void((
+            controller.applyFlatStatBonuses(attacker, {
+                CombatStats.CRIT_RATE: 0.1 +
+                    controller.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.COOPERATION_BONUS_CRIT),
+                CombatStats.CRIT_DAMAGE: 0.1
+            }),
+            controller.combatStateMap[user].setStack(EffectStacks.COOPERATION, 0),
+            controller.combatStateMap[user].setStack(EffectStacks.COOPERATION_USED, 1),
+            controller.logMessage(
+                MessageType.EFFECT, f"{attacker.shortName} is aided by Cooperation!"
+            )
+        )) if controller.combatStateMap[user].getStack(EffectStacks.COOPERATION) > 0 else None,
+        lambda controller, user, attacker, attackResult, _: void((
+            controller.revertFlatStatBonuses(attacker, {
+                CombatStats.CRIT_RATE: 0.1 +
+                    controller.combatStateMap[attacker].getTotalStatValueFloat(CombatStats.COOPERATION_BONUS_CRIT),
+                CombatStats.CRIT_DAMAGE: 0.1
+            }),
+            controller.combatStateMap[user].setStack(EffectStacks.COOPERATION_USED, 0),
+            supererogatorResetFn(controller, attacker)
+                if controller.combatStateMap[attacker].getTotalStatValue(CombatStats.SUPEREROGATOR_RESET) > 0
+                    and attackResult.attackHit and attackResult.isCritical else None
+        )) if controller.combatStateMap[user].getStack(EffectStacks.COOPERATION_USED) > 0 else None
+    )
+], None)
+PassiveSkillData("Cooperation", SecretPlayerClassNames.SUMMONER, 6, True,
+    "Mark opponents when hitting them with an attack. The next ally to attack them gains 10% Critical Hit Rate and Critical Damage.",
+    {}, {}, [
+        SkillEffect("", [
+            EFAfterNextAttack(
+                lambda controller, _1, target, attackResult, _2: void((
+                    controller.combatStateMap[target].setStack(EffectStacks.COOPERATION, 1),
+                    controller.addSkillEffect(target, cooperationEffect)
+                        if cooperationEffect not in controller.combatStateMap[target].activeSkillEffects else None
+                )) if attackResult.attackHit else None
+            )
+        ], None)
+    ])
+
+def asOneApplyFn(controller : CombatController, user : CombatEntity, summon : CombatEntity):
+    statMap : dict[Stats, float] = {
+        BaseStats.ATK: round(controller.combatStateMap[summon].getTotalStatValue(BaseStats.ATK) * 0.2),
+        BaseStats.DEF: round(controller.combatStateMap[summon].getTotalStatValue(BaseStats.DEF) * 0.2),
+        BaseStats.MAG: round(controller.combatStateMap[summon].getTotalStatValue(BaseStats.MAG) * 0.2),
+        BaseStats.RES: round(controller.combatStateMap[summon].getTotalStatValue(BaseStats.RES) * 0.2),
+        BaseStats.ACC: round(controller.combatStateMap[summon].getTotalStatValue(BaseStats.ACC) * 0.2),
+        BaseStats.AVO: round(controller.combatStateMap[summon].getTotalStatValue(BaseStats.AVO) * 0.2)
+    }
+    controller.applyFlatStatBonuses(user, statMap)
+    revertEffect = SkillEffect("", [EFAfterNextAttack(
+        lambda _controller, _user, _1, _2, _3: _controller.revertFlatStatBonuses(_user, statMap)
+    )], 0, forRevert=True)
+    controller.addSkillEffect(user, revertEffect)
+    controller.logMessage(MessageType.EFFECT, f"{summon.shortName} is supporting {user.shortName}!")
+PassiveSkillData("As One", SecretPlayerClassNames.SUMMONER, 7, False,
+    "When attacking or being attacked, if you and your summon are the same distance from the target, " +
+    "increase ATK/DEF/MAG/RES/ACC/AVO by 20% of your summon's respective stats.",
+    {}, {}, [
+        SkillEffect("", [
+            EFBeforeNextAttack(
+                {}, {},
+                lambda controller, user, target, _: void((
+                    asOneApplyFn(controller, user, controller.getActiveSummons(user)[0])
+                )) if len(controller.getActiveSummons(user)) > 0 and 
+                    controller.checkDistanceStrict(user, target) == controller.checkDistanceStrict(controller.getActiveSummons(user)[0], target)
+                    else None,
+                None
+            ),
+            EFBeforeAttacked(
+                {}, {},
+                lambda controller, user, attacker: void((
+                    asOneApplyFn(controller, user, controller.getActiveSummons(user)[0])
+                )) if len(controller.getActiveSummons(user)) > 0 and 
+                    controller.checkDistanceStrict(user, attacker) == controller.checkDistanceStrict(controller.getActiveSummons(user)[0], attacker)
+                    else None,
+                None
+            )
+        ], None)
+    ])
+
+PassiveSkillData("Unwavering Trust", SecretPlayerClassNames.SUMMONER, 8, True,
+    "When restoring MP by performing the Attack, Reposition, or Defend actions, all allies also restore the same amount of MP.",
+    { CombatStats.UNWAVERING_TRUST: 1 }, {}, [])
+
+
+maxEntwinedFatesCost = 0.65
+maxEntwinedFatesRestore = 0.3
+def entwinedFatesFn(controller : CombatController, user : CombatEntity):
+    maxHpCost = math.floor(controller.getMaxHealth(user) * maxEntwinedFatesCost)
+    hpPaid = maxHpCost
+    if controller.getCurrentHealth(user) < maxHpCost:
+        hpPaid = controller.getCurrentHealth(user) - 1
+
+    restorationPercent = (hpPaid / controller.getMaxHealth(user)) * maxEntwinedFatesRestore
+    controller.applyDamage(user, user, hpPaid)
+
+    userTeam = controller.playerTeam if user in controller.playerTeam else controller.opponentTeam
+    for ally in userTeam:
+        if controller.getCurrentHealth(ally) <= 0:
+            controller.logMessage(MessageType.EFFECT, f"{ally.shortName} is revived!")
+            allyHealthRestored = math.ceil(controller.getMaxHealth(ally) * restorationPercent) - controller.getCurrentHealth(ally)
+            controller.gainHealth(ally, allyHealthRestored)
+ActiveBuffSkillData("Entwined Fates", SecretPlayerClassNames.SUMMONER, 9, True, 100,
+    "Take 65% of your max HP as damage (this cannot defeat you). Revive all defeated allies with up to 30% HP, based on the percentage of damage taken.",
+    MAX_ACTION_TIMER * 1.5, {}, {}, [
+        SkillEffect("", [
+            EFImmediate(
+                lambda controller, user, _1, _2: entwinedFatesFn(controller, user)
+            )
+        ], 0)
+    ], 0, 0, False)
+
+
+#**** Snaps ****
+
+# Skills
+
+SNAPS_BASE_STATS_BONUSES = {
+        BaseStats.HP: 60,
+        BaseStats.ATK: 10,
+        BaseStats.DEF: 14,
+        BaseStats.MAG: 10,
+        BaseStats.RES: 14,
+        BaseStats.ACC: 11,
+        BaseStats.AVO: 2,
+        BaseStats.SPD: 9
+}
+def snapsBaseStatScaler(rarity : int, rank : int) -> dict[BaseStats, int]:
+    currentRarityMultiplier = (rarity+1) ** 2
+    nextRarityMultiplier = (rarity+2) ** 2 if rarity < MAX_ITEM_RARITY else ((MAX_ITEM_RARITY+1) ** 3) / MAX_RANK_STAT_SCALING
+    rankScalingRange = (nextRarityMultiplier * MAX_RANK_STAT_SCALING) - currentRarityMultiplier
+    rankScalingBonus = rankScalingRange * rank / MAX_ITEM_RANK
+
+    finalMultiplier = currentRarityMultiplier + rankScalingBonus
+    return { baseStat: math.ceil(SNAPS_BASE_STATS_BONUSES[baseStat] * finalMultiplier) for baseStat in SNAPS_BASE_STATS_BONUSES }
+def navigatorStatMapFn(summoner : CombatEntity):
+    sampleRarity = min((summoner.level - 1) // 4, MAX_ITEM_RARITY)
+    sampleRank = math.floor((((summoner.level - 1) % 4) / 3) * MAX_ITEM_RANK)
+    return snapsBaseStatScaler(sampleRarity, sampleRank)
+PassiveSkillData("Navigator", SecretPlayerClassNames.SNAPS, 1, False,
+    "Increases stats based on summoner's level. Allows it to benefit from the stat points and equipment traits of its summoner.",
+    {}, { CombatStats.REPOSITION_ACTION_TIME_MULT: 0.8 }, [])
+
+
+AttackSkillData("Instigator", SecretPlayerClassNames.SNAPS, 2, False, 10,
+    "Reduces distance to the target by 1, then attacks with 1.2x ATK. 3 turn cooldown.",
+    True, None, 1.2, DEFAULT_ATTACK_TIMER_USAGE, [
+        SkillEffect("", [
+            EFImmediate(
+                lambda controller, user, targets, result: decreaseDistanceFn(controller, user, targets[0], None, result)
+            )
+        ], 0)
+    ])
+
+PassiveSkillData("Mitigator", SecretPlayerClassNames.SNAPS, 3, False,
+    "The Defend action takes 50% less time and provides 30% additional damage reduction.",
+    {}, {
+        CombatStats.DEFEND_ACTION_DAMAGE_MULT: 0.7,
+        CombatStats.DEFEND_ACTION_TIME_MULT: 0.5
+    }, [])
+
+PassiveSkillData("Irrigator", SecretPlayerClassNames.SNAPS, 4, False,
+    "Restore 10% of damage dealt as HP to self and summoner.",
+    {}, {}, [SkillEffect("", [EFAfterNextAttack(
+        lambda controller, user, _1, attackInfo, _2: void((
+            controller.gainHealth(user, math.ceil(attackInfo.damageDealt * 0.10)),
+            [controller.gainHealth(summoner, math.ceil(attackInfo.damageDealt * 0.10))
+             for summoner in [controller.getSummoner(user)] if summoner is not None]
+        ))
+    )], None)])
+
+def castigatorAoeFn(controller : CombatController, user : CombatEntity, target : CombatEntity, attackInfo : AttackResultInfo, _):
+    otherOpponents = [opp for opp in controller.getTargets(user) if opp is not target]
+    for bonusTarget in otherOpponents:
+        if controller.checkInRange(user, bonusTarget):
+            counterData = CounterSkillData(False, AttackType.MAGIC, 1.25, [])
+            attackInfo.addBonusAttack(user, bonusTarget, counterData)
+AttackSkillData("Castigator", SecretPlayerClassNames.SNAPS, 5, False, 20,
+    "Attacks all enemies in range for 1.25x MAG. 6 Turn Cooldown.",
+    False, AttackType.MAGIC, 1.25, DEFAULT_ATTACK_TIMER_USAGE, [
+        SkillEffect("", [
+            EFAfterNextAttack(castigatorAoeFn)
+        ], 0)
+    ])
+
+PassiveSkillData("Subjugator", SecretPlayerClassNames.SNAPS, 6, False,
+    "Increases ATK/DEF/MAG/RES by 10% and ACC/SPD by 5%. " +
+    "When attacking targets with a Cooperation mark, increases Critical Hit Rate by an additional 5%.",
+    {
+        CombatStats.COOPERATION_BONUS_CRIT: 0.05
+    }, {
+        BaseStats.ATK: 1.1,
+        BaseStats.DEF: 1.1,
+        BaseStats.MAG: 1.1,
+        BaseStats.RES: 1.1,
+        BaseStats.ACC: 1.05,
+        BaseStats.SPD: 1.05
+    }, [])
+
+
+def variegatorFn(controller : CombatController, summon):
+    for cdKey in ["instigatorCd", "castigatorCd", "supererogatorCd"]:
+        summon.ai.data[cdKey] -= 1
+PassiveSkillData("Variegator", SecretPlayerClassNames.SNAPS, 7, False,
+    "When landing a critical hit, gain 5 MP and reduce all cooldowns by 1 turn.",
+    {}, {}, [
+        SkillEffect("", [
+            EFAfterNextAttack(
+                lambda controller, user, _1, attackResult, _2: void((
+                    controller.gainMana(user, 5),
+                    variegatorFn(controller, user)
+                )) if attackResult.attackHit and attackResult.isCritical else None
+            )
+        ], None)
+    ])
+
+
+PassiveSkillData("Delegator", SecretPlayerClassNames.SNAPS, 8, False,
+    "Decreases time to next action when summoner hits an attack.",
+    { CombatStats.SNAPS_DELEGATOR: 1, CombatStats.SUPEREROGATOR_RESET: 1 }, {}, [])
+
+
+AttackSkillData("Supererogator", SecretPlayerClassNames.SNAPS, 9, False, 20,
+    "Attacks for 1.6x ATK or MAG, whichever is higher. 10 turn cooldown; " +
+    "cooldown resets if landing a Critical Hit against a target with a Cooperation mark.",
+    True, None, 1, DEFAULT_ATTACK_TIMER_USAGE,
+    [
+        SkillEffect("", [
+            EFBeforeNextAttack(
+                {}, {
+                    BaseStats.ATK: 1.6,
+                    BaseStats.MAG: 1.6
+                },
+                lambda controller, user, target, _:
+                    controller.addSkillEffect(
+                            user, EnchantmentSkillEffect("", MagicalAttackAttribute.NEUTRAL, True, {}, {}, [], 0))
+                        if (controller.combatStateMap[user].getTotalStatValue(BaseStats.MAG) >
+                                controller.combatStateMap[user].getTotalStatValue(BaseStats.ATK)) or
+                            (controller.combatStateMap[user].getTotalStatValue(BaseStats.MAG) ==
+                                controller.combatStateMap[user].getTotalStatValue(BaseStats.ATK) and
+                            controller.combatStateMap[target].getTotalStatValue(BaseStats.DEF) >
+                                controller.combatStateMap[target].getTotalStatValue(BaseStats.RES)) else None,
+                None
+            )
+        ], 0)
+    ])
+
+
+# summon
+
+def snapsSummonFn(summoner : CombatEntity) -> CombatEntity:
+    def decisionFn(controller : CombatController, summon : CombatEntity, data : dict) -> EntityAIAction:
+        target = controller.getAggroTarget(summon)
+        allTargets = controller.getTargets(summon)
+        targetIdx = allTargets.index(target)
+        currentMana = controller.getCurrentMana(summon)
+
+        commandMode = controller.combatStateMap[summon].getStack(EffectStacks.SNAPS_BEHAVIOR_MODE)
+
+        for cdKey in ["instigatorCd", "castigatorCd", "supererogatorCd"]:
+            data[cdKey] -= 1
+        
+        if commandMode == SNAPS_COMMAND.GOWILD.value:
+            pass
+        elif commandMode == SNAPS_COMMAND.LETSRIDE.value:
+            summonerTarget = data.get("lastSummonerTarget", None)
+            if summonerTarget is not None and controller.getCurrentHealth(summonerTarget) > 0:
+                target = summonerTarget
+                targetIdx = allTargets.index(target)
+            else:
+                return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
+        elif commandMode == SNAPS_COMMAND.FOLLOWME.value:
+            approachesNeeded = {}
+            retreatsNeeded = {}
+            for opponent in allTargets:
+                summonerDist = controller.checkDistanceStrict(summoner, opponent)
+                summonDist = controller.checkDistanceStrict(summon, opponent)
+                if summonerDist != summonDist:
+                    delta = summonerDist - summonDist
+                    if delta < 0:
+                        approachesNeeded[opponent] = abs(delta)
+                    else:
+                        retreatsNeeded[opponent] = delta
+
+            repositionAmount = 0
+            repositionDirection = 1
+            repositionDict = {}
+            repositionAction = CombatActions.RETREAT
+
+            if len(approachesNeeded) > 0:
+                repositionAmount = min(approachesNeeded.values())
+                repositionDirection = -1
+                repositionDict = approachesNeeded
+                repositionAction = CombatActions.APPROACH
+            if len(retreatsNeeded) > 0:
+                repositionAmount = min(retreatsNeeded.values())
+                repositionDirection = 1
+                repositionDict = retreatsNeeded
+                repositionAction = CombatActions.RETREAT
+
+            if repositionAmount > 0:
+                repositionTargets = []
+                for newReposTarget in repositionDict:
+                    testReposTargets = repositionTargets + [newReposTarget]
+                    if controller.validateReposition(summon, testReposTargets, repositionAmount * repositionDirection):
+                        repositionTargets = testReposTargets
+                    else:
+                        break
+                if len(repositionTargets) > 0:
+                    return EntityAIAction(repositionAction, None,
+                                            [allTargets.index(rt) for rt in repositionTargets],
+                                            repositionAmount, None)
+            else:
+                return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
+        elif commandMode == SNAPS_COMMAND.HOLDON.value:
+            return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
+        
+        ## Doing usual attacks if reaching this point
+        unlockedSkills : dict[str, int | None] = {
+            "Instigator": None,
+            "Castigator": None,
+            "Supererogator": None
+        }
+        for skill in summon.availableActiveSkills:
+            if skill.skillName in unlockedSkills:
+                unlockedSkills[skill.skillName] = summon.availableActiveSkills.index(skill)
+
+        preparedCastigator = controller.combatStateMap[summon].getStack(EffectStacks.SNAPS_PREPARE_CASTIGATOR) >= 1
+        if unlockedSkills["Castigator"] is not None and data["castigatorCd"] <= 0:
+            castigatorSkill = summon.availableActiveSkills[unlockedSkills["Castigator"]]
+            castigatorCost = controller.getSkillManaCost(summoner, castigatorSkill)
+            assert(castigatorCost is not None)
+            numTargets = len([aoeTarget for aoeTarget in allTargets if controller.checkInRange(summon, aoeTarget)])
+            if (numTargets > 1 or (numTargets > 0 and preparedCastigator)) and castigatorCost <= currentMana:
+                controller.combatStateMap[summon].setStack(EffectStacks.SNAPS_PREPARE_CASTIGATOR, 0)
+                data["castigatorCd"] = 6
+                return EntityAIAction(CombatActions.SKILL, unlockedSkills["Castigator"], [targetIdx], None, None)
+
+        if unlockedSkills["Supererogator"] is not None and data["supererogatorCd"] <= 0 and not preparedCastigator:
+            supererogatorSkill = summon.availableActiveSkills[unlockedSkills["Supererogator"]]
+            supererogatorCost = controller.getSkillManaCost(summoner, supererogatorSkill)
+            assert(supererogatorCost is not None)
+            if controller.checkInRange(summon, target) and supererogatorCost <= currentMana:
+                data["supererogatorCd"] = 10
+                return EntityAIAction(CombatActions.SKILL, unlockedSkills["Supererogator"], [targetIdx], None, None)
+
+        if unlockedSkills["Instigator"] is not None and data["instigatorCd"] <= 0 and not preparedCastigator:
+            instigatorSkill = summon.availableActiveSkills[unlockedSkills["Instigator"]]
+            instigatorCost = controller.getSkillManaCost(summoner, instigatorSkill)
+            assert(instigatorCost is not None)
+            effectiveRange = controller.combatStateMap[summon].getTotalStatValue(CombatStats.RANGE) + 1 \
+                if StatusConditionNames.RESTRICT not in controller.combatStateMap[summon].currentStatusEffects \
+                else controller.combatStateMap[summon].getTotalStatValue(CombatStats.RANGE)
+            inRange = controller.checkDistanceStrict(summon, target) <= effectiveRange
+            if inRange and instigatorCost <= currentMana:
+                data["instigatorCd"] = 3
+                return EntityAIAction(CombatActions.SKILL, unlockedSkills["Instigator"], [targetIdx], None, None)
+
+        if controller.checkInRange(summon, target):
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+        else:
+            distance = controller.checkDistanceStrict(summon, target) - controller.combatStateMap[summon].getTotalStatValue(CombatStats.RANGE)
+            if distance > 1 and unlockedSkills["Instigator"] is not None \
+                            and data["instigatorCd"] <= 1 \
+                            and not preparedCastigator \
+                            and StatusConditionNames.RESTRICT not in controller.combatStateMap[summon].currentStatusEffects:
+                distance -= 1
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+    return summoner.makeSummon(
+        f"{summoner.shortName}'s {summoner.summonName}", f"{summoner.summonName}",
+        "An ancient reptilian creature, fierce but loyal. Fond of dry food.",
+        summoner, SecretPlayerClassNames.SNAPS, navigatorStatMapFn(summoner),
+        {"lastSummonerTarget": None,
+         "instigatorCd": 1, "castigatorCd": 1, "supererogatorCd": 11}, decisionFn)

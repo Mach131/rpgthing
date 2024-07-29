@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import random
 import shutil
 import dill as pickle
 from typing import TYPE_CHECKING
@@ -8,6 +9,8 @@ from datetime import datetime
 from rpg_consts import *
 from structures.rpg_combat_entity import Player
 from structures.rpg_dungeons import DungeonData
+
+CURRENT_VERSION = "0.1.4"
 
 if TYPE_CHECKING:
     from rpg_discord_interface import GameSession
@@ -65,15 +68,19 @@ class GlobalState(object):
             pickle.dump(self.accountDataMap, saveFile, protocol=pickle.HIGHEST_PROTOCOL)
 
         with open(GlobalState.TS_FILENAME, 'w') as timestampFile:
-            timestampFile.write(str(timestamp))
+            timestampFile.write(str(timestamp) + "\n" + CURRENT_VERSION)
 
         print(f"state saved at {timestamp}")
 
     def loadState(self):
         try:
             lastSaveTimestamp = None
+            lastSaveVersion = None
             with open(GlobalState.TS_FILENAME, 'r') as tsFile:
-                lastSaveTimestamp = int(tsFile.read())
+                tsFileData = tsFile.read().split("\n")
+                lastSaveTimestamp = int(tsFileData[0])
+                if len(tsFileData) > 1:
+                    lastSaveVersion = tsFileData[1]
 
             if lastSaveTimestamp is not None:
                 filename = STATE_FILE_PREFIX + str(lastSaveTimestamp)
@@ -85,6 +92,13 @@ class GlobalState(object):
                         character._updateAvailableSkills()
                     accountData.session.onLoadReset()
 
+                    # Upgrades
+                    if lastSaveVersion is None:
+                        for character in accountData.allCharacters:
+                            character.summonName = random.choice(DEFAULT_SUMMON_NAMES)
+                            for secretClassName in SecretPlayerClassNames:
+                                character.classRanks[secretClassName] = 1
+                                character.classExp[secretClassName] = 0
 
                 print(f"loaded state from {lastSaveTimestamp}")
         except FileNotFoundError:

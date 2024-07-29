@@ -1,10 +1,12 @@
 from __future__ import annotations
+import random
 from typing import TYPE_CHECKING, Callable
 
 from gameData.rpg_item_data import makeBeginnerWeapon
 from rpg_consts import *
 from structures.rpg_classes_skills import PlayerClassData, SkillData, PassiveSkillData
 from structures.rpg_items import EquipmentTrait, Item, Equipment, Weapon
+from structures.rpg_npc_ai import EntityAI, EntityAIAction
 
 if TYPE_CHECKING:
     from structures.rpg_combat_state import CombatController
@@ -33,6 +35,8 @@ class CombatEntity(object):
 
         self.basicAttackType : AttackType = DEFAULT_ATTACK_TYPE
         self.basicAttackAttribute : AttackAttribute = DEFAULT_ATTACK_ATTRIBUTE
+        
+        self.summonName : str = random.choice(DEFAULT_SUMMON_NAMES)
 
     def __repr__(self) -> str:
         return f"<CombatEntity: {self.name}>"
@@ -60,6 +64,15 @@ ACC: {self.baseStats[BaseStats.ACC]}, AVO: {self.baseStats[BaseStats.AVO]}, SPD:
 
     def getStatValue(self, stat : Stats) -> int:
         return round(self.getStatValueFloat(stat))
+    
+    def makeSummon(self, name : str, shortName : str, description : str,
+                   summoner : CombatEntity, summonClass : PlayerClassNames, baseStatBonuses : dict[BaseStats, int],
+                   aiData : dict, aiDecisionFn : Callable[[CombatController, CombatEntity, dict], EntityAIAction]):
+        if isinstance(summoner, Player):
+            ai = EntityAI(aiData, aiDecisionFn)
+            return PlayerSummon(name, shortName, description, summoner, summonClass, baseStatBonuses, ai)
+        else:
+            assert(False) # not supported yet
 
 class Player(CombatEntity):
     """Initializes the Player at level 1"""
@@ -459,21 +472,29 @@ class Player(CombatEntity):
         if currentlyEquipped:
             self.equipItem(equip)
         return True
-    
 
-class Enemy(CombatEntity):
+class NPCEntity(CombatEntity):
+    def __init__(self, name : str, level : int, aggroDecayFactor : float,
+                 passiveSkills : list[SkillData], activeSkills : list[SkillData], ai : EntityAI,
+                 shortName : str = "", description = "",
+                 encounterMessage : str | Callable[[list[Player]], str] = "",
+                 defeatMessage : str | Callable[[list[Player]], str] = "") -> None:
+        super().__init__(name, level, aggroDecayFactor, passiveSkills, activeSkills,
+                         shortName, description, encounterMessage, defeatMessage)
+        self.ai = ai
+
+class Enemy(NPCEntity):
     def __init__(self, name : str, shortName : str, description : str, level : int, baseStats : dict[BaseStats, int],
                  bonusFlatStats : dict[Stats, float], bonusMultStats : dict[Stats, float], aggroDecayFactor : float,
                  basicAttackType : AttackType | None, basicAttackAttribute : AttackAttribute | None,
                  passiveSkills : list[SkillData], activeSkills : list[SkillData],
                  encounterMessage : str | Callable[[list[Player]], str], defeatMessage : str | Callable[[list[Player]], str],
-                 ai : EnemyAI, rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
-        super().__init__(name, level, aggroDecayFactor, passiveSkills, activeSkills,
+                 ai : EntityAI, rewardFn : Callable[[CombatController, CombatEntity], EnemyReward]):
+        super().__init__(name, level, aggroDecayFactor, passiveSkills, activeSkills, ai,
                          shortName, description, encounterMessage, defeatMessage)
         self.baseStats = baseStats
         self.flatStatMod = bonusFlatStats
         self.multStatMod = bonusMultStats
-        self.ai = ai
         self.rewardFn = rewardFn
         
         if basicAttackType is not None:
@@ -483,23 +504,6 @@ class Enemy(CombatEntity):
 
     def getReward(self, combatController : CombatController, player : CombatEntity) -> EnemyReward:
         return self.rewardFn(combatController, player)
-        
-class EnemyAI(object):
-    def __init__(self, data : dict, decisionFn : Callable[[CombatController, CombatEntity, dict], EnemyAIAction]):
-        self.data = data
-        self.decisionFn = decisionFn
-    
-    def chooseAction(self, combatController : CombatController, enemy : CombatEntity) -> EnemyAIAction:
-        return self.decisionFn(combatController, enemy, self.data)
-        
-class EnemyAIAction(object):
-    def __init__(self, action : CombatActions, skillIndex : int | None, targetIndices : list[int],
-                 actionParameter : int | None, skillSelector : str | None):
-        self.action = action
-        self.skillIndex = skillIndex
-        self.targetIndices = targetIndices
-        self.actionParameter = actionParameter
-        self.skillSelector = skillSelector
 
 class EnemyReward(object):
     def __init__(self, exp : int, wup : int, swup : int, equip : Equipment | None, milestones : set[Milestones] = set()):
@@ -508,3 +512,52 @@ class EnemyReward(object):
         self.swup = swup
         self.equip = equip
         self.milestones = milestones
+        
+class PlayerSummon(NPCEntity):
+    def __init__(self, name : str, shortName : str, description : str,
+                 summoner : CombatEntity, summonClass : PlayerClassNames, baseStatBonuses : dict[BaseStats, int],
+                 ai : EntityAI):
+        super().__init__(name, summoner.level, 0.5, [], [], ai, shortName, description)
+        assert isinstance(summoner, Player)
+
+        self.summoner : Player = summoner
+        self.statLevels : dict[BaseStats, int] = summoner.statLevels
+        self.summonClass : PlayerClassNames = summonClass
+        self.classRank = summoner.classRanks[summoner.currentPlayerClass]
+        self.milestones : set[Milestones] = set()
+        self.baseStatBonuses : dict[BaseStats, int] = baseStatBonuses
+
+        self.basicAttackType = AttackType.MELEE
+        self.basicAttackAttribute = PhysicalAttackAttribute.PIERCING
+
+        self._updateBaseStats()
+        self._updateAvailableSkills()
+
+    def _updateBaseStats(self) -> None:
+        for baseStat in BaseStats:
+            base : int = baseStatValues_base[baseStat]
+            level : int = self.statLevels[baseStat]
+            increment : int = baseStatValues_perLevel[baseStat]
+            self.baseStats[baseStat] = base + (level * increment)
+
+    def _updateAvailableSkills(self) -> None:
+        for stat in self.baseStatBonuses:
+            self.flatStatMod[stat] = self.flatStatMod.get(stat, 0) + self.baseStatBonuses[stat]
+
+        allSkills = PlayerClassData.getSkillsForRank(self.summonClass, self.classRank)
+        for equip in self.summoner.equipment.values():
+            # Copy-paste warning
+            startingTraitIndex = 0
+            if equip.curse is not None:
+                allSkills.append(equip.curse.getEffectSkill(equip.rarity, False))
+                allSkills.append(equip.traits[0].getEffectSkill(equip.rarity, True))
+                startingTraitIndex = 1
+            for i in range(startingTraitIndex, len(equip.traits)):
+                allSkills.append(equip.traits[i].getEffectSkill(equip.rarity, False))
+
+        for skillData in allSkills:
+            if skillData.isActiveSkill:
+                self.availableActiveSkills.append(skillData)
+            else:
+                skillData.enablePassiveBonuses(self)
+                self.availablePassiveSkills.append(skillData)

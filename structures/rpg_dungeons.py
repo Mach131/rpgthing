@@ -4,7 +4,7 @@ import math
 from random import Random
 from typing import Callable
 
-from structures.rpg_combat_interface import CombatInputHandler, CombatInterface, EnemyInputHandler, LocalPlayerInputHandler
+from structures.rpg_combat_interface import CombatInputHandler, CombatInterface, NPCInputHandler, LocalPlayerInputHandler
 from rpg_consts import *
 from structures.rpg_combat_entity import *
 from structures.rpg_messages import MessageCollector, makeTeamString
@@ -99,7 +99,7 @@ class DungeonController(object):
             else:
                 self.currentEnemyTeam = nextRoom.spawnEnemies(self, True)
 
-            enemyHandlerMap : dict[CombatEntity, CombatInputHandler] = {enemy: EnemyInputHandler(enemy) for enemy in self.currentEnemyTeam}
+            enemyHandlerMap : dict[CombatEntity, CombatInputHandler] = {enemy: NPCInputHandler(enemy) for enemy in self.currentEnemyTeam}
             self.currentCombatInterface = CombatInterface(playerHandlerMap, enemyHandlerMap, {player : self.loggers[player] for player in self.loggers},
                                                           self.currentHealth, self.currentMana, self.startingPlayerTeamDistances)
             return self.currentCombatInterface

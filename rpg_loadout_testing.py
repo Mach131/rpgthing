@@ -156,6 +156,19 @@ tp_saboteur.changeClass(SecretPlayerClassNames.SABOTEUR)
 rerollWeapon(tp_saboteur, testRarity)
 rerollOtherEquips(tp_saboteur, testRarity)
 
+tp_summoner = Player("will", BasePlayerClassNames.MAGE)
+tp_summoner.level = 3
+tp_summoner.freeStatPoints = 12
+tp_summoner.assignStatPoints([BaseStats.ATK, BaseStats.SPD, BaseStats.MAG, BaseStats.MP,
+                        BaseStats.ATK, BaseStats.MAG, BaseStats.HP, BaseStats.MP,
+                        BaseStats.ATK, BaseStats.MAG, BaseStats.SPD, BaseStats.ACC])
+tp_summoner.classRanks[BasePlayerClassNames.MAGE] = 3
+tp_summoner.milestones.add(Milestones.CLASS_SUMMONER_UNLOCKED)
+tp_summoner.changeClass(SecretPlayerClassNames.SUMMONER)
+[tp_summoner._rankUp() for i in range(9-1)]
+rerollWeapon(tp_summoner, testRarity)
+rerollOtherEquips(tp_summoner, testRarity)
+
 
 
 ### Beginner examples

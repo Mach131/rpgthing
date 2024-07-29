@@ -421,7 +421,7 @@ P2: [1500]		/125/105/125/105	/200/215/145
 "...Huh, huh? I'm not a rat! If you're just here to ruin my fun, you don't have to be so rude about it!"
 
 	P1:
-		[GeneRATor!]
+		[Generator]
 		30 MP: Spawn 2 Rat balls, like 12 turn cooldown
 		
 		[Heaven's Flash]
@@ -463,7 +463,6 @@ P2: [1500]		/125/105/125/105	/200/215/145
 			Pretty long action time after telegraph; if the target does not hit before next turn, performs a very strong R2 attack + gains 6 charge stacks (even in overdrive)
 				if target does attack, does nothing
 			~10 turn cooldown, increases by 3 when entering overdrive
-
 
 -- lv 5-9
 all dungeons begin having more enemies, partying likely needed

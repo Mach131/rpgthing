@@ -32,7 +32,7 @@ async def betterCombatSimulation(players : list[Player], enemies : list[Enemy]) 
     loggers : dict[CombatEntity, MessageCollector] = {player : MessageCollector() for player in players}
     loggers[players[0]] = mainLogger
     ci = CombatInterface({player: LocalPlayerInputHandler(player) for player in players},
-                         {opponent: EnemyInputHandler(opponent) for opponent in enemies}, loggers, {}, {},
+                         {opponent: NPCInputHandler(opponent) for opponent in enemies}, loggers, {}, {},
                          {player : 2 for player in players})
 
     await ci.runCombat()
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     # print("--")
     # print(tp_striker.getTotalStatString())
     # print("--")
-    asyncio.run(simpleCombatSimulation([tp_saboteur], [tp_knight, bgp_mage], False, False, 0))
+    asyncio.run(simpleCombatSimulation([tp_summoner], [tp_knight], True, True, 2))
 
     while True:
         inp = input("> ")

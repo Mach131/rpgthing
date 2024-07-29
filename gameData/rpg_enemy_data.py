@@ -42,9 +42,9 @@ def getIncreaseDistanceFn(dist):
 ## Training Courtyard
 
 def basicDummy(params : dict) -> Enemy:
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         controller.logMessage(MessageType.DIALOGUE, "The training dummy is chilling.")
-        return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+        return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
     return Enemy("Basic Dummy", "Dummy",
                  "Just your average straw training dummy.", 1, {
         BaseStats.HP: 40, BaseStats.MP: 1,
@@ -52,13 +52,13 @@ def basicDummy(params : dict) -> Enemy:
         BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 20
     }, {}, {}, 0, None, None, [], [waitSkill("", 1)],
     "You see a note on the training dummy...\n\"Practice the basics! Get in range of me, then Attack!\"", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))
 
 def skillfulDummy(params : dict) -> Enemy:
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         controller.logMessage(MessageType.DIALOGUE, "The training dummy is chilling.")
-        return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+        return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
     return Enemy("Skillful Dummy", "Dummy",
                  "A straw training dummy with a hat? How intimidating...", 1, {
         BaseStats.HP: 60, BaseStats.MP: 1,
@@ -66,14 +66,14 @@ def skillfulDummy(params : dict) -> Enemy:
         BaseStats.ACC: 1, BaseStats.AVO: 30, BaseStats.SPD: 20
     }, {}, {}, 0, None, None, [], [waitSkill("", 1)],
     "You see a note on the training dummy...\n\"You've learned an Active Skill! Try it out now!\"", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))
 
 def trainingBoss(params : dict) -> Enemy:
     attackSkill = AttackSkillData("Storm Breaker", BasePlayerClassNames.WARRIOR, 0, False, 30, "",
                                   True, AttackType.MELEE, 5, DEFAULT_ATTACK_TIMER_USAGE, [], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         playerList = controller.getTargets(enemy)
         if data["aiIdx"] == 0:
             controller.logMessage(MessageType.DIALOGUE, "Aqi: \"Don't worry, I'll go a bit easy on you~\"")
@@ -82,7 +82,7 @@ def trainingBoss(params : dict) -> Enemy:
                                              BaseStats.ACC: 50/1200, BaseStats.AVO: 60/1500, BaseStats.SPD: 30/850}
                                             )
             data["aiIdx"] = 1
-            return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+            return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
         elif data["aiIdx"] == 1:
             targetIdx = None
             for pi, player in enumerate(playerList):
@@ -92,24 +92,24 @@ def trainingBoss(params : dict) -> Enemy:
             if targetIdx is None:
                 targetIdx = controller.rng.randint(0, len(playerList) - 1)
                 distance = controller.checkDistanceStrict(enemy, playerList[targetIdx])
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
             else:
                 mpCost = controller.getSkillManaCost(enemy, attackSkill)
                 assert(mpCost is not None)
                 if (controller.getCurrentMana(enemy)) >= mpCost:
-                    controller.logMessage(MessageType.TELEGRAPH, f"{enemy.name} prepares a strong attack!")
+                    controller.logMessage(MessageType.TELEGRAPH, f"{enemy.shortName} prepares a strong attack!")
                     data["target"] = targetIdx
                     data["aiIdx"] = 2
-                    return EnemyAIAction(CombatActions.SKILL, 1, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 1, [], None, None)
                 else:
-                    return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                    return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             targetIdx = data["target"]
             data["target"] = None
             data["aiIdx"] = 1
             if controller.checkDistanceStrict(enemy, playerList[targetIdx]) == 0:
                 controller.logMessage(MessageType.DIALOGUE, "Aqi: \"Might not want to stand next to me here!\"")
-            return EnemyAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
     return Enemy("Instructor Aqi", "Aqi",
                  "A roaming swordswoman who helps out new adventurers. Faintly, you sense a barely-suppressed aura radiating from her.", 1, {
         BaseStats.HP: 120, BaseStats.MP: 1000,
@@ -125,7 +125,7 @@ def trainingBoss(params : dict) -> Enemy:
         "Aqi: \"Your form's lookin' good! Remember to check your class n' skills before tryin' the real thing!\""
             if Milestones.TUTORIAL_COMPLETE not in players[0].milestones else
         "Aqi: \"A bit easy for you now, ain't it...? Tell you what: feel free to come back any time, but I'll show you somethin' special if you get really comfy with an advanced class someday!\"",
-    EnemyAI({"aiIdx": 0, "target": None}, decisionFn),
+    EntityAI({"aiIdx": 0, "target": None}, decisionFn),
     lambda _1, _2: EnemyReward(1, 0, 0, None))
 
 ## Shared Rat Skill
@@ -139,7 +139,7 @@ ratMarkSkill = PassiveSkillData("Ravenous Rats", BasePlayerClassNames.WARRIOR, 0
                 BaseStats.ACC: ratStackBonus,
                 BaseStats.AVO: ratStackBonus
             }),
-            controller.logMessage(MessageType.EFFECT, f"{attacker.name}'s ACC and AVO are increased by the mark!")
+            controller.logMessage(MessageType.EFFECT, f"{attacker.shortName}'s ACC and AVO are increased by the mark!")
         ) if controller.combatStateMap[target].getStack(EffectStacks.RAT_MARK_IMPETUOUS) > 0 else None,
         (
             controller.combatStateMap[target].removeStack(EffectStacks.RAT_MARK_RESOLUTE),
@@ -148,7 +148,7 @@ ratMarkSkill = PassiveSkillData("Ravenous Rats", BasePlayerClassNames.WARRIOR, 0
                 BaseStats.DEF: ratStackBonus,
                 BaseStats.RES: ratStackBonus
             }),
-            controller.logMessage(MessageType.EFFECT, f"{attacker.name}'s DEF and RES are increased by the mark!")
+            controller.logMessage(MessageType.EFFECT, f"{attacker.shortName}'s DEF and RES are increased by the mark!")
         ) if controller.combatStateMap[target].getStack(EffectStacks.RAT_MARK_RESOLUTE) > 0 else None,
         (
             controller.combatStateMap[target].removeStack(EffectStacks.RAT_MARK_INTREPID),
@@ -157,7 +157,7 @@ ratMarkSkill = PassiveSkillData("Ravenous Rats", BasePlayerClassNames.WARRIOR, 0
                 BaseStats.ATK: ratStackBonus,
                 BaseStats.SPD: ratStackBonus
             }),
-            controller.logMessage(MessageType.EFFECT, f"{attacker.name}'s ATK and SPD are increased by the mark!")
+            controller.logMessage(MessageType.EFFECT, f"{attacker.shortName}'s ATK and SPD are increased by the mark!")
         ) if controller.combatStateMap[target].getStack(EffectStacks.RAT_MARK_INTREPID) > 0 else None,
     )) if attackResult.attackHit else None)
 ], None)], False)
@@ -183,14 +183,14 @@ def ffSlime(params : dict, rng : random.Random | None = None) -> Enemy:
         for stat in maxVars:
             flatStatMods[stat] = rng.choice([0, rng.randint(1, maxVars[stat])])
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         target = controller.getAggroTarget(enemy)
         targetIdx = controller.getTargets(enemy).index(target)
         if controller.checkInRange(enemy, target):
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
     return Enemy("Slimy", "Slimy",
                  "A low-ranking slime. It's doing its best.", 2, {
         BaseStats.HP: 110, BaseStats.MP: 1,
@@ -198,7 +198,7 @@ def ffSlime(params : dict, rng : random.Random | None = None) -> Enemy:
         BaseStats.ACC: 60, BaseStats.AVO: 60, BaseStats.SPD: 40
     }, flatStatMods, {}, 0.5, None, None, [], [],
     "The slime lets out a 'blurble'.", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(2, 0, 0, rollEquip(controller, entity, 0.2,
                                        makeBasicCommonDrop(controller.rng, 0, 2, 0)))
@@ -243,21 +243,21 @@ def ffRat(params : dict, rng : random.Random | None = None) -> Enemy:
 
     impetuousRatSkill = PassiveSkillData("Mark of Impetuous Rat", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect("", [
         EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
-            controller.logMessage(MessageType.EFFECT, f"{target.name} is marked for other rats!")
+            controller.logMessage(MessageType.EFFECT, f"{target.shortName} is marked for other rats!")
                 if controller.combatStateMap[target].getStack(EffectStacks.RAT_MARK_IMPETUOUS) == 0 else None,
             controller.combatStateMap[target].addStack(EffectStacks.RAT_MARK_IMPETUOUS, 10),
             controller.combatStateMap[target].addStack(EffectStacks.RAT_MARK_IMPETUOUS, 10)
         )) if attackResult.attackHit else None)
     ], None)], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         target = controller.getAggroTarget(enemy)
         targetIdx = controller.getTargets(enemy).index(target)
         if controller.checkInRange(enemy, target):
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
         
     baseStats = {
         BaseStats.HP: 80, BaseStats.MP: 1,
@@ -275,7 +275,7 @@ def ffRat(params : dict, rng : random.Random | None = None) -> Enemy:
                  "A field rat. Despite its size, it seeks to defy the constraints of rules.", level,
                  baseStats, flatStatMods, {}, 0.5, None, None, [ratMarkSkill, impetuousRatSkill], [],
     "\\*squeak squek\\*", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(rewardExp, 0, 0, rollEquip(controller, entity, 0.2,
                                        makeBasicCommonDrop(controller.rng, minRank, maxRank, wepChance)))
@@ -307,7 +307,7 @@ def ffPlant(params : dict, rng : random.Random | None = None) -> Enemy:
                                       SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)
                                   ], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         target = controller.getAggroTarget(enemy)
         targetIdx = controller.getTargets(enemy).index(target)
 
@@ -315,9 +315,9 @@ def ffPlant(params : dict, rng : random.Random | None = None) -> Enemy:
         assert(mpCost is not None)
         if (controller.getCurrentMana(enemy)) >= mpCost:
             controller.logMessage(MessageType.DIALOGUE, "*ptooo!*")
-            return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
         else:
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
     return Enemy("Petillery", "Petillery",
                  "A seed-slinging plant creature. Bravely holds its position to its last breath.", 3, {
         BaseStats.HP: 130, BaseStats.MP: 50,
@@ -329,7 +329,7 @@ def ffPlant(params : dict, rng : random.Random | None = None) -> Enemy:
         weaknessEffect(MagicalAttackAttribute.WIND, 1)
     ], [attackSkill],
     "", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
@@ -344,7 +344,7 @@ def ffSlimeBoss(params : dict) -> Enemy:
         originalRange = controller.combatStateMap[defender].getStack(EffectStacks.TELEGRAPH_RANGE) - 1
         assert(originalRange >= 0)
 
-        controller.logMessage(MessageType.EFFECT, f"The lobbed slime rains down on {defender.name}!")
+        controller.logMessage(MessageType.EFFECT, f"The lobbed slime rains down on {defender.shortName}!")
         rangeDelta = abs(originalRange - controller.checkDistanceStrict(attacker, defender))
         controller.applyMultStatBonuses(attacker, {
             BaseStats.ACC: _slimeCannonAccMult(rangeDelta)
@@ -388,7 +388,7 @@ def ffSlimeBoss(params : dict) -> Enemy:
                                        ], 0)
                                    ], None, 0, True, False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         allTargets = controller.getTargets(enemy)
         currentMana = controller.getCurrentMana(enemy)
 
@@ -403,7 +403,7 @@ def ffSlimeBoss(params : dict) -> Enemy:
                 if currentMana >= cannonCost:
                     data["aoeTargets"] = allTargets[:]
                     data["aiIdx"] = 1
-                    return EnemyAIAction(CombatActions.SKILL, 1, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 1, [], None, None)
             if data["slamCd"] <= 0:
                 proximityCheck = any([controller.checkDistanceStrict(enemy, player) == 0 for player in allTargets])
                 slamCost = controller.getSkillManaCostFromValue(enemy, slamSkillCost, True)
@@ -412,22 +412,22 @@ def ffSlimeBoss(params : dict) -> Enemy:
                     controller.spendMana(enemy, slamCost)
                     data["aoeTargets"] = allTargets[:]
                     data["aiIdx"] = 2
-                    return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
             if data["splitCd"] <= 0:
                 splitCost = controller.getSkillManaCost(enemy, splitSkill)
                 assert splitCost is not None
                 if len(controller.getTeammates(enemy)) < 4 and currentMana >= splitCost:
                     data["splitCd"] = 10
-                    return EnemyAIAction(CombatActions.SKILL, 4, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 4, [], None, None)
 
             # No skills available
             defaultTarget = controller.getAggroTarget(enemy)
             targetIdx = allTargets.index(defaultTarget)
             if controller.checkInRange(enemy, defaultTarget):
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             else:
                 distance = controller.checkDistanceStrict(enemy, defaultTarget)
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
                 
         elif data["aiIdx"] == 1: # Slime Cannon
             aoeTargets = data["aoeTargets"]
@@ -437,7 +437,7 @@ def ffSlimeBoss(params : dict) -> Enemy:
                 controller.spendActionTimer(enemy, DEFAULT_ATTACK_TIMER_USAGE)
                 data["cannonCd"] = 5
                 data["aiIdx"] = 0
-            return EnemyAIAction(CombatActions.SKILL, 2, [allTargets.index(target)], None, None)
+            return EntityAIAction(CombatActions.SKILL, 2, [allTargets.index(target)], None, None)
         if data["aiIdx"] == 2: # Slime Slam
             aoeTargets = data["aoeTargets"]
             target = aoeTargets.pop()
@@ -446,11 +446,11 @@ def ffSlimeBoss(params : dict) -> Enemy:
                 controller.spendActionTimer(enemy, DEFAULT_ATTACK_TIMER_USAGE)
                 data["slamCd"] = 3
                 data["aiIdx"] = 0
-            return EnemyAIAction(CombatActions.SKILL, 3, [allTargets.index(target)], None, None)
+            return EntityAIAction(CombatActions.SKILL, 3, [allTargets.index(target)], None, None)
         
         controller.logMessage(MessageType.DEBUG, "<slimoo ai error, should be unreachable>")
         data["aiIdx"] = 0
-        return EnemyAIAction(CombatActions.DEFEND, None, [], None, None)
+        return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
     return Enemy("Slimoo", "Slimoo",
                  "A mid-ranking slime. Its work is paying off.", 4, {
         BaseStats.HP: 400, BaseStats.MP: 150,
@@ -462,7 +462,7 @@ def ffSlimeBoss(params : dict) -> Enemy:
         CombatStats.BASIC_MP_GAIN_MULT: 10 / BASIC_ATTACK_MP_GAIN
     }, 0.5, None, None, [], [waitSkill("", 0.4), aimSkill, cannonSkill, slamSkill, splitSkill],
     "The large slime roars a noble 'blurble'!", "",
-    EnemyAI({"aiIdx": 0, "cannonCd": 0, "slamCd": 2, "splitCd": 2}, decisionFn),
+    EntityAI({"aiIdx": 0, "cannonCd": 0, "slamCd": 2, "splitCd": 2}, decisionFn),
     lambda controller, entity:
         EnemyReward(10, 4, 0, rollEquip(controller, entity, 1,
                                        makeBasicUncommonDrop(controller.rng, 0, 1, 0.5)
@@ -509,7 +509,7 @@ def ffPlantBoss(params : dict) -> Enemy:
                                       SkillEffect("", [EFAfterNextAttack(thrashKnockbackFn)], 0)
                                   ], False)
     
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         allTargets = controller.getTargets(enemy)
         # defaultTarget = controller.getAggroTarget(enemy)
         currentMana = controller.getCurrentMana(enemy)
@@ -537,7 +537,7 @@ def ffPlantBoss(params : dict) -> Enemy:
                     if teammates[i] != enemy:
                         allAllyIndices.append(i)
                 data["gardenCd"] = 3
-                return EnemyAIAction(CombatActions.SKILL, 1, allAllyIndices, None, None)
+                return EntityAIAction(CombatActions.SKILL, 1, allAllyIndices, None, None)
             
         defaultTarget = controller.getAggroTarget(enemy)
         targetIdx = allTargets.index(defaultTarget)
@@ -546,16 +546,16 @@ def ffPlantBoss(params : dict) -> Enemy:
             assert swingCost is not None
             if controller.checkInRange(enemy, defaultTarget) and currentMana >= swingCost:
                 data["swingCd"] = 3
-                return EnemyAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
         
         # No cd skills available
         shootMpCost = controller.getSkillManaCost(enemy, shootSkill)
         assert(shootMpCost is not None)
         if currentMana >= shootMpCost:
             controller.logMessage(MessageType.DIALOGUE, "*ba-toom!*")
-            return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
         else:
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
     return Enemy("Fleuricier", "Fleuricier",
                  "A decorated plant creature. The sort to sit around while others are fighting.", 4, {
         BaseStats.HP: 500, BaseStats.MP: 200,
@@ -572,7 +572,7 @@ def ffPlantBoss(params : dict) -> Enemy:
         weaknessEffect(MagicalAttackAttribute.WIND, 1)
     ], [shootSkill, healSkill, swingSkill],
     "The flower unit prepares to mobilize!", "",
-    EnemyAI({"aiIdx": 0, "gardenCd": 2, "swingCd": 0}, decisionFn),
+    EntityAI({"aiIdx": 0, "gardenCd": 2, "swingCd": 0}, decisionFn),
     lambda controller, entity:
         EnemyReward(10, 4, 0, rollEquip(controller, entity, 1,
                                        makeBasicUncommonDrop(controller.rng, 0, 1, 0.5)
@@ -620,21 +620,21 @@ def scRat(params : dict, rng : random.Random | None = None) -> Enemy:
 
     resoluteRatSkill = PassiveSkillData("Mark of Resolute Rat", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect("", [
         EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
-            controller.logMessage(MessageType.EFFECT, f"{target.name} is marked for other rats!")
+            controller.logMessage(MessageType.EFFECT, f"{target.shortName} is marked for other rats!")
                 if controller.combatStateMap[target].getStack(EffectStacks.RAT_MARK_RESOLUTE) == 0 else None,
             controller.combatStateMap[target].addStack(EffectStacks.RAT_MARK_RESOLUTE, 10),
             controller.combatStateMap[target].addStack(EffectStacks.RAT_MARK_RESOLUTE, 10)
         )) if attackResult.attackHit else None)
     ], None)], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         target = controller.getAggroTarget(enemy)
         targetIdx = controller.getTargets(enemy).index(target)
         if controller.checkInRange(enemy, target):
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
         
     baseStats = {
         BaseStats.HP: 140, BaseStats.MP: 1,
@@ -651,7 +651,7 @@ def scRat(params : dict, rng : random.Random | None = None) -> Enemy:
                  "A cave rat. It lives for treasure, both the friendship sort and the actual-monetary-value kind.", level,
                  baseStats, flatStatMods, {}, 0.5,None, None, [ratMarkSkill, resoluteRatSkill], [],
     "\\*squeak squok\\*", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 0, 0, rollEquip(controller, entity, 0.2,
                                        makeBasicCommonDrop(controller.rng, minRank, maxRank, wepChance)))
@@ -701,7 +701,7 @@ def scRock(params : dict, rng : random.Random | None = None) -> Enemy:
                                       ], 0, None)
                                   ], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         allTargets = controller.getTargets(enemy)
         rageStacks = controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_COUNTER_A)
         isEnraged = rageStacks >= enrageAtStacks
@@ -723,12 +723,12 @@ def scRock(params : dict, rng : random.Random | None = None) -> Enemy:
                 if len(aoeTargets) == 0:
                     controller.spendActionTimer(enemy, DEFAULT_ATTACK_TIMER_USAGE)
                     controller.combatStateMap[enemy].setStack(EffectStacks.ENEMY_COUNTER_A, rageStacks - enrageAtStacks)
-                return EnemyAIAction(CombatActions.SKILL, 0, [allTargets.index(target)], None, None)
+                return EntityAIAction(CombatActions.SKILL, 0, [allTargets.index(target)], None, None)
             else:
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
         
     return Enemy("Stalactun", "Stalactun",
                  "A rocky creature. Easy to forget about, but seems to hate being ignored.", 3, {
@@ -741,7 +741,7 @@ def scRock(params : dict, rng : random.Random | None = None) -> Enemy:
         rageSkill
     ], [rockSkill],
     "", "",
-    EnemyAI({"aoeTargets": []}, decisionFn),
+    EntityAI({"aoeTargets": []}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
@@ -778,7 +778,7 @@ def scBat(params : dict, rng : random.Random | None = None) -> Enemy:
                                       ], 0, None)
                                   ], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         isFleeing = controller.getCurrentHealth(enemy) / controller.getMaxHealth(enemy) <= 0.5
         if isFleeing and not data["fleeState"]:
             controller.logMessage(MessageType.DIALOGUE, f"Byebat shrieks in fear!")
@@ -795,24 +795,24 @@ def scBat(params : dict, rng : random.Random | None = None) -> Enemy:
             if canAffordSkill:
                 if controller.checkDistanceStrict(enemy, target) >= 2:
                     data["consecutiveRetreats"] = 0
-                    return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
                 elif data["consecutiveRetreats"] >= 3:
                     data["consecutiveRetreats"] = 0
                     controller.increaseActionTimer(enemy, 0.85)
-                    return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
                 else:
                     data["consecutiveRetreats"] += 1
-                    return EnemyAIAction(CombatActions.RETREAT, None, [targetIdx], 2, None)
+                    return EntityAIAction(CombatActions.RETREAT, None, [targetIdx], 2, None)
             else:
                 data["consecutiveRetreats"] = 0
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             
         else:
             if controller.checkInRange(enemy, target):
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             else:
                 distance = controller.checkDistanceStrict(enemy, target)
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
         
     return Enemy("Byebat", "Byebat",
                  "A bat with sharp claws. Easily frightened, but it'll get over it eventually.", 3, {
@@ -826,7 +826,7 @@ def scBat(params : dict, rng : random.Random | None = None) -> Enemy:
         resistanceEffect(PhysicalAttackAttribute.CRUSHING, 1),
     ], [dashSkill],
     "The bat is awoken from its slumber!", "",
-    EnemyAI({"fleeState": False, "consecutiveRetreats": 0}, decisionFn),
+    EntityAI({"fleeState": False, "consecutiveRetreats": 0}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
@@ -881,7 +881,7 @@ def scFairy(params : dict, rng : random.Random | None = None) -> Enemy:
         ], None, None)
     ], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
 
         strafeSkillCost = controller.getSkillManaCost(enemy, strafeSkill)
@@ -895,19 +895,19 @@ def scFairy(params : dict, rng : random.Random | None = None) -> Enemy:
         unhitCounters = controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_COUNTER_A)
 
         if controller.checkDistanceStrict(enemy, target) == 0 and currentMana >= strafeSkillCost:
-            return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
         else:
             if unhitCounters >= 1 and currentMana >= buffSkillCost:
                 controller.combatStateMap[enemy].setStack(EffectStacks.ENEMY_COUNTER_A, -1)
                 enemyAllies = controller.getTeammates(enemy)
-                return EnemyAIAction(CombatActions.SKILL, 1, [i for i in range(len(enemyAllies))], None, None)
+                return EntityAIAction(CombatActions.SKILL, 1, [i for i in range(len(enemyAllies))], None, None)
             elif controller.checkDistanceStrict(enemy, target) < 2 and currentMana >= strafeSkillCost:
-                return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
             elif controller.checkInRange(enemy, target):
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             else:
                 distance = controller.checkDistanceStrict(enemy, target)
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 1), None)
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 1), None)
     return Enemy("Deposylph", "Deposylph",
                  "A spirit seemingly formed of crystal. Other creatures are drawn to its lustre, feeding its ego.", 3, {
         BaseStats.HP: 130, BaseStats.MP: 60,
@@ -921,7 +921,7 @@ def scFairy(params : dict, rng : random.Random | None = None) -> Enemy:
         unhitTracker
     ], [strafeSkill, buffSkill],
     "", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
@@ -999,7 +999,7 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                   ], False)
 
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         allTargets = controller.getTargets(enemy)
         currentMana = controller.getCurrentMana(enemy)
         resistStacks = {
@@ -1017,7 +1017,7 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             controller.logMessage(MessageType.EFFECT,
                                 "The golem returns to its original shape!")
             data["aoeReset"] = False
-            return EnemyAIAction(CombatActions.SKILL, 3, [], None, None)
+            return EntityAIAction(CombatActions.SKILL, 3, [], None, None)
 
         if data["aiIdx"] == 0:
             # CD ticks
@@ -1031,7 +1031,7 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                     controller.spendMana(enemy, aoeCost)
                     data["aoeTargets"] = allTargets[:]
                     data["aiIdx"] = 1
-                    return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
                 
             defaultTarget = controller.getAggroTarget(enemy)
             targetIdx = allTargets.index(defaultTarget)
@@ -1047,14 +1047,14 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                             counterAttribute = rpsLosesMap[attribute]
                             enemy.basicAttackAttribute = counterAttribute
                             controller.logMessage(MessageType.EFFECT, rpsEffectStrings[counterAttribute])
-                            return EnemyAIAction(CombatActions.SKILL, 1, [targetIdx], None, attribute.name)
+                            return EntityAIAction(CombatActions.SKILL, 1, [targetIdx], None, attribute.name)
 
                 # No skills available
                 if controller.checkInRange(enemy, defaultTarget):
-                    return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                    return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             else:
                 distance = controller.checkDistanceStrict(enemy, defaultTarget) - 1
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
                 
         elif data["aiIdx"] == 1: # Factory Reset
             aoeTargets = data["aoeTargets"]
@@ -1064,11 +1064,11 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                 data["aoeCd"] = 8
                 data["aiIdx"] = 0
                 data["aoeReset"] = True
-            return EnemyAIAction(CombatActions.SKILL, 2, [allTargets.index(target)], None, None)
+            return EntityAIAction(CombatActions.SKILL, 2, [allTargets.index(target)], None, None)
         
         controller.logMessage(MessageType.DEBUG, "<golem ai error, should be unreachable>")
         data["aiIdx"] = 0
-        return EnemyAIAction(CombatActions.DEFEND, None, [], None, None)
+        return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
     return Enemy("Ropasci Golem", "Golem",
                  "A giant artificial being. Though its body is largely made of rock, it has flat appendages and sharp protrusions hinting at the purpose for its creation.", 5, {
         BaseStats.HP: 850, BaseStats.MP: 100,
@@ -1086,7 +1086,7 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         resistanceShifter
     ], [waitSkill("", 0.35), burstAttack, aoeAttack, waitSkill("", 0.7)],
     "A strangely-shaped golem lumbers out of the darkness!", "",
-    EnemyAI({"aiIdx": 0, "aoeCd": 8, "aoeReset": False}, decisionFn),
+    EntityAI({"aiIdx": 0, "aoeCd": 8, "aoeReset": False}, decisionFn),
     lambda controller, entity:
         EnemyReward(15, 6, 0, makeBasicUncommonDrop(controller.rng, 0, 1, 1, getWeaponClasses(MELEE_WEAPON_TYPES))
                     if controller._randomRoll(None, entity) <= 0.1 else
@@ -1164,7 +1164,7 @@ def scSpiritBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                                     BaseStats.RES: 0.9
                                                 }),
                                                 controller.logMessage(MessageType.EFFECT,
-                                                                      f"{target.name}'s DEF and RES are lowered by the lingering Calcite!")
+                                                                      f"{target.shortName}'s DEF and RES are lowered by the lingering Calcite!")
                                             )) if attackResult.attackHit else None
                                         )
                                     ], 0)
@@ -1174,7 +1174,7 @@ def scSpiritBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             EFImmediate(
                 lambda controller, user, _1, _2: void((
                     controller.applyMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.5}),
-                    controller.logMessage(MessageType.EFFECT, f"{user.name} diffuses swiftly through the dust cloud!")
+                    controller.logMessage(MessageType.EFFECT, f"{user.shortName} diffuses swiftly through the dust cloud!")
                 )) 
             ), 
             EFStartTurn(
@@ -1198,7 +1198,7 @@ def scSpiritBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                          )))], 0)
                                      ], None, 0, False, False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         allTargets = controller.getTargets(enemy)
         currentMana = controller.getCurrentMana(enemy)
 
@@ -1220,14 +1220,14 @@ def scSpiritBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             assert(rockCost is not None)
             if currentMana >= rockCost and controller.checkDistanceStrict(enemy, defaultTarget) <= 1:
                 data["rockCd"] = 3
-                return EnemyAIAction(CombatActions.SKILL, 1, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.SKILL, 1, [targetIdx], None, None)
             
         if data["batCd"] <= 0 and batAllyDead:
             batCost = controller.getSkillManaCost(enemy, batSkill)
             assert(batCost is not None)
             if currentMana >= batCost:
                 data["batCd"] = 7
-                return EnemyAIAction(CombatActions.SKILL, 2, [], None, None)
+                return EntityAIAction(CombatActions.SKILL, 2, [], None, None)
 
         if data["retreatCd"] <= 0:
             distMap = {target : controller.checkDistanceStrict(enemy, target) for target in allTargets}
@@ -1236,7 +1236,7 @@ def scSpiritBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                 retreatAmount = 2 if len(retreatTargets) == 1 else 1
                 retreatTargetIdxs = [allTargets.index(target) for target in rng.sample(retreatTargets, min(2, len(retreatTargets)))]
                 data["retreatCd"] = 3
-                return EnemyAIAction(CombatActions.RETREAT, None, retreatTargetIdxs, retreatAmount, None)
+                return EntityAIAction(CombatActions.RETREAT, None, retreatTargetIdxs, retreatAmount, None)
             
         if data["fairyCd"] <= 0 and fairyAllyDead:
             healNeeded = False
@@ -1252,15 +1252,15 @@ def scSpiritBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                 for i in range(len(allTeammates)):
                     allAllyIndices.append(i)
                 data["fairyCd"] = 5
-                return EnemyAIAction(CombatActions.SKILL, 3, allAllyIndices, None, None)
+                return EntityAIAction(CombatActions.SKILL, 3, allAllyIndices, None, None)
             
         # no cooldowns available
         attackCost = controller.getSkillManaCost(enemy, attackSkill)
         assert attackCost is not None
         if currentMana >= attackCost:
-            return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
         else:
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
     return Enemy("Karstic Covairit", "Covairit",
                  "A spirit associated with dissolved stone. Despite its lack of expression, a smug aura radiates from it as it hides behind other creatures.", 5, {
         BaseStats.HP: 450, BaseStats.MP: 300,
@@ -1272,7 +1272,7 @@ def scSpiritBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         CombatStats.BASIC_MP_GAIN_MULT: 13 / BASIC_ATTACK_MP_GAIN
     }, 0.3, None, None, [lifelinkSkill], [attackSkill, rockSkill, batSkill, fairySkill],
     "A spectral force lurks behind the cave's creatures!", "",
-    EnemyAI({"aiIdx": 0, "retreatCd": 0, "rockCd": 0, "batCd": 0, "fairyCd": 0}, decisionFn),
+    EntityAI({"aiIdx": 0, "retreatCd": 0, "rockCd": 0, "batCd": 0, "fairyCd": 0}, decisionFn),
     lambda controller, entity:
         EnemyReward(13, 6, 0, makeBasicUncommonDrop(controller.rng, 0, 1, 1, getWeaponClasses(MELEE_WEAPON_TYPES))
                     if controller._randomRoll(None, entity) <= 0.1 else
@@ -1319,21 +1319,21 @@ def sfRat(params : dict, rng : random.Random | None = None) -> Enemy:
 
     intrepidRatSkill = PassiveSkillData("Mark of Intrepid Rat", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [SkillEffect("", [
         EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
-            controller.logMessage(MessageType.EFFECT, f"{target.name} is marked for other rats!")
+            controller.logMessage(MessageType.EFFECT, f"{target.shortName} is marked for other rats!")
                 if controller.combatStateMap[target].getStack(EffectStacks.RAT_MARK_INTREPID) == 0 else None,
             controller.combatStateMap[target].addStack(EffectStacks.RAT_MARK_INTREPID, 10),
             controller.combatStateMap[target].addStack(EffectStacks.RAT_MARK_INTREPID, 10)
         )) if attackResult.attackHit else None)
     ], None)], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         target = controller.getAggroTarget(enemy)
         targetIdx = controller.getTargets(enemy).index(target)
         if controller.checkInRange(enemy, target):
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
         
     baseStats = {
         BaseStats.HP: 140, BaseStats.MP: 1,
@@ -1350,7 +1350,7 @@ def sfRat(params : dict, rng : random.Random | None = None) -> Enemy:
                  "A forest rat. Its hunger for battle is surpassed only by its hunger for food, but it's not particularly close.", level,
                  baseStats, flatStatMods, {}, 0.5, None, None, [ratMarkSkill, intrepidRatSkill], [],
     "\\*squeak squak\\*", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 0, 0, rollEquip(controller, entity, 0.2,
                                        makeBasicCommonDrop(controller.rng, minRank, maxRank, wepChance)))
@@ -1387,7 +1387,7 @@ def sfReaper(params : dict, rng : random.Random | None = None) -> Enemy:
                                                     BaseStats.RES: 1 - (0.175 * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A))
                                                 })
                                             )),
-                                            lambda controller, user, attacker, _: void((
+                                            lambda controller, user, attacker, _1, _2: void((
                                                 controller.revertMultStatBonuses(user, {
                                                     BaseStats.DEF: 1 - (0.175 * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A)),
                                                     BaseStats.RES: 1 - (0.175 * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A))
@@ -1398,7 +1398,7 @@ def sfReaper(params : dict, rng : random.Random | None = None) -> Enemy:
     attackSkill = AttackSkillData("The Decomposer", BasePlayerClassNames.WARRIOR, 0, False, 15, "",
                                   True, None, 3, MAX_ACTION_TIMER, [], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
 
         target = controller.getAggroTarget(enemy)
@@ -1407,11 +1407,11 @@ def sfReaper(params : dict, rng : random.Random | None = None) -> Enemy:
             attackCost = controller.getSkillManaCost(enemy, attackSkill)
             assert(attackCost is not None)
             if currentMana >= attackCost:
-                return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
             else:
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], 1, None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], 1, None)
     return Enemy("Grimycobe", "Grimycobe",
                  "A fungus with a pattern resembling a long, dark cloak. It feels like it gets closer whenever you're not looking at it.", 3, {
         BaseStats.HP: 200, BaseStats.MP: 30,
@@ -1426,7 +1426,7 @@ def sfReaper(params : dict, rng : random.Random | None = None) -> Enemy:
         resistanceEffect(MagicalAttackAttribute.DARK, 1)
     ], [attackSkill],
     "The forest seems to darken with the Grimycobe's presence...", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
@@ -1470,11 +1470,11 @@ def sfNinja(params : dict, rng : random.Random | None = None) -> Enemy:
                                                 BaseStats.SPD: 0.85
                                             }),
                                             controller.logMessage(MessageType.EFFECT,
-                                                                f"{target.name}'s SPD is lowered by the binding!")
+                                                                f"{target.shortName}'s SPD is lowered by the binding!")
                                             )) if statusName == StatusConditionNames.RESTRICT else None)
                                 ], 0)], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
 
         # CD ticks
@@ -1490,9 +1490,9 @@ def sfNinja(params : dict, rng : random.Random | None = None) -> Enemy:
             data['repositionTarget'] = target
             distance = abs(distToTarget - 2)
             if distToTarget < 2:
-                return EnemyAIAction(CombatActions.RETREAT, None, [targetIdx], min(distance, 2), None)
+                return EntityAIAction(CombatActions.RETREAT, None, [targetIdx], min(distance, 2), None)
             else:
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None) 
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None) 
             
         if data['repositionTarget'] is not None:
             repositionTarget = data['repositionTarget']
@@ -1503,16 +1503,16 @@ def sfNinja(params : dict, rng : random.Random | None = None) -> Enemy:
                 if distToTarget != 2 and currentMana >= bindManaCost:
                     repositionTargetIdx = controller.getTargets(enemy).index(repositionTarget)
                     data['repositionCd'] = 0
-                    return EnemyAIAction(CombatActions.SKILL, 0, [repositionTargetIdx], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 0, [repositionTargetIdx], None, None)
                 
         if data['repositionCd'] <= 2:
             data['repositionTarget'] = None
            
         if controller.checkInRange(enemy, target):
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target) - controller.combatStateMap[enemy].getTotalStatValue(CombatStats.RANGE)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
     return Enemy("Genonata", "Genonata",
                  "A dragonfly-like creature, from what you can tell when it allows itself to be seen. Its only sounds are whispers of a ninja way.", 3, {
         BaseStats.HP: 120, BaseStats.MP: 60,
@@ -1524,7 +1524,7 @@ def sfNinja(params : dict, rng : random.Random | None = None) -> Enemy:
     }, 0.5, AttackType.RANGED, PhysicalAttackAttribute.PIERCING,
     [], [bindSkill],
     "", "",
-    EnemyAI({"repositionCd": 0, "repositionTarget": None}, decisionFn),
+    EntityAI({"repositionCd": 0, "repositionTarget": None}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
@@ -1597,7 +1597,7 @@ def sfElemental(params : dict, rng : random.Random | None = None) -> Enemy:
                                       SkillEffect("", [EFAfterNextAttack(
                                           lambda controller, user, target, attackResult, _: void((
                                               controller.logMessage(
-                                                  MessageType.EFFECT, f"The Saffelt's aura drains {target.name}'s {'/'.join([stat.name for stat in debuffStats])}!"),
+                                                  MessageType.EFFECT, f"The Saffelt's aura drains {target.shortName}'s {'/'.join([stat.name for stat in debuffStats])}!"),
                                               controller.applyMultStatBonuses(target, {
                                                   stat: 0.9 for stat in debuffStats
                                               })
@@ -1605,7 +1605,7 @@ def sfElemental(params : dict, rng : random.Random | None = None) -> Enemy:
                                       )], 0)
                                   ], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
 
         # CD ticks
@@ -1621,28 +1621,28 @@ def sfElemental(params : dict, rng : random.Random | None = None) -> Enemy:
             if currentMana >= buffManaCost:
                 enemyAllies = controller.getTeammates(enemy)
                 data['buffCd'] = 5
-                return EnemyAIAction(CombatActions.SKILL, 1, [i for i in range(len(enemyAllies))], None, None)
+                return EntityAIAction(CombatActions.SKILL, 1, [i for i in range(len(enemyAllies))], None, None)
 
         if data["debuffCd"] <= 0:
             debuffManaCost = controller.getSkillManaCost(enemy, debuffSkill)
             assert debuffManaCost is not None
             if controller.checkInRange(enemy, target) and currentMana >= debuffManaCost:
                 data['debuffCd'] = 2
-                return EnemyAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
 
         if data["attackCd"] <= 0:
             attackManaCost = controller.getSkillManaCost(enemy, attackSkill)
             assert attackManaCost is not None
             if currentMana >= attackManaCost:
                 data['attackCd'] = 2
-                return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
 
         # No cooldowns available
         if controller.checkInRange(enemy, target):
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target) - controller.combatStateMap[enemy].getTotalStatValue(CombatStats.RANGE)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
                 
            
     return Enemy(f"{colorString} Saffelt", f"{colorString[0]}.Saffelt",
@@ -1658,7 +1658,7 @@ def sfElemental(params : dict, rng : random.Random | None = None) -> Enemy:
         resistanceEffect(mainElement, 1)
     ], [attackSkill, buffSkill, debuffSkill],
     "", "",
-    EnemyAI({"attackCd": 0, "buffCd": 3, "debuffCd": 0}, decisionFn),
+    EntityAI({"attackCd": 0, "buffCd": 3, "debuffCd": 0}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
@@ -1687,7 +1687,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         lambda controller, user, _1, _2, _3: void((
             controller.combatStateMap[user].removeStack(EffectStacks.BUTTERFLY_KI),
             controller.increaseActionTimer(user, 0.4),
-            controller.logMessage(MessageType.EFFECT, f"{user.name}'s inner energy surges!")
+            controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s inner energy surges!")
         )) if controller.combatStateMap[user].getStack(EffectStacks.BUTTERFLY_KI) > 0 else None
     )
     
@@ -1695,7 +1695,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         effect = SkillEffect("", [
             EFStartTurn(
                 lambda controller, user, _: void((
-                    controller.logMessage(MessageType.EFFECT, f"{source.name}'s assault eases up!"),
+                    controller.logMessage(MessageType.EFFECT, f"{source.shortName}'s assault eases up!"),
                     controller.combatStateMap[source].setStack(EffectStacks.ENEMY_COUNTER_A, 0)
                 ))
             )
@@ -1710,7 +1710,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                                 controller.applyMultStatBonuses(user, {
                                                     BaseStats.ATK: 0.8 + (0.3 * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A))
                                                 }),
-                                                controller.logMessage(MessageType.EFFECT, f"{user.name}'s strikes gain momentum!")
+                                                controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s strikes gain momentum!")
                                             )),
                                             lambda controller, user, target, attackResult, _: void((
                                                 controller.revertMultStatBonuses(user, {
@@ -1737,7 +1737,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                                   controller.applyMultStatBonuses(user, {
                                                       BaseStats.ATK: 1.5
                                                   }),
-                                                  controller.logMessage(MessageType.EFFECT, f"{user.name}'s wings glow bright!"),
+                                                  controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s wings glow bright!"),
                                                   controller.combatStateMap[user].removeStack(EffectStacks.BUTTERFLY_KI),
                                                   controller.combatStateMap[user].setStack(EffectStacks.ENEMY_COUNTER_B, 1)
                                               )) if controller.combatStateMap[user].getStack(EffectStacks.BUTTERFLY_KI) > 0 else None,
@@ -1764,7 +1764,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                                   controller.applyMultStatBonuses(user, {
                                                       BaseStats.MAG: 1.5
                                                   }),
-                                                  controller.logMessage(MessageType.EFFECT, f"{user.name}'s wings glow bright!"),
+                                                  controller.logMessage(MessageType.EFFECT, f"{user.shortName}'s wings glow bright!"),
                                                   controller.combatStateMap[user].removeStack(EffectStacks.BUTTERFLY_KI),
                                                   controller.combatStateMap[user].setStack(EffectStacks.ENEMY_COUNTER_B, 1)
                                               )) if controller.combatStateMap[user].getStack(EffectStacks.BUTTERFLY_KI) > 0 else None,
@@ -1800,7 +1800,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                 ))
         )], 0)], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
 
         # CD ticks
@@ -1826,18 +1826,18 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             if currentMana >= slashSkillCost and distToTarget == 0:
                 data["holdTarget"] = target
                 data["aiIdx"] = 2
-                controller.logMessage(MessageType.EFFECT, f"{enemy.name} produces a flash of silver!")
-                return EnemyAIAction(CombatActions.SKILL, 3, [targetIdx], None, None)
+                controller.logMessage(MessageType.EFFECT, f"{enemy.shortName} produces a flash of silver!")
+                return EntityAIAction(CombatActions.SKILL, 3, [targetIdx], None, None)
             else:
                 data["slashCd"] = 3
                 data["aiIdx"] = 0
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             
         # Repeat slash
         if data["aiIdx"] == 2:
             repeatSlash = controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_COUNTER_A) > 0
             if currentMana >= slashSkillCost and repeatSlash and controller.getCurrentHealth(target) > 0:
-                return EnemyAIAction(CombatActions.SKILL, 3, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.SKILL, 3, [targetIdx], None, None)
             else:
                 data["holdTarget"] = None
                 data["aiIdx"] = 0
@@ -1852,12 +1852,12 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             if currentMana >= slashSkillCost and distToTarget >= 2:
                 data["holdTarget"] = target
                 data["aiIdx"] = 4
-                controller.logMessage(MessageType.TELEGRAPH, f"{enemy.name} takes aim!")
-                return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+                controller.logMessage(MessageType.TELEGRAPH, f"{enemy.shortName} takes aim!")
+                return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
             else:
                 data["rangeCd"] = 3
                 data["aiIdx"] = 0
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             
         # Fire ranged attack
         if data["aiIdx"] == 4:
@@ -1866,7 +1866,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             data["holdTarget"] = None
             data["aiIdx"] = 0
             data["rangeCd"] = 6
-            return EnemyAIAction(CombatActions.SKILL, 4, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.SKILL, 4, [targetIdx], None, None)
 
         # defaults
         if data["aiIdx"] == 0:
@@ -1876,31 +1876,31 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                     approachSkillCost = controller.getSkillManaCost(enemy, approachSkill)
                     assert approachSkillCost is not None
                     if currentMana >= approachSkillCost:
-                        return EnemyAIAction(CombatActions.SKILL, 1, [targetIdx], None, None)
+                        return EntityAIAction(CombatActions.SKILL, 1, [targetIdx], None, None)
                     else:
                         data["slashCd"] = 2
-                        return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distToTarget, 2), None)
+                        return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distToTarget, 2), None)
             if data["rangeCd"] <= 0:
                 data["aiIdx"] = 3
                 if distToTarget < 2:
                     retreatSkillCost = controller.getSkillManaCost(enemy, retreatSkill)
                     assert retreatSkillCost is not None
                     if currentMana >= retreatSkillCost:
-                        return EnemyAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
+                        return EntityAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
                     else:
                         data["rangeCd"] = 2
                         retreatDist = abs(distToTarget - 2)
-                        return EnemyAIAction(CombatActions.RETREAT, None, [targetIdx], min(retreatDist, 2), None)
+                        return EntityAIAction(CombatActions.RETREAT, None, [targetIdx], min(retreatDist, 2), None)
                     
             if controller.checkInRange(enemy, target):
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             else:
                 distance = controller.checkDistanceStrict(enemy, target) - controller.combatStateMap[enemy].getTotalStatValue(CombatStats.RANGE)
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
             
         controller.logMessage(MessageType.DEBUG, "<jounymphali ai error, should be unreachable>")
         data["aiIdx"] = 0
-        return EnemyAIAction(CombatActions.DEFEND, None, [], None, None)
+        return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
     return Enemy("Jounymphali", "Jounymphali",
                  "A large insect-like creature. Despite its bewitching butterfly wings, its movements are very difficult to track.", 3, {
         BaseStats.HP: 500, BaseStats.MP: 300,
@@ -1912,7 +1912,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
     }, 0.5, AttackType.RANGED, PhysicalAttackAttribute.SLASHING,
     [kiSkill], [waitSkill("", 0.4), approachSkill, retreatSkill, slashSkill, rangeSkill],
     "Butterfly wings rise; blossoming from the petals, a silent challenger.", "",
-    EnemyAI({"aiIdx": 0, "holdTarget": None, "slashCd": 2, "rangeCd": 5}, decisionFn),
+    EntityAI({"aiIdx": 0, "holdTarget": None, "slashCd": 2, "rangeCd": 5}, decisionFn),
     lambda controller, entity:
         EnemyReward(14, 6, 0, makeBasicUncommonDrop(controller.rng, 0, 1, 1, getWeaponClasses(RANGED_WEAPON_TYPES) + getWeaponClasses(MAGIC_WEAPON_TYPES))
                     if controller._randomRoll(None, entity) <= 0.1 else
@@ -1979,7 +1979,7 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                  ], False)
     burstSkillCost = 5
     
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
 
         # CD ticks
@@ -1994,7 +1994,7 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             selectedElement = data["selectedElement"]
             controller.removeResistanceStacks(enemy, selectedElement, 1)
             enemy.basicAttackAttribute = PhysicalAttackAttribute.CRUSHING
-            controller.logMessage(MessageType.EFFECT, f"The elementals are blown away by {enemy.name}'s roar!")
+            controller.logMessage(MessageType.EFFECT, f"The elementals are blown away by {enemy.shortName}'s roar!")
             [
                 controller.applyDamage(teammate, teammate, controller.getCurrentHealth(teammate))
                     for teammate in controller.getTeammates(enemy) if teammate != enemy
@@ -2003,7 +2003,7 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             data["summonCd"] = 3
             data["aiIdx"] = 0
             data["resetBurst"] = False
-            return EnemyAIAction(CombatActions.SKILL, 4, [], None, None)
+            return EntityAIAction(CombatActions.SKILL, 4, [], None, None)
 
         # defaults
         if data["aiIdx"] == 0:
@@ -2017,30 +2017,30 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                     data["selectedElement"] = selectedElement
                     enemy.basicAttackAttribute = selectedElement
                     controller.addResistanceStacks(enemy, selectedElement, 1)
-                    return EnemyAIAction(CombatActions.SKILL, 2, [], None, selectedElement.name)
+                    return EntityAIAction(CombatActions.SKILL, 2, [], None, selectedElement.name)
             
             if data["summonActive"] and data["burstCd"] <= 0:
                 burstCost = controller.getSkillManaCostFromValue(enemy, burstSkillCost, True)
                 if currentMana >= burstCost:
                     data["aiIdx"] = 1
-                    controller.logMessage(MessageType.TELEGRAPH, f"{enemy.name} bristles threateningly!")
+                    controller.logMessage(MessageType.TELEGRAPH, f"{enemy.shortName} bristles threateningly!")
                     controller.spendMana(enemy, burstCost)
                     data["aoeTargets"] = allTargets[:]
-                    return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
 
             if data["dashCd"] <= 0:
                 dashCost = controller.getSkillManaCost(enemy, dashSkill)
                 assert(dashCost is not None)
                 if currentMana >= dashCost:
-                    controller.logMessage(MessageType.TELEGRAPH, f"{enemy.name} paws the ground!")
+                    controller.logMessage(MessageType.TELEGRAPH, f"{enemy.shortName} paws the ground!")
                     data["aiIdx"] = 2
-                    return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
             
             if controller.checkInRange(enemy, target):
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             else:
                 distance = controller.checkDistanceStrict(enemy, target) - controller.combatStateMap[enemy].getTotalStatValue(CombatStats.RANGE)
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
             
         # burst
         if data["aiIdx"] == 1:
@@ -2049,17 +2049,17 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             if len(aoeTargets) == 0:
                 # No more targets to fire at after this one
                 data["resetBurst"] = True
-            return EnemyAIAction(CombatActions.SKILL, 3, [allTargets.index(target)], None, None)
+            return EntityAIAction(CombatActions.SKILL, 3, [allTargets.index(target)], None, None)
         
         # dash
         if data["aiIdx"] == 2:
             data["aiIdx"] = 0
             data["dashCd"] = 6
-            return EnemyAIAction(CombatActions.SKILL, 1, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.SKILL, 1, [targetIdx], None, None)
             
         controller.logMessage(MessageType.DEBUG, "<voletyle ai error, should be unreachable>")
         data["aiIdx"] = 0
-        return EnemyAIAction(CombatActions.DEFEND, None, [], None, None)
+        return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
     return Enemy("Voletyle", "Voletyle",
                  "A great enchanted beast, feeding off of the saffron. Recklessly tramples over the elemental spirits it attracts.", 3, {
         BaseStats.HP: 700, BaseStats.MP: 200,
@@ -2070,7 +2070,7 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
     }, 0.5, AttackType.MELEE, PhysicalAttackAttribute.CRUSHING,
     [], [waitSkill("", 0.5), dashSkill, summonSkill, burstSkill, waitSkill("", 1)],
     "A giant rodent crashes through the forest!", "",
-    EnemyAI({"aiIdx": 0, "dashCd": 0, "summonCd": 2, "burstCd": 0, "summonActive": False, "selectedElement": None, "resetBurst": False}, decisionFn),
+    EntityAI({"aiIdx": 0, "dashCd": 0, "summonCd": 2, "burstCd": 0, "summonActive": False, "selectedElement": None, "resetBurst": False}, decisionFn),
     lambda controller, entity:
         EnemyReward(13, 6, 0, makeBasicUncommonDrop(controller.rng, 0, 1, 1, getWeaponClasses(RANGED_WEAPON_TYPES) + getWeaponClasses(MAGIC_WEAPON_TYPES))
                     if controller._randomRoll(None, entity) <= 0.1 else
@@ -2132,7 +2132,7 @@ def asSpawner(params : dict, rng : random.Random | None = None) -> Enemy:
                 )))], 0)
             ], None, 0, False, False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
         teammates = controller.getTeammates(enemy)
         teamSize = len(teammates)
@@ -2141,7 +2141,7 @@ def asSpawner(params : dict, rng : random.Random | None = None) -> Enemy:
             summonCost = controller.getSkillManaCost(enemy, summonSkill)
             assert summonCost is not None
             if currentMana >= summonCost:
-                return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+                return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
             
         else:
             buffCost = controller.getSkillManaCost(enemy, buffSkill)
@@ -2151,9 +2151,9 @@ def asSpawner(params : dict, rng : random.Random | None = None) -> Enemy:
                 for i in range(len(teammates)):
                     if teammates[i] != enemy:
                         allAllyIndices.append(i)
-                return EnemyAIAction(CombatActions.SKILL, 1, allAllyIndices, None, None)
+                return EntityAIAction(CombatActions.SKILL, 1, allAllyIndices, None, None)
         
-        return EnemyAIAction(CombatActions.DEFEND, None, [], None, None)
+        return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
         
     baseStats = {
         BaseStats.HP: 200, BaseStats.MP: 40,
@@ -2164,7 +2164,7 @@ def asSpawner(params : dict, rng : random.Random | None = None) -> Enemy:
                  "A summoner's tool that's been modified to serve rat-related purposes. It's unclear if the patterns that look like crayon drawings are contributing to this.", 5,
                  baseStats, flatStatMods, {}, 0.5, None, None, [], [summonSkill, buffSkill],
     "Rats surge forth from the strange object!", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(10, 2, 0, rollEquip(controller, entity, 0.4,
                                        makeBasicCommonDrop(controller.rng, 4, 7, 0.2)))
@@ -2205,7 +2205,7 @@ def asMageRat(params : dict, rng : random.Random | None = None) -> Enemy:
                                         SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0),
                                         SkillEffect("", [
                                             EFAfterNextAttack(lambda controller, _1, target, attackResult, _2: void((
-                                                controller.logMessage(MessageType.EFFECT, f"{target.name} is marked for other rats!")
+                                                controller.logMessage(MessageType.EFFECT, f"{target.shortName} is marked for other rats!")
                                                     if all([controller.combatStateMap[target].getStack(stack) == 0 for stack in stackOptions]) else None,
                                                 controller.combatStateMap[target].addStack(rng.choice(stackOptions), 10),
                                                 controller.combatStateMap[target].addStack(rng.choice(stackOptions), 10),
@@ -2223,13 +2223,13 @@ def asMageRat(params : dict, rng : random.Random | None = None) -> Enemy:
                                                     }) for stack in stackBuffs if controller.combatStateMap[user].getStack(stack) > 0] for target in targets],
                                                     [controller.combatStateMap[user].setStack(stack, 0) for stack in stackBuffs],
                                                     controller.logMessage(MessageType.EFFECT,
-                                                                          f"{user.name} shares its buffs with its teammates!")
+                                                                          f"{user.shortName} shares its buffs with its teammates!")
                                                 ))
                                             )
                                         ], 0)
                                     ], None, 0, False, False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
         target = controller.getAggroTarget(enemy)
         targetIdx = controller.getTargets(enemy).index(target)
@@ -2245,18 +2245,18 @@ def asMageRat(params : dict, rng : random.Random | None = None) -> Enemy:
                 for i in range(len(teammates)):
                     if teammates[i] != enemy:
                         allAllyIndices.append(i)
-                return EnemyAIAction(CombatActions.SKILL, 1, allAllyIndices, None, None)
+                return EntityAIAction(CombatActions.SKILL, 1, allAllyIndices, None, None)
 
         attackCost = controller.getSkillManaCost(enemy, attackSkill)
         assert attackCost is not None
         if currentMana >= attackCost:
-            return EnemyAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
 
         if controller.checkInRange(enemy, target):
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target) - controller.combatStateMap[enemy].getTotalStatValue(CombatStats.RANGE)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
         
     baseStats = {
         BaseStats.HP: 220, BaseStats.MP: 150,
@@ -2269,7 +2269,7 @@ def asMageRat(params : dict, rng : random.Random | None = None) -> Enemy:
         CombatStats.BASIC_MP_GAIN_MULT: 10 / BASIC_ATTACK_MP_GAIN
     }, 0.5, None, None, [ratMarkSkill], [attackSkill, buffSkill],
     "\\*squeak squyk\\*", "",
-    EnemyAI({"targetStackCount": 2}, decisionFn),
+    EntityAI({"targetStackCount": 2}, decisionFn),
     lambda controller, entity:
         EnemyReward(4, 1, 0, rollEquip(controller, entity, 0.2,
                                        makeBasicCommonDrop(controller.rng, 6, 9, 0.2)))
@@ -2312,7 +2312,7 @@ def asStrongRat(params : dict, rng : random.Random | None = None) -> Enemy:
                         BaseStats.ATK: 1 + (0.075 * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A))
                     }),
                     controller.logMessage(
-                        MessageType.EFFECT, f"{user.name} is empowered by the hopes of their allies!")
+                        MessageType.EFFECT, f"{user.shortName} is empowered by the hopes of their allies!")
                         if controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A) > 0 else None
                 )),
                 lambda controller, user, _1, _2, _3: void((
@@ -2324,15 +2324,15 @@ def asStrongRat(params : dict, rng : random.Random | None = None) -> Enemy:
         ], None)
     ], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         target = controller.getAggroTarget(enemy)
         targetIdx = controller.getTargets(enemy).index(target)
 
         if controller.checkInRange(enemy, target):
-            return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+            return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
             distance = controller.checkDistanceStrict(enemy, target) - controller.combatStateMap[enemy].getTotalStatValue(CombatStats.RANGE)
-            return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+            return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
         
     baseStats = {
         BaseStats.HP: 260, BaseStats.MP: 1,
@@ -2343,7 +2343,7 @@ def asStrongRat(params : dict, rng : random.Random | None = None) -> Enemy:
     "An unusually large rat, even for the standards of giant rats. Doesn't act particularly rat-like, but it is readly accepted nonetheless.", 5,
     baseStats, flatStatMods, {}, 0.5, None, None, [boostSkill], [],
     "\\*Squeak.\\*", "",
-    EnemyAI({}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(4, 1, 0, rollEquip(controller, entity, 0.2,
                                        makeBasicCommonDrop(controller.rng, 6, 9, 0.2)))
@@ -2360,7 +2360,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
         originalRange = controller.combatStateMap[defender].getStack(EffectStacks.TELEGRAPH_RANGE) - 1
         assert(originalRange >= 0)
 
-        controller.logMessage(MessageType.EFFECT, f"Lightning arcs towards {defender.name}!")
+        controller.logMessage(MessageType.EFFECT, f"Lightning arcs towards {defender.shortName}!")
         rangeDelta = abs(originalRange - controller.checkDistanceStrict(attacker, defender))
         controller.applyMultStatBonuses(attacker, {
             BaseStats.ACC: _thunderAccMult(rangeDelta)
@@ -2419,7 +2419,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                                                         EffectStacks.ENEMY_COUNTER_A,
                                                         controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_COUNTER_A) + controller.checkDistanceStrict(enemy, targets[0])),
                                                     controller.logMessage(
-                                                        MessageType.EFFECT, f"Salali's electic field grows stronger as she dashes towards {targets[0].name}!")
+                                                        MessageType.EFFECT, f"Salali's electic field grows stronger as she dashes towards {targets[0].shortName}!")
                                                         if controller.checkDistanceStrict(enemy, targets[0]) > 0 else None,
                                                     controller.updateDistance(enemy, targets[0], 0)
                                                 ))
@@ -2545,7 +2545,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
             ], None)
         ], False)
 
-    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction:
+    def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         phaseCheck = phaseCheckFn(controller, enemy, data)
         if phaseCheck is not None:
             return phaseCheck
@@ -2562,12 +2562,12 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 data["overdriveActive"] = True
                 data["tauntCd"] += 2
                 enemy.aggroDecayFactor = overdriveAggroDecay
-                return EnemyAIAction(CombatActions.SKILL, 6, [], None, None)
+                return EntityAIAction(CombatActions.SKILL, 6, [], None, None)
             
             if data["overdriveActive"] and chargeStacks <= 0:
                 data["overdriveActive"] = False
                 enemy.aggroDecayFactor = baseAggroDecay
-                return EnemyAIAction(CombatActions.SKILL, 6, [], None, None)
+                return EntityAIAction(CombatActions.SKILL, 6, [], None, None)
 
         if data["aiIdx"] == 0:
             # CD ticks
@@ -2588,17 +2588,17 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 if currentMana >= thunderCost:
                     data["aoeTargets"] = allTargets[:]
                     data["aiIdx"] = 1
-                    return EnemyAIAction(CombatActions.SKILL, 3, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 3, [], None, None)
             if data["tauntCd"] <= 0 and phaseIndex == 1:
                 tauntCost = controller.getSkillManaCost(enemy, tauntAttackSkill)
                 assert tauntCost is not None
                 if currentMana >= tauntCost and controller.checkDistanceStrict(enemy, target) <= 1:
                     data["tauntTarget"] = target
                     data["aiIdx"] = 3
-                    controller.logMessage(MessageType.TELEGRAPH, f"Salali taunts {target.name}!")
+                    controller.logMessage(MessageType.TELEGRAPH, f"Salali taunts {target.shortName}!")
                     controller.logMessage(MessageType.DIALOGUE, f"Salali: \"{rng.choice(warningTaunts)}\"")
                     controller.combatStateMap[target].setStack(EffectStacks.TELEGRAPH_ATTACK, 0)
-                    return EnemyAIAction(CombatActions.SKILL, 7, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 7, [], None, None)
             if data["dashCd"] <= 0:
                 totalDashCost = controller.getSkillManaCost(enemy, dashSkill)
                 assert totalDashCost is not None
@@ -2608,19 +2608,19 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                     data["dashTargets"] = allTargets[:]
                     data["aiIdx"] = 2
                     controller.combatStateMap[enemy].setStack(EffectStacks.ENEMY_COUNTER_A, 0)
-                    return EnemyAIAction(CombatActions.SKILL, 1, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 1, [], None, None)
             if data["summonCd"] <= 0 and phaseIndex == 0:
                 summonCost = controller.getSkillManaCost(enemy, summonSkill)
                 assert summonCost is not None
                 if len(controller.getTeammates(enemy)) < 4 and currentMana >= summonCost:
                     data["summonCd"] = 12
-                    return EnemyAIAction(CombatActions.SKILL, 2, [], None, None)
+                    return EntityAIAction(CombatActions.SKILL, 2, [], None, None)
                 
             if controller.checkInRange(enemy, target):
-                return EnemyAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
+                return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             else:
                 distance = controller.checkDistanceStrict(enemy, target) - controller.combatStateMap[enemy].getTotalStatValue(CombatStats.RANGE)
-                return EnemyAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
+                return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
                 
         if data["aiIdx"] == 1: # Thunder
             aoeTargets = []
@@ -2639,7 +2639,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                     controller.combatStateMap[enemy].setStack(EffectStacks.SALALI_CHARGE, chargeStacks + chargeDrainPerTurn)
                 else:
                     controller.combatStateMap[enemy].setStack(EffectStacks.SALALI_CHARGE, chargeStacks - chargeStackPerTurn)
-            return EnemyAIAction(CombatActions.SKILL, 4, [allTargets.index(target)], None, None)
+            return EntityAIAction(CombatActions.SKILL, 4, [allTargets.index(target)], None, None)
         
         if data["aiIdx"] == 2: # Dash
             dashCost = controller.getSkillManaCost(enemy, dashSkill)
@@ -2668,7 +2668,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                     else:
                         controller.combatStateMap[enemy].setStack(EffectStacks.SALALI_CHARGE, chargeStacks - chargeStackPerTurn)
 
-                return EnemyAIAction(CombatActions.SKILL, 5, [allTargets.index(target)], None, None)
+                return EntityAIAction(CombatActions.SKILL, 5, [allTargets.index(target)], None, None)
             else:
                 # No more targets or mana
                 data["dashCd"] = 7
@@ -2679,7 +2679,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                     controller.logMessage(MessageType.EFFECT, "Salali comes to a stop as she absorbs the energy from her static field!")
                     totalMovement = controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_COUNTER_A)
                     controller.combatStateMap[enemy].setStack(EffectStacks.SALALI_CHARGE, chargeStacks + (totalMovement // 2))
-                return EnemyAIAction(CombatActions.SKILL, 1, [], None, None)
+                return EntityAIAction(CombatActions.SKILL, 1, [], None, None)
         
         if data["aiIdx"] == 3: # Taunt
             target = data["tauntTarget"]
@@ -2690,15 +2690,15 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 controller.logMessage(MessageType.EFFECT, f"Salali's attack was disrupted!")
                 controller.logMessage(MessageType.DIALOGUE, f"Salali: \"{rng.choice(failureTaunts)}\"")
                 controller.combatStateMap[enemy].setStack(EffectStacks.SALALI_CHARGE, max(chargeStacks - chargeStackPerTurn, 0))
-                return EnemyAIAction(CombatActions.SKILL, 7, [], None, None)
+                return EntityAIAction(CombatActions.SKILL, 7, [], None, None)
             else:
                 controller.logMessage(MessageType.DIALOGUE, f"Salali: \"{rng.choice(successTaunts)}\"")
-                return EnemyAIAction(CombatActions.SKILL, 8, [allTargets.index(target)], None, None)
+                return EntityAIAction(CombatActions.SKILL, 8, [allTargets.index(target)], None, None)
         
         controller.logMessage(MessageType.DEBUG, "<salali ai error, should be unreachable>")
         data["aiIdx"] = 0
-        return EnemyAIAction(CombatActions.DEFEND, None, [], None, None)
-    def phaseCheckFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EnemyAIAction | None:
+        return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
+    def phaseCheckFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction | None:
         phaseIndex = controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_PHASE_COUNTER)
         if phaseIndex < len(phaseThresholds) and controller.getCurrentHealth(enemy) <= phaseThresholds[phaseIndex]:
             phaseIndex += 1
@@ -2721,7 +2721,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 data["dashCd"] = 0
                 data["tauntCd"] = 4
                 data["overdriveActive"] = False
-                return EnemyAIAction(CombatActions.SKILL, 0, [], None, None)
+                return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
         
     baseStats = {
         BaseStats.HP: 3000, BaseStats.MP: 1000,
@@ -2758,6 +2758,6 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
         "Salali: \"Fine, fine, I give up!\"\n" +
         "Salali: \"...Hey, hey, you're not trying to avoid me when I'm with Riri, are you? " +
         "I can't use my full power alone, so this still doesn't count, doesn't count~\"",
-    EnemyAI({"aiIdx": 0, "summonCd": 0, "thunderCd": 3, "dashCd": 8, "tauntCd": 10}, decisionFn),
+    EntityAI({"aiIdx": 0, "summonCd": 0, "thunderCd": 3, "dashCd": 8, "tauntCd": 10}, decisionFn),
     lambda controller, entity:
         EnemyReward(20, 10, 1, makeBasicUncommonDrop(controller.rng, 3, 6, 0.25)))
