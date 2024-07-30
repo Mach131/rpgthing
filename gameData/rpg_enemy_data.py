@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable
+from typing import Any, Callable
 import random
 
 from gameData.rpg_item_data import *
@@ -336,11 +336,21 @@ def ffPlant(params : dict, rng : random.Random | None = None) -> Enemy:
                                        makeBasicCommonDrop(controller.rng, 1, 4, 0)))
         if not params.get('boss', False) else EnemyReward(1, 0, 0, None))
 
+def makeAoeSkillEffect(isPhysical : bool, attackType : AttackType | None,
+                            condition : Callable[[CombatController, CombatEntity, CombatEntity, AttackResultInfo], bool] | None = None):
+    def aoeAfterFn(controller, user, target, attackInfo, _):
+        conditionCheck = condition(controller, user, target, attackInfo) if condition is not None else True
+        if not attackInfo.isBonus and conditionCheck:
+            otherOpponents = [opp for opp in controller.getTargets(user) if opp is not target]
+            for bonusTarget in otherOpponents:
+                counterData = CounterSkillData(isPhysical, attackType, 1, [SkillEffect("", [], 0)])
+                attackInfo.addBonusAttack(user, bonusTarget, counterData)
+    return SkillEffect("", [EFAfterNextAttack(aoeAfterFn)], 0)
 
 def ffSlimeBoss(params : dict) -> Enemy:
     def _slimeCannonAccMult(rangeDelta : int):
-        return max(1 - ((rangeDelta ** 2) * 0.225), 0.05)
-    def slimeCannonApply(controller : CombatController, attacker : CombatEntity, defender: CombatEntity, _):
+        return max(1 - (rangeDelta * 0.45), 0.05)
+    def slimeCannonApply(controller : CombatController, attacker : CombatEntity, defender: CombatEntity, effectResult : EffectFunctionResult):
         originalRange = controller.combatStateMap[defender].getStack(EffectStacks.TELEGRAPH_RANGE) - 1
         assert(originalRange >= 0)
 
@@ -349,6 +359,7 @@ def ffSlimeBoss(params : dict) -> Enemy:
         controller.applyMultStatBonuses(attacker, {
             BaseStats.ACC: _slimeCannonAccMult(rangeDelta)
         })
+        effectResult.setGuaranteeDodge(rangeDelta >= 2)
         controller.combatStateMap[defender].setStack(EffectStacks.TELEGRAPH_RANGE, rangeDelta)
     def slimeCannonRevert(controller : CombatController, attacker : CombatEntity, defender : CombatEntity, _1, _2):
         rangeDelta = controller.combatStateMap[defender].getStack(EffectStacks.TELEGRAPH_RANGE)
@@ -366,18 +377,23 @@ def ffSlimeBoss(params : dict) -> Enemy:
                                                    EffectStacks.TELEGRAPH_RANGE, controller.checkDistanceStrict(slime, target)+1)
                                                 for target in controller.getTargets(slime)],
                                                 controller.logMessage(MessageType.TELEGRAPH,
-                                                                      "Slime is thrown high into the air in all directions!")
+                                                                      "Slime is lobbed towards the current locations of all targets!")
                                            )))
                                        ], 0)
                                    ], None, 0, True, False)
     cannonSkill = AttackSkillData("Slime Cannon!", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
-                                  False, AttackType.MAGIC, 1.5, 0, [
-                                      SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {},
-                                                                      slimeCannonApply, slimeCannonRevert)], 0)
+                                  False, AttackType.MAGIC, 1, DEFAULT_ATTACK_TIMER_USAGE, [
+                                      SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, { BaseStats.MAG: 1.5 },
+                                                                      slimeCannonApply, slimeCannonRevert)], 1),
+                                      makeAoeSkillEffect(False, AttackType.MAGIC)
                                   ], False)
-    slamSkill = AttackSkillData("Slime Slam!", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
-                                  True, AttackType.MELEE, 2, 0, [], False)
-    slamSkillCost = 15
+    slamSkill = AttackSkillData("Slime Slam!", BasePlayerClassNames.WARRIOR, 0, False, 15, "",
+                                  True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE, [
+                                      SkillEffect("", [
+                                          EFBeforeNextAttack({}, { BaseStats.ATK: 2 }, None, None)
+                                      ], 1),
+                                      makeAoeSkillEffect(True, AttackType.MELEE)
+                                  ], False)
     splitSkill = ActiveBuffSkillData("Slime Division!", BasePlayerClassNames.WARRIOR, 0, False, 20, "",
                                    MAX_ACTION_TIMER, {}, {}, [
                                        SkillEffect("", [
@@ -391,6 +407,8 @@ def ffSlimeBoss(params : dict) -> Enemy:
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         allTargets = controller.getTargets(enemy)
         currentMana = controller.getCurrentMana(enemy)
+        defaultTarget = controller.getAggroTarget(enemy)
+        targetIdx = allTargets.index(defaultTarget)
 
         if data["aiIdx"] == 0:
             # CD ticks
@@ -401,16 +419,14 @@ def ffSlimeBoss(params : dict) -> Enemy:
                 cannonCost = controller.getSkillManaCost(enemy, aimSkill)
                 assert cannonCost is not None
                 if currentMana >= cannonCost:
-                    data["aoeTargets"] = allTargets[:]
                     data["aiIdx"] = 1
                     return EntityAIAction(CombatActions.SKILL, 1, [], None, None)
             if data["slamCd"] <= 0:
                 proximityCheck = any([controller.checkDistanceStrict(enemy, player) == 0 for player in allTargets])
-                slamCost = controller.getSkillManaCostFromValue(enemy, slamSkillCost, True)
+                slamCost = controller.getSkillManaCost(enemy, slamSkill)
+                assert slamCost is not None
                 if proximityCheck and currentMana >= slamCost:
                     controller.logMessage(MessageType.TELEGRAPH, f"Slimoo prepares for a big leap!")
-                    controller.spendMana(enemy, slamCost)
-                    data["aoeTargets"] = allTargets[:]
                     data["aiIdx"] = 2
                     return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
             if data["splitCd"] <= 0:
@@ -421,8 +437,6 @@ def ffSlimeBoss(params : dict) -> Enemy:
                     return EntityAIAction(CombatActions.SKILL, 4, [], None, None)
 
             # No skills available
-            defaultTarget = controller.getAggroTarget(enemy)
-            targetIdx = allTargets.index(defaultTarget)
             if controller.checkInRange(enemy, defaultTarget):
                 return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
             else:
@@ -430,23 +444,14 @@ def ffSlimeBoss(params : dict) -> Enemy:
                 return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
                 
         elif data["aiIdx"] == 1: # Slime Cannon
-            aoeTargets = data["aoeTargets"]
-            target = aoeTargets.pop()
-            if len(aoeTargets) == 0:
-                # No more targets to fire at after this one
-                controller.spendActionTimer(enemy, DEFAULT_ATTACK_TIMER_USAGE)
-                data["cannonCd"] = 5
-                data["aiIdx"] = 0
-            return EntityAIAction(CombatActions.SKILL, 2, [allTargets.index(target)], None, None)
+            data["cannonCd"] = 5
+            data["aiIdx"] = 0
+            return EntityAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
+        
         if data["aiIdx"] == 2: # Slime Slam
-            aoeTargets = data["aoeTargets"]
-            target = aoeTargets.pop()
-            if len(aoeTargets) == 0:
-                # No more targets to fire at after this one
-                controller.spendActionTimer(enemy, DEFAULT_ATTACK_TIMER_USAGE)
-                data["slamCd"] = 3
-                data["aiIdx"] = 0
-            return EntityAIAction(CombatActions.SKILL, 3, [allTargets.index(target)], None, None)
+            data["slamCd"] = 3
+            data["aiIdx"] = 0
+            return EntityAIAction(CombatActions.SKILL, 3, [targetIdx], None, None)
         
         controller.logMessage(MessageType.DEBUG, "<slimoo ai error, should be unreachable>")
         data["aiIdx"] = 0
@@ -460,7 +465,7 @@ def ffSlimeBoss(params : dict) -> Enemy:
         CombatStats.RANGE: 0
     }, {
         CombatStats.BASIC_MP_GAIN_MULT: 10 / BASIC_ATTACK_MP_GAIN
-    }, 0.5, None, None, [], [waitSkill("", 0.4), aimSkill, cannonSkill, slamSkill, splitSkill],
+    }, 0.5, None, None, [], [waitSkill("", 0.5), aimSkill, cannonSkill, slamSkill, splitSkill],
     "The large slime roars a noble 'blurble'!", "",
     EntityAI({"aiIdx": 0, "cannonCd": 0, "slamCd": 2, "splitCd": 2}, decisionFn),
     lambda controller, entity:
@@ -499,13 +504,13 @@ def ffPlantBoss(params : dict) -> Enemy:
                                      DEFAULT_ATTACK_TIMER_USAGE * 0.75, {}, {}, [
                                          SkillEffect("", [EFImmediate(
                                              lambda controller, enemy, targets, _: void((
-                                                 controller.applyDamage(enemy, enemy, min(50, controller.getCurrentHealth(enemy))),
+                                                 controller.applyDamage(enemy, enemy, min(75, controller.getCurrentHealth(enemy)-1)),
                                                  [controller.doHealSkill(enemy, target, 0.5) for target in targets],
                                                  [controller.gainMana(target, 30) for target in targets]
                                          )))], 0)
                                      ], None, 0, False, False)
     swingSkill = AttackSkillData("Thorny Thrash", BasePlayerClassNames.WARRIOR, 0, False, 30, "",
-                                  True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE, [
+                                  True, AttackType.MELEE, 1, MAX_ACTION_TIMER, [
                                       SkillEffect("", [EFAfterNextAttack(thrashKnockbackFn)], 0)
                                   ], False)
     
@@ -678,7 +683,8 @@ def scRock(params : dict, rng : random.Random | None = None) -> Enemy:
     if params.get('boss', False):
         flatStatMods[BaseStats.HP] += 30
 
-    enrageAtStacks = 6
+    enrageAtStacks = 7
+    enrageStackCost = 5
     rageSkill = PassiveSkillData("Rueful Rocks", BasePlayerClassNames.WARRIOR, 0, False, "", {}, {}, [
         SkillEffect("", [
             EFWhenAttacked(lambda controller, user, _1, attackResult, _2:
@@ -692,13 +698,16 @@ def scRock(params : dict, rng : random.Random | None = None) -> Enemy:
         ], None, None)
     ], False)
 
-    rockSkill = AttackSkillData("Rocks Fall", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
-                                  True, AttackType.MELEE, 1.5, 0, [
+    rockSkill = AttackSkillData("Rocks Fall", BasePlayerClassNames.WARRIOR, 0, False, 10, "",
+                                  True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE, [
                                       SkillEffect("", [
                                           EFBeforeNextAttack({
                                               CombatStats.RANGE: 1
-                                          }, {}, None, None)
-                                      ], 0, None)
+                                          }, {
+                                              BaseStats.ATK: 1.8
+                                          }, None, None)
+                                      ], 1, None),
+                                      makeAoeSkillEffect(True, AttackType.MELEE)
                                   ], False)
 
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
@@ -711,23 +720,15 @@ def scRock(params : dict, rng : random.Random | None = None) -> Enemy:
         targetRange = 1 if canUseSkill else 0
 
         target = controller.getAggroTarget(enemy)
-        targetIdx = controller.getTargets(enemy).index(target)
+        targetIdx = allTargets.index(target)
         if controller.checkDistanceStrict(enemy, target) <= targetRange:
             if canUseSkill:
-                if len(data["aoeTargets"]) == 0:
-                    data["aoeTargets"] = allTargets[:]
-                    controller.spendMana(enemy, rockSkillCost)
-
-                aoeTargets = data["aoeTargets"]
-                target = aoeTargets.pop()
-                if len(aoeTargets) == 0:
-                    controller.spendActionTimer(enemy, DEFAULT_ATTACK_TIMER_USAGE)
-                    controller.combatStateMap[enemy].setStack(EffectStacks.ENEMY_COUNTER_A, rageStacks - enrageAtStacks)
-                return EntityAIAction(CombatActions.SKILL, 0, [allTargets.index(target)], None, None)
+                controller.combatStateMap[enemy].setStack(EffectStacks.ENEMY_COUNTER_A, rageStacks - enrageStackCost)
+                return EntityAIAction(CombatActions.SKILL, 0, [targetIdx], None, None)
             else:
                 return EntityAIAction(CombatActions.ATTACK, None, [targetIdx], None, None)
         else:
-            distance = controller.checkDistanceStrict(enemy, target)
+            distance = controller.checkDistanceStrict(enemy, target) - targetRange
             return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
         
     return Enemy("Stalactun", "Stalactun",
@@ -741,7 +742,7 @@ def scRock(params : dict, rng : random.Random | None = None) -> Enemy:
         rageSkill
     ], [rockSkill],
     "", "",
-    EntityAI({"aoeTargets": []}, decisionFn),
+    EntityAI({}, decisionFn),
     lambda controller, entity:
         EnemyReward(3, 1 if controller._randomRoll(None, entity) <= 0.35 else 0,
                     0, rollEquip(controller, entity, 0.2,
@@ -953,7 +954,7 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         ], None, None)
     ], False)
 
-    burstStackRequirement = 5
+    burstStackRequirement = 6
     rpsNameMap = {
         "CRUSHING": "Type P",
         "SLASHING": "Type S",
@@ -981,9 +982,8 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                   ], False),
                             [attribute.name for attribute in PhysicalAttackAttribute], False)
     
-    aoeAttackCost = 20
-    aoeAttack = AttackSkillData("Factory Reset", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
-                                  True, AttackType.MELEE, 1, 0, [
+    aoeAttack = AttackSkillData("Factory Reset", BasePlayerClassNames.WARRIOR, 0, False, 20, "",
+                                  True, AttackType.MELEE, 1, DEFAULT_ATTACK_TIMER_USAGE, [
                                       SkillEffect("", [
                                           EFBeforeNextAttack(
                                               {CombatStats.IGNORE_RANGE_CHECK: 1}, {},
@@ -994,10 +994,23 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                               lambda controller, user, _1, _2, _3: controller.revertMultStatBonuses(
                                                   user, {
                                                       BaseStats.ATK: 0.8 + (controller.combatStateMap[user].getStack(EffectStacks.RPS_LEVEL) * 0.7)
-                                                  }))
-                                      ], 0, None)
+                                                  })),
+                                            EFEndTurn(
+                                                lambda controller, enemy, _2, _3: void((
+                                                controller.combatStateMap[enemy].setStack(EffectStacks.RPS_LEVEL, 0),
+                                                [
+                                                    (controller.removeWeaknessStacks(enemy, attribute, controller.combatStateMap[enemy].weaknesses.count(attribute)),
+                                                    controller.removeResistanceStacks(enemy, attribute, controller.combatStateMap[enemy].resistances.count(attribute)),
+                                                    controller.addWeaknessStacks(enemy, attribute, 1))
+                                                    for attribute in PhysicalAttackAttribute
+                                                ],
+                                                controller.logMessage(MessageType.EFFECT,
+                                                                    "The golem returns to its original shape!")
+                                                ))
+                                            )
+                                      ], 1),
+                                      makeAoeSkillEffect(True, AttackType.MELEE)
                                   ], False)
-
 
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         allTargets = controller.getTargets(enemy)
@@ -1007,17 +1020,8 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             for attribute in PhysicalAttackAttribute
         }
         controller.logMessage(MessageType.DEBUG, str(resistStacks))
-
-        if data["aoeReset"]:
-            controller.combatStateMap[enemy].setStack(EffectStacks.RPS_LEVEL, 0)
-            for attribute in PhysicalAttackAttribute:
-                controller.removeWeaknessStacks(enemy, attribute, controller.combatStateMap[enemy].weaknesses.count(attribute))
-                controller.removeResistanceStacks(enemy, attribute, controller.combatStateMap[enemy].resistances.count(attribute))
-                controller.addWeaknessStacks(enemy, attribute, 1)
-            controller.logMessage(MessageType.EFFECT,
-                                "The golem returns to its original shape!")
-            data["aoeReset"] = False
-            return EntityAIAction(CombatActions.SKILL, 3, [], None, None)
+        defaultTarget = controller.getAggroTarget(enemy)
+        targetIdx = allTargets.index(defaultTarget)
 
         if data["aiIdx"] == 0:
             # CD ticks
@@ -1025,16 +1029,12 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                 data[cdKey] -= 1
 
             if data["aoeCd"] <= 0:
-                aoeCost = controller.getSkillManaCostFromValue(enemy, aoeAttackCost, True)
+                aoeCost = controller.getSkillManaCost(enemy, aoeAttack)
+                assert aoeCost is not None
                 if currentMana >= aoeCost:
                     controller.logMessage(MessageType.TELEGRAPH, f"The Ropasci Golem's body glows with an ominous light!")
-                    controller.spendMana(enemy, aoeCost)
-                    data["aoeTargets"] = allTargets[:]
                     data["aiIdx"] = 1
                     return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
-                
-            defaultTarget = controller.getAggroTarget(enemy)
-            targetIdx = allTargets.index(defaultTarget)
 
             if controller.checkInRange(enemy, defaultTarget):
                 burstCost = controller.getSkillManaCost(enemy, burstAttack)
@@ -1057,14 +1057,9 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                 return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
                 
         elif data["aiIdx"] == 1: # Factory Reset
-            aoeTargets = data["aoeTargets"]
-            target = aoeTargets.pop()
-            if len(aoeTargets) == 0:
-                # No more targets to fire at after this one
-                data["aoeCd"] = 8
-                data["aiIdx"] = 0
-                data["aoeReset"] = True
-            return EntityAIAction(CombatActions.SKILL, 2, [allTargets.index(target)], None, None)
+            data["aoeCd"] = 9
+            data["aiIdx"] = 0
+            return EntityAIAction(CombatActions.SKILL, 2, [targetIdx], None, None)
         
         controller.logMessage(MessageType.DEBUG, "<golem ai error, should be unreachable>")
         data["aiIdx"] = 0
@@ -1073,7 +1068,7 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                  "A giant artificial being. Though its body is largely made of rock, it has flat appendages and sharp protrusions hinting at the purpose for its creation.", 5, {
         BaseStats.HP: 850, BaseStats.MP: 100,
         BaseStats.ATK: 80, BaseStats.DEF: 80, BaseStats.MAG: 1, BaseStats.RES: 100,
-        BaseStats.ACC: 90, BaseStats.AVO: 60, BaseStats.SPD: 60
+        BaseStats.ACC: 80, BaseStats.AVO: 60, BaseStats.SPD: 60
     }, {
         CombatStats.RANGE: 1
     }, {
@@ -1084,9 +1079,9 @@ def scRpsBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         weaknessEffect(PhysicalAttackAttribute.SLASHING, 1),
         weaknessEffect(PhysicalAttackAttribute.CRUSHING, 1),
         resistanceShifter
-    ], [waitSkill("", 0.35), burstAttack, aoeAttack, waitSkill("", 0.7)],
+    ], [waitSkill("", 0.35), burstAttack, aoeAttack],
     "A strangely-shaped golem lumbers out of the darkness!", "",
-    EntityAI({"aiIdx": 0, "aoeCd": 8, "aoeReset": False}, decisionFn),
+    EntityAI({"aiIdx": 0, "aoeCd": 9, "aoeReset": False}, decisionFn),
     lambda controller, entity:
         EnemyReward(15, 6, 0, makeBasicUncommonDrop(controller.rng, 0, 1, 1, getWeaponClasses(MELEE_WEAPON_TYPES))
                     if controller._randomRoll(None, entity) <= 0.1 else
@@ -1444,8 +1439,8 @@ def sfNinja(params : dict, rng : random.Random | None = None) -> Enemy:
     if roomNumber > 0:
         maxVars = {
             BaseStats.HP: 10 if roomNumber == 1 else 30,
-            BaseStats.ATK: 10 if roomNumber == 1 else 30,
-            BaseStats.MAG: 10 if roomNumber == 1 else 30,
+            BaseStats.ATK: 10 if roomNumber == 1 else 20,
+            BaseStats.MAG: 10 if roomNumber == 1 else 20,
             BaseStats.DEF: 10,
             BaseStats.RES: 10,
             BaseStats.ACC: 10,
@@ -1904,7 +1899,7 @@ def sfNinjaBoss(params : dict, rng : random.Random | None = None) -> Enemy:
     return Enemy("Jounymphali", "Jounymphali",
                  "A large insect-like creature. Despite its bewitching butterfly wings, its movements are very difficult to track.", 3, {
         BaseStats.HP: 500, BaseStats.MP: 300,
-        BaseStats.ATK: 60, BaseStats.DEF: 50, BaseStats.MAG: 60, BaseStats.RES: 50,
+        BaseStats.ATK: 55, BaseStats.DEF: 50, BaseStats.MAG: 55, BaseStats.RES: 50,
         BaseStats.ACC: 135, BaseStats.AVO: 175, BaseStats.SPD: 110
     }, flatStatMods, {
         CombatStats.REPOSITION_ACTION_TIME_MULT: 0.7,
@@ -1936,9 +1931,14 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                           ),
                                           EFBeforeNextAttack(
                                               {}, {},
-                                              lambda controller, user, _1, _2: controller.applyMultStatBonuses(
-                                                  user, { BaseStats.ATK: 0.9 + (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A) * 0.7 )}
-                                              ),
+                                              lambda controller, user, _1, _2: void((
+                                                controller.applyMultStatBonuses(
+                                                    user, { BaseStats.ATK: 0.9 + (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A) * 0.7 )}
+                                                ),
+                                                controller.logMessage(
+                                                    MessageType.EFFECT, f"{user.name} gains momentum as it rushes forward!"
+                                                )
+                                              )),
                                               lambda controller, user, _1, _2, _3:  controller.revertMultStatBonuses(
                                                   user, { BaseStats.ATK: 0.9 + (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A) * 0.7 )}
                                               )
@@ -1962,8 +1962,8 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                                 ], None, 0, True, False),
                                         [element.name for element in elementOptions], False)
     
-    burstSkill = AttackSkillData("Nature's Benighted", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
-                                 False, AttackType.MAGIC, 1, 0, [
+    burstSkill = AttackSkillData("Nature's Benighted", BasePlayerClassNames.WARRIOR, 0, False, 5, "",
+                                 False, AttackType.MAGIC, 1, MAX_ACTION_TIMER, [
                                      SkillEffect("", [
                                         EFBeforeNextAttack(
                                             {CombatStats.IGNORE_RANGE_CHECK: 1}, {},
@@ -1974,10 +1974,19 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                             )),
                                             lambda controller, enemy, _1, _2, _3:
                                                 controller.revertMultStatBonuses(
-                                                    enemy, { BaseStats.MAG: 0.5 + (controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_COUNTER_B) * 1.5 )}))
-                                    ], 0) 
+                                                    enemy, { BaseStats.MAG: 0.5 + (controller.combatStateMap[enemy].getStack(EffectStacks.ENEMY_COUNTER_B) * 1.5 )})),
+                                        EFEndTurn(
+                                            lambda controller, enemy, _1, _2: void((
+                                                controller.logMessage(MessageType.EFFECT, f"The elementals are blown away by {enemy.shortName}'s roar!"),
+                                                [
+                                                    controller.applyDamage(teammate, teammate, controller.getCurrentHealth(teammate))
+                                                        for teammate in controller.getTeammates(enemy) if teammate != enemy
+                                                ]
+                                            ))
+                                        )
+                                    ], 1),
+                                    makeAoeSkillEffect(False, AttackType.MAGIC)
                                  ], False)
-    burstSkillCost = 5
     
     def decisionFn(controller : CombatController, enemy : CombatEntity, data : dict) -> EntityAIAction:
         currentMana = controller.getCurrentMana(enemy)
@@ -1989,21 +1998,6 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
         allTargets = controller.getTargets(enemy)
         target = controller.getAggroTarget(enemy)
         targetIdx = allTargets.index(target)
-
-        if data["resetBurst"]:
-            selectedElement = data["selectedElement"]
-            controller.removeResistanceStacks(enemy, selectedElement, 1)
-            enemy.basicAttackAttribute = PhysicalAttackAttribute.CRUSHING
-            controller.logMessage(MessageType.EFFECT, f"The elementals are blown away by {enemy.shortName}'s roar!")
-            [
-                controller.applyDamage(teammate, teammate, controller.getCurrentHealth(teammate))
-                    for teammate in controller.getTeammates(enemy) if teammate != enemy
-            ]
-            data["summonActive"] = False
-            data["summonCd"] = 3
-            data["aiIdx"] = 0
-            data["resetBurst"] = False
-            return EntityAIAction(CombatActions.SKILL, 4, [], None, None)
 
         # defaults
         if data["aiIdx"] == 0:
@@ -2020,12 +2014,11 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                     return EntityAIAction(CombatActions.SKILL, 2, [], None, selectedElement.name)
             
             if data["summonActive"] and data["burstCd"] <= 0:
-                burstCost = controller.getSkillManaCostFromValue(enemy, burstSkillCost, True)
+                burstCost = controller.getSkillManaCost(enemy, burstSkill)
+                assert burstCost is not None
                 if currentMana >= burstCost:
                     data["aiIdx"] = 1
                     controller.logMessage(MessageType.TELEGRAPH, f"{enemy.shortName} bristles threateningly!")
-                    controller.spendMana(enemy, burstCost)
-                    data["aoeTargets"] = allTargets[:]
                     return EntityAIAction(CombatActions.SKILL, 0, [], None, None)
 
             if data["dashCd"] <= 0:
@@ -2044,12 +2037,13 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
             
         # burst
         if data["aiIdx"] == 1:
-            aoeTargets = data["aoeTargets"]
-            target = aoeTargets.pop()
-            if len(aoeTargets) == 0:
-                # No more targets to fire at after this one
-                data["resetBurst"] = True
-            return EntityAIAction(CombatActions.SKILL, 3, [allTargets.index(target)], None, None)
+            selectedElement = data["selectedElement"]
+            controller.removeResistanceStacks(enemy, selectedElement, 1)
+            enemy.basicAttackAttribute = PhysicalAttackAttribute.CRUSHING
+            data["summonActive"] = False
+            data["summonCd"] = 3
+            data["aiIdx"] = 0
+            return EntityAIAction(CombatActions.SKILL, 3, [targetIdx], None, None)
         
         # dash
         if data["aiIdx"] == 2:
@@ -2068,7 +2062,7 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
     }, flatStatMods, {
         CombatStats.BASIC_MP_GAIN_MULT: 7 / BASIC_ATTACK_MP_GAIN
     }, 0.5, AttackType.MELEE, PhysicalAttackAttribute.CRUSHING,
-    [], [waitSkill("", 0.5), dashSkill, summonSkill, burstSkill, waitSkill("", 1)],
+    [], [waitSkill("", 0.5), dashSkill, summonSkill, burstSkill],
     "A giant rodent crashes through the forest!", "",
     EntityAI({"aiIdx": 0, "dashCd": 0, "summonCd": 2, "burstCd": 0, "summonActive": False, "selectedElement": None, "resetBurst": False}, decisionFn),
     lambda controller, entity:
@@ -2355,8 +2349,8 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
         rng = random.Random()
         
     def _thunderAccMult(rangeDelta : int):
-        return max(1 - ((rangeDelta ** 1.8) * 0.25), 0.05)
-    def thunderApply(controller : CombatController, attacker : CombatEntity, defender: CombatEntity, _):
+        return max(1 - (rangeDelta * 0.35), 0.05)
+    def thunderApply(controller : CombatController, attacker : CombatEntity, defender: CombatEntity, effectResult : EffectFunctionResult):
         originalRange = controller.combatStateMap[defender].getStack(EffectStacks.TELEGRAPH_RANGE) - 1
         assert(originalRange >= 0)
 
@@ -2365,6 +2359,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
         controller.applyMultStatBonuses(attacker, {
             BaseStats.ACC: _thunderAccMult(rangeDelta)
         })
+        effectResult.setGuaranteeDodge(rangeDelta >= 2)
         controller.combatStateMap[defender].setStack(EffectStacks.TELEGRAPH_RANGE, rangeDelta)
     def thunderRevert(controller : CombatController, attacker : CombatEntity, defender : CombatEntity, _1, _2):
         rangeDelta = controller.combatStateMap[defender].getStack(EffectStacks.TELEGRAPH_RANGE)
@@ -2381,23 +2376,30 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                                                    EffectStacks.TELEGRAPH_RANGE, controller.checkDistanceStrict(user, target)+1)
                                                 for target in controller.getTargets(user)],
                                                 controller.logMessage(MessageType.TELEGRAPH,
-                                                                      "Salali's hair rises as she charges a big attack!")
+                                                                      "Salali's hair rises as she focuses on her target's position!")
+                                                    if controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) == 0 else
+                                                controller.logMessage(MessageType.TELEGRAPH,
+                                                                      "Salali's hair glows as she focuses on everyone's position!")
                                            )))
                                        ], 0)
                                    ], None, 0, True, False)
     thunderSkill = AttackSkillData("Heaven's Flash", BasePlayerClassNames.WARRIOR, 0, False, 0, "",
-                                  False, AttackType.MAGIC, 1.5, 0, [
+                                  False, AttackType.MAGIC, 1, DEFAULT_ATTACK_TIMER_USAGE, [
                                       SkillEffect("", [
-                                          EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, thunderApply, thunderRevert),
+                                          EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, { BaseStats.MAG: 1.5 }, thunderApply, thunderRevert),
                                           EFAfterNextAttack(
                                               lambda controller, user, target, attackResult, _: void(
                                                   controller.applyStatusCondition(
                                                       target, StunStatusEffect(user, target, 1 + (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER))))
                                               ) if attackResult.attackHit else None
                                           )
-                                      ], 0)
+                                      ], 1),
+                                      makeAoeSkillEffect(
+                                          False, AttackType.MAGIC,
+                                          lambda controller, user, _1, _2: controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) >= 1
+                                      )
                                   ], False)
-    
+
     summonParams = params.copy()
     summonParams['summoned'] = True
     summonSkill = ActiveBuffSkillData(
@@ -2427,11 +2429,11 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                                           EFBeforeNextAttack(
                                               {}, {},
                                               lambda controller, user, _1, _2: controller.applyMultStatBonuses(user, {
-                                                  BaseStats.ATK: 1 + ((0.25 if (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) == 0) else 0.45)
+                                                  BaseStats.ATK: 0.8 + ((0.25 if (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) == 0) else 0.45)
                                                                       * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A))
                                               }),
                                               lambda controller, user, _1, _2, _3: controller.revertMultStatBonuses(user, {
-                                                  BaseStats.ATK: 1 + ((0.25 if (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) == 0) else 0.45)
+                                                  BaseStats.ATK: 0.8 + ((0.25 if (controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) == 0) else 0.45)
                                                                       * controller.combatStateMap[user].getStack(EffectStacks.ENEMY_COUNTER_A))
                                               })
                                           )
@@ -2467,24 +2469,24 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
             lambda controller, user, _1, toggled, _2: void((
                 controller.applyMultStatBonuses(user, {
                     CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.15,
-                    BaseStats.ATK: 0.85,
-                    BaseStats.MAG: 0.85
+                    BaseStats.ATK: 0.75,
+                    BaseStats.MAG: 0.75
                 }),
                 controller.logMessage(MessageType.EFFECT, f"Salali's movements become nearly impossible to track!")
             )) if toggled else void((
                 controller.revertMultStatBonuses(user, {
                     CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.15,
-                    BaseStats.ATK: 0.85,
-                    BaseStats.MAG: 0.85
+                    BaseStats.ATK: 0.75,
+                    BaseStats.MAG: 0.75
                 })
             ))
         ), 
         EFStartTurn(
-            lambda controller, user, _: controller.applyMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.1})
+            lambda controller, user, _: controller.applyMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.15})
         ),
         EFEndTurn(
             lambda controller, user, _1, _2: void((
-                controller.revertMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.1}),
+                controller.revertMultStatBonuses(user, {CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.15}),
                 [controller.combatStateMap[user].removeStack(EffectStacks.SALALI_CHARGE) for i in range(chargeDrainPerTurn)]
             ))
         )
@@ -2499,13 +2501,20 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 EFEndTurn(
                     lambda controller, user, _1, _2: None if controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) == 0 else
                     void((
-                        [controller.combatStateMap[user].addStack(EffectStacks.SALALI_CHARGE, None) for i in range(chargeStackPerTurn)]
+                        [controller.combatStateMap[user].addStack(EffectStacks.SALALI_CHARGE, None) for i in range(chargeStackPerTurn)],
+                        controller.logMessage(
+                            MessageType.EFFECT, "Salali's energy is steadily rising!")
+                            if controller.combatStateMap[user].getStack(EffectStacks.SALALI_CHARGE) < chargeStackThreshold else
+                        controller.logMessage(
+                            MessageType.EFFECT, "Salali's energy is reaching a critical level!")
                     )) if overdriveEffect not in controller.combatStateMap[user].activeSkillEffects else None
                 ),
                 EFWhenAttacked(
                     lambda controller, user, _1, attackResult, _2: None if controller.combatStateMap[user].getStack(EffectStacks.ENEMY_PHASE_COUNTER) == 0 else
                     void((
-                        controller.combatStateMap[user].removeStack(EffectStacks.SALALI_CHARGE)
+                        controller.combatStateMap[user].removeStack(EffectStacks.SALALI_CHARGE),
+                        controller.logMessage(
+                            MessageType.EFFECT, "Some of Salali's gathering energy dissapates!")
                     )) if attackResult.attackHit else None
                 )
             ], None)
@@ -2579,6 +2588,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 for checkTarget in controller.getTargets(enemy):
                     if StatusConditionNames.STUN in controller.combatStateMap[checkTarget].currentStatusEffects:
                         target = checkTarget
+                        targetIdx = allTargets.index(target)
                         data["rangeCd"] = 0
                         break
 
@@ -2586,7 +2596,6 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 thunderCost = controller.getSkillManaCost(enemy, aimSkill)
                 assert thunderCost is not None
                 if currentMana >= thunderCost:
-                    data["aoeTargets"] = allTargets[:]
                     data["aiIdx"] = 1
                     return EntityAIAction(CombatActions.SKILL, 3, [], None, None)
             if data["tauntCd"] <= 0 and phaseIndex == 1:
@@ -2604,7 +2613,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 assert totalDashCost is not None
                 totalDashCost *=  len(allTargets)
                 if currentMana >= totalDashCost:
-                    controller.logMessage(MessageType.TELEGRAPH, f"Salali stretches as static electricity builds around her!")
+                    controller.logMessage(MessageType.TELEGRAPH, f"Salali stretches her legs as static electricity builds around her!")
                     data["dashTargets"] = allTargets[:]
                     data["aiIdx"] = 2
                     controller.combatStateMap[enemy].setStack(EffectStacks.ENEMY_COUNTER_A, 0)
@@ -2623,23 +2632,9 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
                 return EntityAIAction(CombatActions.APPROACH, None, [targetIdx], min(distance, 2), None)
                 
         if data["aiIdx"] == 1: # Thunder
-            aoeTargets = []
-            if phaseIndex == 1:
-                aoeTargets = data["aoeTargets"]
-                target = aoeTargets.pop()
-
-            if len(aoeTargets) == 0:
-                # No more targets to fire at after this one
-                controller.spendActionTimer(enemy, DEFAULT_ATTACK_TIMER_USAGE)
-                data["thunderCd"] = 7
-                data["aiIdx"] = 0
-            elif phaseIndex == 1:
-                # refund/tax on charges until AOE done
-                if data["overdriveActive"]:
-                    controller.combatStateMap[enemy].setStack(EffectStacks.SALALI_CHARGE, chargeStacks + chargeDrainPerTurn)
-                else:
-                    controller.combatStateMap[enemy].setStack(EffectStacks.SALALI_CHARGE, chargeStacks - chargeStackPerTurn)
-            return EntityAIAction(CombatActions.SKILL, 4, [allTargets.index(target)], None, None)
+            data["thunderCd"] = 7
+            data["aiIdx"] = 0
+            return EntityAIAction(CombatActions.SKILL, 4, [targetIdx], None, None)
         
         if data["aiIdx"] == 2: # Dash
             dashCost = controller.getSkillManaCost(enemy, dashSkill)

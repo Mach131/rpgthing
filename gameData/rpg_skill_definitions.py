@@ -165,13 +165,16 @@ def deadlyDanceFn(controller, user, target, attackInfo, _):
         otherOpponents = [opp for opp in controller.getTargets(user) if opp is not target]
         inRangeOpponents = list(filter(lambda opp: controller.checkInRange(user, opp), otherOpponents))
         if len(inRangeOpponents) > 0:
+            # bonusTarget = controller.rng.choice(inRangeOpponents)
+            # newPower = attackInfo.damageDealt * 0.5
+            # counterData = CounterSkillData(True, AttackType.MELEE, 1,
+            #                             [SkillEffect("", [EFBeforeNextAttack({CombatStats.FIXED_ATTACK_POWER: newPower}, {}, None, None)], 0)])
+            # attackInfo.addBonusAttack(user, bonusTarget, counterData)
             bonusTarget = controller.rng.choice(inRangeOpponents)
-            newPower = attackInfo.damageDealt * 0.5
-            counterData = CounterSkillData(True, AttackType.MELEE, 1,
-                                        [SkillEffect("", [EFBeforeNextAttack({CombatStats.FIXED_ATTACK_POWER: newPower}, {}, None, None)], 0)])
+            counterData = CounterSkillData(True, AttackType.MELEE, 0.4, [SkillEffect("", [], 0)])
             attackInfo.addBonusAttack(user, bonusTarget, counterData)
 PassiveSkillData("Deadly Dance", AdvancedPlayerClassNames.MERCENARY, 7, False,
-    "If your first attack of a turn hits, trigger a bonus attack based on 50% of the damage dealt against another enemy in range.",
+    "If your first attack of a turn hits, trigger a bonus attack against a random enemy with 0.4x ATK.",
     {}, {}, [SkillEffect("", [EFAfterNextAttack(deadlyDanceFn)], None)])
 
 def undeterredFn(controller, user, _1, attackInfo, _2):
@@ -924,11 +927,11 @@ def ragingManaFn(controller, user, target, attackInfo, _):
         otherOpponents = [opp for opp in controller.getTargets(user) if opp is not target]
         if len(otherOpponents) > 0:
             bonusTarget = controller.rng.choice(otherOpponents)
-            counterData = CounterSkillData(False, AttackType.MAGIC, 0.4,
+            counterData = CounterSkillData(False, AttackType.MAGIC, 0.5,
                                         [SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)])
             attackInfo.addBonusAttack(user, bonusTarget, counterData)
 PassiveSkillData("Raging Mana", AdvancedPlayerClassNames.WIZARD, 7, False,
-    "When hitting with an enchanted attack, trigger a bonus attack against a random enemy with 0.4x MAG.",
+    "When hitting with an enchanted attack, trigger a bonus attack against a random enemy with 0.5x MAG.",
     {}, {}, [SkillEffect("", [EFAfterNextAttack(ragingManaFn)], None)])
 
 def enlightenmentFn(controller : CombatController, user : CombatEntity, originalStats : dict[Stats, float], finalStats : dict[Stats, float], _):
@@ -1287,7 +1290,7 @@ PassiveSkillData("Like A Butterfly", SecretPlayerClassNames.STRIKER, 3, True,
         {}, {},
         lambda controller, user, target, result: void((
             decreaseDistanceFn(controller, user, target, None, result),
-            controller.spendActionTimer(user, DEFAULT_APPROACH_TIMER_USAGE * 0.3)
+            controller.spendActionTimer(user, DEFAULT_APPROACH_TIMER_USAGE * 0.5)
         )) if not controller.checkInRange(user, target) else None,
         None
     )], None)])
@@ -2161,9 +2164,9 @@ ActiveBuffSkillData("Transcendent Brunch", SecretPlayerClassNames.ALCHEFIST, 9, 
 # Saboteur
 
 PassiveSkillData("Saboteur's Interference", SecretPlayerClassNames.SABOTEUR, 1, False,
-    "Apply a stacking debuff when hitting opponents (max 10). Gain 5% ATK per stack on target when attacking. " + 
+    "Increases SPD by 20%. Apply a stacking debuff when hitting opponents (max 10). Gain 5% ATK per stack on target when attacking. " + 
     "*(Inevitability: Remove all stacks; apply POISON for 5 turns with 6% Strength per mark.)*",
-    {}, {}, [
+    {}, { BaseStats.SPD: 1.2 }, [
         SkillEffect("", [
             EFBeforeNextAttack(
                 {}, {},
@@ -2332,9 +2335,9 @@ PassiveSkillData("Siphon", SecretPlayerClassNames.SABOTEUR, 3, True,
     ])
 
 PassiveSkillData("Blackout", SecretPlayerClassNames.SABOTEUR, 4, False,
-    "Apply a stacking debuff when dodging an attack (max 6). Gain 10% ACC/AVO per stack on target or attacker. " + 
+    "Increases AVO by 20%. Apply a stacking debuff when dodging an attack (max 6). Gain 10% ACC/AVO per stack on target or attacker. " + 
     "*(Inevitability: Remove 2 stacks; increase attack's Critical Hit Rate by 35% and decrease time to next action.)*",
-    {}, {}, [
+    {}, { BaseStats.AVO: 1.2 }, [
         SkillEffect("", [
             EFBeforeNextAttack(
                 {}, {},
@@ -2409,9 +2412,10 @@ PassiveSkillData("Efficiency", SecretPlayerClassNames.SABOTEUR, 6, True,
     )], None)])
 
 PassiveSkillData("Traceless", SecretPlayerClassNames.SABOTEUR, 7, False,
+    "Increase status condition resistance by 30%. " +
     "Apply a stacking debuff when landing an attacking skill (max 4). Status application success rate +10% per stack on target when attacking. " + 
     "*(Inevitability: Remove 4 stacks; reduce MP costs by 65% for the next 2 turns.)*",
-    {}, {}, [
+    {}, { CombatStats.STATUS_RESISTANCE_MULTIPLIER: 1.3 }, [
         SkillEffect("", [
             EFOnAttackSkill(
                 lambda controller, user, _1, _2: void((
@@ -2933,6 +2937,25 @@ def snapsSummonFn(summoner : CombatEntity) -> CombatEntity:
         for cdKey in ["instigatorCd", "castigatorCd", "supererogatorCd"]:
             data[cdKey] -= 1
         
+        unlockedSkills : dict[str, int | None] = {
+            "Instigator": None,
+            "Castigator": None,
+            "Supererogator": None
+        }
+        for skill in summon.availableActiveSkills:
+            if skill.skillName in unlockedSkills:
+                unlockedSkills[skill.skillName] = summon.availableActiveSkills.index(skill)
+
+        preparedCastigatorCheck = False
+        preparedCastigator = controller.combatStateMap[summon].getStack(EffectStacks.SNAPS_PREPARE_CASTIGATOR) >= 1
+        if unlockedSkills["Castigator"] is not None and data["castigatorCd"] <= 0:
+            castigatorSkill = summon.availableActiveSkills[unlockedSkills["Castigator"]]
+            castigatorCost = controller.getSkillManaCost(summoner, castigatorSkill)
+            assert(castigatorCost is not None)
+            numTargets = len([aoeTarget for aoeTarget in allTargets if controller.checkInRange(summon, aoeTarget)])
+            if numTargets > 0 and preparedCastigator and castigatorCost <= currentMana:
+                preparedCastigatorCheck = True
+
         if commandMode == SNAPS_COMMAND.GOWILD.value:
             pass
         elif commandMode == SNAPS_COMMAND.LETSRIDE.value:
@@ -2984,21 +3007,13 @@ def snapsSummonFn(summoner : CombatEntity) -> CombatEntity:
                                             [allTargets.index(rt) for rt in repositionTargets],
                                             repositionAmount, None)
             else:
-                return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
+                if not preparedCastigatorCheck:
+                    return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
         elif commandMode == SNAPS_COMMAND.HOLDON.value:
             return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
         
-        ## Doing usual attacks if reaching this point
-        unlockedSkills : dict[str, int | None] = {
-            "Instigator": None,
-            "Castigator": None,
-            "Supererogator": None
-        }
-        for skill in summon.availableActiveSkills:
-            if skill.skillName in unlockedSkills:
-                unlockedSkills[skill.skillName] = summon.availableActiveSkills.index(skill)
 
-        preparedCastigator = controller.combatStateMap[summon].getStack(EffectStacks.SNAPS_PREPARE_CASTIGATOR) >= 1
+        ## Doing usual attacks if reaching this point
         if unlockedSkills["Castigator"] is not None and data["castigatorCd"] <= 0:
             castigatorSkill = summon.availableActiveSkills[unlockedSkills["Castigator"]]
             castigatorCost = controller.getSkillManaCost(summoner, castigatorSkill)

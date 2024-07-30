@@ -1324,6 +1324,7 @@ class CombatController(object):
     def _doSingleAttack(self, attacker : CombatEntity, defender : CombatEntity,
                         isPhysical : bool, attackType : AttackType | None, isBasic : bool, isBonus : bool) -> AttackResultInfo:
         savedBonusAttacks = []
+        guaranteeDodge = False
         for effectFunction in self.combatStateMap[attacker].getEffectFunctions(EffectTimings.BEFORE_ATTACK):
             assert(isinstance(effectFunction, EFBeforeNextAttack))
             if effectFunction.basicOnly and not isBasic:
@@ -1331,6 +1332,8 @@ class CombatController(object):
             effectResult = effectFunction.applyEffect(self, attacker, defender)
             if effectResult.bonusAttacks is not None:
                 savedBonusAttacks += effectResult.bonusAttacks
+            if effectResult.guaranteeDodge is not None:
+                guaranteeDodge = guaranteeDodge or effectResult.guaranteeDodge
 
         if attackType is None:
             attackType = self.combatStateMap[attacker].getDefaultAttackType()
@@ -1345,14 +1348,13 @@ class CombatController(object):
                     if isinstance(effectFunction, EFBeforeAllyAttacked):
                         effectFunction.applyEffect(self, ally, attacker, defender)
 
-        originalDistance = self.checkDistanceStrict(attacker, defender)
+        # originalDistance = self.checkDistanceStrict(attacker, defender)
         inRange = self.checkInRange(attacker, defender)
         if not inRange:
             self.logMessage(MessageType.DAMAGE,
                             f"{attacker.shortName} is out of range of {defender.shortName}!")
 
         parryDamageMultiplier = 1
-        guaranteeDodge = False
         if inRange and self.combatStateMap[defender].parryType is not None:
             if attackType == self.combatStateMap[defender].parryType:
                 self.logMessage(MessageType.EFFECT,
@@ -1365,9 +1367,7 @@ class CombatController(object):
                     if effectResult.damageMultiplier is not None:
                         parryDamageMultiplier = effectResult.damageMultiplier
                     if effectResult.guaranteeDodge is not None:
-                        self.logMessage(MessageType.PROBABILITY,
-                                        f"{attacker.shortName} is guaranteed to miss {defender.shortName}!")
-                        guaranteeDodge = effectResult.guaranteeDodge
+                        guaranteeDodge = guaranteeDodge or effectResult.guaranteeDodge
             else:
                 self.logMessage(MessageType.EFFECT,
                                 f"{defender.shortName} fails to react to the {attackType.name.lower()} attack!")
@@ -1381,6 +1381,10 @@ class CombatController(object):
                 checkHit = True
             else:
                 checkHit = self.rollForHit(attacker, defender)
+        elif guaranteeDodge:
+            self.logMessage(MessageType.PROBABILITY,
+                            f"{attacker.shortName} is guaranteed to miss {defender.shortName}!")
+
         damageDealt : int = 0
         isCritical : bool = False
         if inRange:

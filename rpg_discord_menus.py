@@ -455,6 +455,7 @@ def characterSummonSkillsContent(session : GameSession, view : InterfaceView):
     passiveSkillString = "*None Yet*" if len(passiveSkillStrings) == 0 else '\n\n'.join(passiveSkillStrings)
     embed.add_field(name="__Active Skills:__", value=activeSkillString)
     embed.add_field(name="__Passive Skills:__", value=passiveSkillString)
+    embed.add_field(name="", value="*(Tip: You can use '/name_summon [name]' to change your summon's name!)*", inline=False)
 
     return embed
 CHARACTER_SUMMON_SKILLS_SUBPAGE = InterfacePage("Summon Skills", discord.ButtonStyle.secondary, [],

@@ -940,7 +940,7 @@ TOGGLE_LOG_FILTER_DEFAULTS : dict[MessageType, bool] = {
     MessageType.PROBABILITY: True
 }
 
-DISPLAY_LOG_THRESHOLD = 512
+DISPLAY_LOG_THRESHOLD = 1024
 
 """ Data and Persistence """
 

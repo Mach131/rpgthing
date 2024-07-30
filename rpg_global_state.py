@@ -93,7 +93,7 @@ class GlobalState(object):
                     accountData.session.onLoadReset()
 
                     # Upgrades
-                    if lastSaveVersion is None:
+                    if lastSaveVersion != CURRENT_VERSION:
                         for character in accountData.allCharacters:
                             character.summonName = random.choice(DEFAULT_SUMMON_NAMES)
                             for secretClassName in SecretPlayerClassNames:

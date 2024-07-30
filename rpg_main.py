@@ -60,13 +60,13 @@ if __name__ == '__main__':
                                           {player: LocalMessageCollector()})
     # asyncio.run(dungeonController.runDungeon(False))
 
-    # asyncio.run(betterCombatSimulation([tp_acrobat], [basicDummy({})]))
+    asyncio.run(betterCombatSimulation([test_knight, test_mercenary, test_sniper, test_saint], [asSalali({})]))
 
     # print(tp_mercenary.getTotalStatString())
     # print("--")
     # print(tp_striker.getTotalStatString())
     # print("--")
-    asyncio.run(simpleCombatSimulation([tp_summoner], [tp_knight], True, True, 2))
+    # asyncio.run(simpleCombatSimulation([tp_summoner], [tp_knight], True, True, 2))
 
     while True:
         inp = input("> ")
