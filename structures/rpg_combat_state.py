@@ -1020,11 +1020,12 @@ class CombatController(object):
         newStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in flatStatMap}
         self._onStatMapChange(entity, originalStats, newStats)
 
-    def applyMultStatBonuses(self, entity : CombatEntity, multStatMap : dict[Stats, float]) -> None:
+    def applyMultStatBonuses(self, entity : CombatEntity, multStatMap : dict[Stats, float], ignoreEffects : bool = False) -> None:
         originalStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in multStatMap}
         self.combatStateMap[entity].applyMultStatBonuses(multStatMap)
         newStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in multStatMap}
-        self._onStatMapChange(entity, originalStats, newStats)
+        if not ignoreEffects:
+            self._onStatMapChange(entity, originalStats, newStats)
 
     def revertFlatStatBonuses(self, entity : CombatEntity, flatStatMap : dict[Stats, float]) -> None:
         originalStats = {stat: self.combatStateMap[entity].getTotalStatValueFloat(stat) for stat in flatStatMap}

@@ -12,11 +12,13 @@ from structures.rpg_messages import MessageCollector, makeTeamString
 class DungeonData(object):
     registeredDungeons : list[DungeonData] = []
 
-    def __init__(self, dungeonName : str, shortDungeonName : str, description : str, rewardDescription : str, milestoneRequirements : set[Milestones],
-                 maxPartySize : int, recLevel : int, allowRetryFights : bool, hpBetweenRooms : float, mpBetweenRooms : float,
-                dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, Player], EnemyReward], clearFlag : Milestones):
+    def __init__(self, dungeonName : str, shortDungeonName : str, dungeonCategory : DungeonCategory, description : str, rewardDescription : str,
+                 milestoneRequirements : set[Milestones], maxPartySize : int, recLevel : int, allowRetryFights : bool, hpBetweenRooms : float,
+                 mpBetweenRooms : float, dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, Player], EnemyReward],
+                 clearFlag : Milestones):
         self.dungeonName = dungeonName
         self.shortDungeonName = shortDungeonName
+        self.dungeonCategory = dungeonCategory
         self.description = description
         self.rewardDescription = rewardDescription
         self.milestoneRequirements = milestoneRequirements
@@ -56,13 +58,50 @@ class DungeonRoomData(object):
 
         return [spawner(self.params) for spawner in self.previousSpawners]
     
+class SettingsDungeonRoomData(DungeonRoomData):
+    def __init__(self, enemyGroupWeights : list[tuple[list[Callable[[dict], Enemy]], int]], roomSettings : list[RoomSetting], roomSettingsKey : str | None):
+        super().__init__(enemyGroupWeights, {})
+        self.roomSettingsKey = roomSettingsKey
+        self.roomSettings = roomSettings
+
+    def spawnEnemies(self, controller : DungeonController, retry : bool, chosenSettings : dict) -> list[Enemy]:
+        if not retry:
+            roll = controller.rng.randrange(sum(self.weights))
+            groupIndex = 0
+            while roll >= self.weights[groupIndex] and groupIndex <= len(self.enemyGroups) - 1:
+                roll -= self.weights[groupIndex]
+                groupIndex += 1
+            
+            self.previousSpawners = self.enemyGroups[groupIndex]
+
+        return [spawner(chosenSettings) for spawner in self.previousSpawners]
+    
+class RoomSetting(object):
+    def __init__(self, settingName : str, settingKey : str, settingDescription : str, settingDefault):
+        self.settingName = settingName
+        self.settingKey = settingKey
+        self.settingDescription = settingDescription
+        self.settingDefault = settingDefault
+
+class IntRoomSetting(RoomSetting):
+    def __init__(self, settingName : str, settingKey : str, settingDescription : str, settingDefault : int,
+                 settingMin : int, settingMax : int, settingIncrements : list[int]):
+        super().__init__(settingName, settingKey, settingDescription, settingDefault)
+        self.settingMin = settingMin
+        self.settingMax = settingMax
+        self.settingIncrements = settingIncrements if len(settingIncrements) > 0 else [1]
+
+
+    
 class DungeonController(object):
     def __init__(self, dungeonData : DungeonData, playerTeamHandlers : dict[Player, DungeonInputHandler],
-                 startingPlayerTeamDistances : dict[CombatEntity, int], loggers : dict[Player, MessageCollector]):
+                 startingPlayerTeamDistances : dict[CombatEntity, int], loggers : dict[Player, MessageCollector],
+                 roomSettings : dict):
         self.dungeonData = dungeonData
         self.playerTeamHandlers = playerTeamHandlers
         self.startingPlayerTeamDistances = startingPlayerTeamDistances
         self.loggers = loggers
+        self.roomSettings = roomSettings
 
         self.playersToRemove : list[Player] = []
 
@@ -94,10 +133,11 @@ class DungeonController(object):
                                                                          for player in self.playerTeamHandlers}
             nextRoom = self.dungeonData.dungeonRooms[self.currentRoom]
 
-            if len(self.currentEnemyTeam) == 0:
-                self.currentEnemyTeam = nextRoom.spawnEnemies(self, False)
+            isRetry = len(self.currentEnemyTeam) > 0
+            if isinstance(nextRoom, SettingsDungeonRoomData):
+                self.currentEnemyTeam = nextRoom.spawnEnemies(self, isRetry, self.roomSettings)
             else:
-                self.currentEnemyTeam = nextRoom.spawnEnemies(self, True)
+                self.currentEnemyTeam = nextRoom.spawnEnemies(self, isRetry)
 
             enemyHandlerMap : dict[CombatEntity, CombatInputHandler] = {enemy: NPCInputHandler(enemy) for enemy in self.currentEnemyTeam}
             self.currentCombatInterface = CombatInterface(playerHandlerMap, enemyHandlerMap, {player : self.loggers[player] for player in self.loggers},

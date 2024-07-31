@@ -1,6 +1,12 @@
 Version 0.1.4
 
--started tracking version numbers; should hopefully let me do updates without needing to delete characters anymore
+- started tracking version numbers; should hopefully let me do updates without needing to delete characters anymore
+- these patch notes and all of the future ones should be accessible in the options menu if i remember to put a google doc link there (/options or ch.options)
+
+__New Content__
+- Added a new category of dungeons (Special), currently only containing a training dummy that can report damage done over a given period of time. It's accessible after clearing the Abandoned Storehouse. [todo]
+
+Data for new classes that can be unlocked post-storehouse has been added, but not the ways to unlock them yet; please watch warmly until it is finished
 
 __General__
 - probability information now appears in the combat log by default; it's under 'ch.options' if it doesn't automatically change for your or if you want to disable it
@@ -8,6 +14,9 @@ __General__
 
 __Combat Systems__
 - reduced the initiative penalty from starting at distance 1 or 3 by 40%
+- the combat log now indicates when a weakness or resistance is targeted
+- increased the maximum display of the combat log before it needs to be expanded (hopefully won't break anything?)
+- POISON and BURN should no longer apply damage to defeated enemies
 
 __Equipment__
 - in preparation for new classes, some physical weapons now also have small amounts of MAG:
@@ -18,19 +27,61 @@ __Equipment__
 - - Pistol Crossbow
 
 __Classes__
-(B = bug fix, + = buff, - = nerf)
-- (B/-) Endurance (Warrior Rank 3): No longer revives you if you would have died during your turn (e.g. POISON/BURN damage)
+(B = bug fix, + = buff, - = nerf, ~ = probably)
+- (B-) Endurance (Warrior Rank 3): No longer revives you if you would have died during your turn (e.g. POISON/BURN damage)
+
 - (B) Confrontation (Mercenary Rank 3): Fixed an issue with stats not reverting properly if repositioning mid-attack
+- (-) Berserk (Mercenary Rank 5): SPD bonus decreased from 25% to 15%
+- (~+) Deadly Dance (Mercenary Rank 7): Behavior changed to perform a bonus attack with 0.4x ATK, rather than scaling off of damage dealt.
+
 - (+) Target Lock (Sniper Rank 2): ATK increased from 1x to 1.2x, status effect duration increased from 3 to 4
 - (B) Perfect Shot (Sniper Rank 5): Fixed an issue with stats not reverting properly if repositioning mid-attack
 - (B) Clarity (Sniper Rank 7): Fixed an issue with stats not reverting properly if repositioning mid-attack
+- (+) Winds of Solitude (Sniper Rank 9): ATK increased from 1x to 1.2x
+
 - (B) Camouflage (Hunter Rank 3): Fixed an issue with stats not reverting properly if repositioning mid-attack
 - (+) Primal Fear (Hunter Rank 7): Status effect duration increased from 3 to 4
-- (-) Insidious Killer (Acrobat Rank 9): Now has a duration of 8 turns, rather than being a permanent modifier
-- (B) Enlightenment (Wizard Rank 8): Fixed an issue where MP was not properly checked if maximum MP changed during combat
-- (B/-) Prayer (Saint Rank 7): No longer applies if you die during your turn
 
-[todo: mercenary deadly dance]
+- (-) Ambush (Assassin Rank 5): INTERROGATE buff per mark reduced from 4% ATK/4% SPD/8% ACC to 3% ATK/2% SPD/5% ACC. DISABLE debuff per mark reduced from 3.5% ATK/DEF/MAG/RES to 2.5% ATK/DEF/MAG/RES.
+
+- (-) Insidious Killer (Acrobat Rank 9): Now has a duration of 8 turns, rather than being a permanent modifier
+
+- (+) Raging Mana (Wizard Rank 7): Bonus attack strength increased from 0.4x MAG to 0.5x MAG.
+- (B) Enlightenment (Wizard Rank 8): Fixed an issue where MP was not properly checked if maximum MP changed during combat
+
+- (B-) Prayer (Saint Rank 7): No longer applies if you die during your turn
 
 __Enemies__
 - attempted to fix a bug that prevents enemies from choosing actions on their turns, soft-locking the dungeon
+- rewrote the logic of most AOE attacks to complete in one turn; this should make some effects like status conditions function more intuitively against bosses
+	- Slimoo's Slime Cannon and Slime Slam
+	- Stalactun's Rocks Fall
+	- Ropasci Golem's Factory Reset
+	- Voletyle's Nature's Benighted
+	- Salali's Kite-Chasing Spear
+
+- Slimoo's Glob Lob has a clearer warning message
+- Slimoo's Slime Cannon is less accurate if repositioning by 1, and is guaranteed to miss if repositioning by 2 or more
+- Slimoo's Slime Slam wind-up time slightly increased
+
+- Fleuricier's Gardening HP cost increased, but can no longer cause fatal damage
+- Fleuricier's Thorny Thrash action time increased
+
+- Stalactun's "enrage" timer slightly extended
+- Stalactun repositions more efficiently while enraged
+- Stalactun's Rocks Fall ATK bonus increased
+
+- Ropasci Golem's ACC reduced
+- Ropasci Golem's Adaptation Protocol requires an increased number of resistance stacks to be used
+- Ropasci Golem's Factory Reset cooldown slightly increased
+
+- Genonata's maximum ATK and MAG reduced
+
+- Jounymphali's ATK and MAG slightly reduced
+
+- Voletyle's Runic Rampage has a message to clarify its effect
+
+- Salali's Heaven's Flash/Kite-Chasing Spear is less accurate if repositioning by 1, and is guaranteed to miss if repositioning by 2 or more
+- Salali's Short Circuit/Path of Least Resistance base ATK power reduced
+- Salali's attacks' warning messaging generally adjusted
+- Salali's ATK/MAG penalty during Overdrive Voltage increased

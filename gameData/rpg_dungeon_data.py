@@ -4,8 +4,9 @@ from typing import Callable, TYPE_CHECKING, Generator
 
 from structures.rpg_combat_entity import EnemyReward
 from rpg_consts import *
-from structures.rpg_dungeons import DungeonData, DungeonRoomData
+from structures.rpg_dungeons import DungeonData, DungeonRoomData, IntRoomSetting, SettingsDungeonRoomData
 from gameData.rpg_enemy_data import *
+from gameData.rpg_enemy_data2 import *
 
 def enemyCombosIter(enemyList : list, numEnemies : int, prev : tuple = ()) -> Generator:
     for enemy in enemyList:
@@ -15,7 +16,7 @@ def enemyCombosIter(enemyList : list, numEnemies : int, prev : tuple = ()) -> Ge
             result = result + [enemy]
         yield result
 
-trainingDungeon = DungeonData("Training Yard", "Training",
+trainingDungeon = DungeonData("Training Yard", "Yard", DungeonCategory.NORMAL,
                               "A small yard outside an unassuming building, with some training dummies set up.\n" +
                               "You were pointed here when getting your dungeon license, but is there anyone else around...?",
                               "Enough EXP to learn a Base Class",
@@ -29,7 +30,7 @@ trainingDungeon = DungeonData("Training Yard", "Training",
                               lambda _1, player: EnemyReward(2, 1, 0, None, set([Milestones.TUTORIAL_COMPLETE])),
                         Milestones.TUTORIAL_COMPLETE)
 
-fieldDungeon = DungeonData("Fresh Fields", "Field",
+fieldDungeon = DungeonData("Fresh Fields", "Field", DungeonCategory.NORMAL,
                            "An easily-accessed open field, suitable for any new party.\n" +
                            "Despite the name, it's not uncommon for allergies to act up as you get further in.",
                            "30~40 EXP, 4~6 WUP, Common Equipment",
@@ -64,7 +65,7 @@ fieldDungeon = DungeonData("Fresh Fields", "Field",
                                                           None, set([Milestones.FRESH_FIELDS_COMPLETE])),
                         Milestones.FRESH_FIELDS_COMPLETE)
 
-caveDungeon = DungeonData("Skylight Cave", "Cave",
+caveDungeon = DungeonData("Skylight Cave", "Cave", DungeonCategory.NORMAL,
                            "A cave with a ceiling lightly dotted by holes, letting in scatterings of daylight.\n" +
                            "It still has a claustrophobic feeling at times, as some corners remain largely shrouded in darkness.",
                            "45~50 EXP, 5~10 WUP, Melee-focused Weapons",
@@ -90,7 +91,7 @@ caveDungeon = DungeonData("Skylight Cave", "Cave",
                                                           None, set([Milestones.SKYLIGHT_CAVE_COMPLETE])),
                         Milestones.SKYLIGHT_CAVE_COMPLETE)
 
-forestDungeon = DungeonData("Saffron Forest", "Forest",
+forestDungeon = DungeonData("Saffron Forest", "Forest", DungeonCategory.NORMAL,
                            "The entrance to a magical forest, lush with colorful and fragrant plantlife.\n" +
                            "Though not as dangerous as the deeper parts, one must still be careful not to anger the elementals or the inhabitants they trust.",
                            "45~50 EXP, 5~10 WUP, Long Range-focused Weapons",
@@ -116,7 +117,6 @@ forestDungeon = DungeonData("Saffron Forest", "Forest",
                                                           None, set([Milestones.SAFFRON_FOREST_COMPLTE])),
                         Milestones.SAFFRON_FOREST_COMPLTE)
 
-# add storehouse tag
 sdSecondStageCombos = []
 for combo in enemyCombosIter([ffRat, scRat, sfRat], 2):
     sdSecondStageCombos.append(([asMageRat] + combo, 1))
@@ -126,7 +126,7 @@ sdFourthStageCombos = []
                             1 if otherRat in [asMageRat, asStrongRat] else 2))
  for exRat in [asMageRat, asStrongRat]]
  for otherRat in [ffRat, scRat, sfRat, asMageRat, asStrongRat]]
-storehouseDungeon = DungeonData("Abandoned Storehouse", "Storehouse",
+storehouseDungeon = DungeonData("Abandoned Storehouse", "Storehouse", DungeonCategory.NORMAL,
                            "An old building with an elaborate underground layout; though currently unused, it's served various purposes over time.\n" +
                            "There have been rumors of a rat infestation getting in the way of any more work being done on it. Come to think of it, rats seem to be everywhere lately...",
                            "75~85 EXP, 10~15 WUP, 1~2 SWUP, Uncommon Equipment",
@@ -150,3 +150,25 @@ storehouseDungeon = DungeonData("Abandoned Storehouse", "Storehouse",
                                                           1 if random.random() < 0.5 else 0,
                                                           None, set([Milestones.ABANDONED_STOREHOUSE_COMPLETE])),
                         Milestones.ABANDONED_STOREHOUSE_COMPLETE)
+
+
+damageTestDungeon = DungeonData("Analysis Room", "Analysis", DungeonCategory.SPECIAL,
+                                "A hidden annex of the building next to the Training Yard. Only adventurers of some amount of renown are allowed inside.\n" +
+                                "Within is said to preside a mysterious automaton. It does not seem to pose any danger, nor does it seem to receive any damage; thus, its purpose has become to be beat up for casual entertainment.",
+                                "1 EXP",
+                                set([Milestones.ABANDONED_STOREHOUSE_COMPLETE]),
+                                4, 5, True, 1, 1,
+                                [
+                                    SettingsDungeonRoomData(
+                                        [([damageTestDummy], 1)], [
+                                            IntRoomSetting("Turns", "turns", "Number of dummy's turns to analyze for.", 10, 1, 30, [1, 5]),
+                                            IntRoomSetting("Level", "level", "Level of the training dummy.", 5, 1, 20, [1, 5]),
+                                            IntRoomSetting("DEF", "def", "Defense of the training dummy.", 50, 5, 10000, [5, 25, 100, 500]),
+                                            IntRoomSetting("RES", "res", "Resistance of the training dummy.", 50, 5, 10000, [5, 25, 100, 500]),
+                                            IntRoomSetting("AVO", "avo", "Avoidability of the training dummy.", 50, 5, 10000, [5, 25, 100, 500]),
+                                            IntRoomSetting("SPD", "spd", "Speed of the training dummy.", 25, 5, 10000, [5, 25, 100, 500])
+                                        ], "analysisRoom"
+                                    )
+                                ],
+                                lambda _1, _2: EnemyReward(0, 0, 0, None, set([Milestones.ANALYSIS_ROOM_COMPLETE])),
+                                Milestones.ANALYSIS_ROOM_COMPLETE)

@@ -13,7 +13,7 @@ from structures.rpg_classes_skills import ActiveSkillDataSelector, PlayerClassDa
 from structures.rpg_combat_entity import CombatEntity, Player
 from structures.rpg_combat_interface import CombatInputHandler, CombatInterface
 from structures.rpg_combat_state import CombatController
-from structures.rpg_dungeons import DungeonController, DungeonData, DungeonInputHandler
+from structures.rpg_dungeons import DungeonController, DungeonData, DungeonInputHandler, IntRoomSetting, RoomSetting, SettingsDungeonRoomData
 from structures.rpg_items import Equipment, EquipmentTrait, Weapon, getAdaptOptionsForEquip
 import gameData.rpg_dungeon_data
 from structures.rpg_messages import LogMessageCollection, MessageCollector
@@ -974,10 +974,25 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
             view.pageData[SCROLL_IDX] = 0
         window_size = 5
 
+        currentDungeonCategory : DungeonCategory = view.pageData.get('dungeonCategory', DungeonCategory.NORMAL)
+        if embed.title is not None:
+            embed.title += f" ({enumName(currentDungeonCategory)})"
+
         scrollWindowMin = view.pageData[SCROLL_IDX] * window_size
         scrollWindowMax = scrollWindowMin + window_size
         dungeonStrings = []
-        availableDungeons = [dungeon for dungeon in DungeonData.registeredDungeons if dungeon.meetsRequirements(player)]
+        allAvailableDungeons = {dungeonCategory: [
+            dungeon for dungeon in DungeonData.registeredDungeons
+            if dungeon.meetsRequirements(player) and dungeon.dungeonCategory == dungeonCategory]
+            for dungeonCategory in DungeonCategory}
+        
+        for dungeonCategory in DungeonCategory:
+            categoryButton = discord.ui.Button(label=f"{enumName(dungeonCategory)}", style=discord.ButtonStyle.green, row=3,
+                                               disabled=len(allAvailableDungeons[dungeonCategory]) == 0 or currentDungeonCategory == dungeonCategory)
+            categoryButton.callback = (lambda cat: lambda interaction: selectDungeonCategoryFn(interaction, session, view, cat))(dungeonCategory)
+            view.add_item(categoryButton)
+        
+        availableDungeons = allAvailableDungeons[currentDungeonCategory]
         for i in range(scrollWindowMin, scrollWindowMax):
             if i >= len(availableDungeons):
                 break
@@ -990,7 +1005,7 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
             dungeonStrings.append(dungeonString)
 
             dungeonButton = discord.ui.Button(label=f"{dungeon.shortDungeonName}", style=discord.ButtonStyle.blurple)
-            dungeonButton.callback = (lambda _dungeon: lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusDungeon', _dungeon))(dungeon)
+            dungeonButton.callback = (lambda _dungeon: lambda interaction: selectDungeonFn(interaction, session, view, _dungeon))(dungeon)
             view.add_item(dungeonButton)
 
         embed.add_field(name="", value='\n\n'.join(dungeonStrings))
@@ -1006,18 +1021,21 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
     else:
         dungeonString = f"*{focusDungeon.description}*\n"
         dungeonString += f"Recommended Level: {focusDungeon.recLevel} \\|| Max Party Size: {focusDungeon.maxPartySize}\n"
-        dungeonString += f"{len(focusDungeon.dungeonRooms)} Rooms \\|| Restore {focusDungeon.hpBetweenRooms*100:.1f}% HP/{focusDungeon.mpBetweenRooms*100:.1f}% MP between rooms"
+        dungeonString += f"{len(focusDungeon.dungeonRooms)} Room(s) \\|| Restore {focusDungeon.hpBetweenRooms*100:.1f}% HP/{focusDungeon.mpBetweenRooms*100:.1f}% MP between rooms"
         if focusDungeon.allowRetryFights:
             dungeonString += " \\|| Can retry fights"
         dungeonString += f"\nExpected Rewards: {focusDungeon.rewardDescription}"
         embed.add_field(name=f"Selected Dungeon: {focusDungeon.dungeonName}", value=dungeonString, inline=False)
+
+        roomSettings = view.pageData.get('roomSettings', {})
+        roomSettingsTemplate : list[RoomSetting] | None = view.pageData.get('roomSettingsTemplate', None)
 
         partyUpdate = view.pageData.get(PARTY_UPDATE, '')
         if len(partyUpdate) > 0:
             embed.add_field(name="Party Updated", value=partyUpdate, inline=False)
 
         enterButton = discord.ui.Button(label="Enter (Solo)", style=discord.ButtonStyle.green, row=2)
-        enterButton.callback = lambda interaction: enterDungeonFn(interaction, session, focusDungeon)
+        enterButton.callback = lambda interaction: enterDungeonFn(interaction, session, focusDungeon, roomSettings)
         view.add_item(enterButton)
 
         # Party handling
@@ -1049,6 +1067,13 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
                                             disabled=player.level <= 1)
         formationButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, DUNGEON_SUBPAGE, 'formation')
         view.add_item(formationButton)
+
+        settingsButton = None
+        if roomSettingsTemplate is not None:
+            settingsButton = discord.ui.Button(label="Settings", style=discord.ButtonStyle.blurple, row=3,
+                                               disabled=session.currentParty is not None and session.currentParty.creatorSession != session)
+            settingsButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, DUNGEON_SUBPAGE, 'settings')
+            view.add_item(settingsButton)
 
         # Subpages
         if dungeonSubpage == 'formation':
@@ -1121,12 +1146,90 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
             inviteSendButton.callback = lambda interaction: partyInviteFn(interaction, session, view, inviteSelector)
             view.add_item(inviteSendButton)
 
-        returnButton = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="Back", row=2,
+        if dungeonSubpage == 'settings':
+            if settingsButton is not None:
+                settingsButton.disabled = True
+            assert roomSettingsTemplate is not None
+
+            currentSettingEditIdx = view.pageData.get('currentSettingEditIdx', None)
+
+            currentSettingStrings = []
+            for csei, setting in enumerate(roomSettingsTemplate):
+                settingString = f"**{setting.settingName}**: {roomSettings.get(setting.settingKey, setting.settingDefault)}"
+                currentSettingStrings.append(settingString)
+
+                if currentSettingEditIdx is None:
+                    editSettingButton = discord.ui.Button(label=setting.settingName, style=discord.ButtonStyle.blurple)
+                    editSettingButton.callback = (lambda idx:
+                                                  lambda interaction: updateDataCallbackFn(interaction, session, view, 'currentSettingEditIdx', idx))(csei)
+                    view.add_item(editSettingButton)
+            currentSettingString = '\n'.join(currentSettingStrings)
+
+            embed.add_field(name="Dungeon Settings",
+                            value=f"This dungeon has special settings you can modify before entering. " +
+                            "When in a party, only the leader's settings will be applied.\n\n" +
+                            f"__Settings:__\n{currentSettingString}", inline=False)
+            
+            if currentSettingEditIdx is not None:
+                changingSetting : RoomSetting = roomSettingsTemplate[currentSettingEditIdx]
+                changingSettingValue = roomSettings.get(changingSetting.settingKey, changingSetting.settingDefault)
+                embed.add_field(name=f"Changing Setting: {changingSetting.settingName}",
+                                value=changingSetting.settingDescription)
+                
+                if isinstance(changingSetting, IntRoomSetting):
+                    positiveButtons = []
+                    negativeButtons = []
+                    for increment in changingSetting.settingIncrements:
+                        increaseButton = discord.ui.Button(label=f"+{increment}", style=discord.ButtonStyle.green,
+                                                           disabled=changingSettingValue + increment > changingSetting.settingMax)
+                        increaseButton.callback = (lambda inc:
+                                                    lambda interaction: updateSettingFn(
+                                                        interaction, session, view, changingSetting.settingKey, changingSettingValue + inc))(increment)
+                        positiveButtons.append(increaseButton)
+
+                        decreaseButton = discord.ui.Button(label=f"-{increment}", style=discord.ButtonStyle.red,
+                                                           disabled=changingSettingValue - increment < changingSetting.settingMin)
+                        decreaseButton.callback = (lambda dec:
+                                                    lambda interaction: updateSettingFn(
+                                                        interaction, session, view, changingSetting.settingKey, changingSettingValue - dec))(increment)
+                        negativeButtons.append(decreaseButton)
+                    [view.add_item(posButton) for posButton in positiveButtons]
+                    [view.add_item(negButton) for negButton in negativeButtons]
+                
+                settingReturnButton = discord.ui.Button(label="Back (Settings)", style=discord.ButtonStyle.secondary)
+                settingReturnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'currentSettingEditIdx', None)
+                view.add_item(settingReturnButton)
+
+        returnButton = discord.ui.Button(label="Back (Dungeons)", style=discord.ButtonStyle.secondary, custom_id="Back", row=2,
                                          disabled=session.currentParty is not None)
         returnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'focusDungeon', None)
         view.add_item(returnButton)
 
     return embed
+async def selectDungeonCategoryFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, category : DungeonCategory):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    view.pageData['dungeonCategory'] = category
+    view.pageData[SCROLL_IDX] = 0
+    await view.refresh()
+async def selectDungeonFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, dungeon : DungeonData):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    view.pageData['roomSettings'] = {}
+    view.pageData['roomSettingsTemplate'] = None
+    if len(dungeon.dungeonRooms) > 0 and isinstance(dungeon.dungeonRooms[0], SettingsDungeonRoomData):
+        view.pageData['roomSettingsTemplate'] = dungeon.dungeonRooms[0].roomSettings
+        if dungeon.dungeonRooms[0].roomSettingsKey is not None:
+            view.pageData['roomSettings'] = GLOBAL_STATE.accountDataMap[session.userId].roomSettingMemory.get(dungeon.dungeonRooms[0].roomSettingsKey, {})
+    await view.updateData('focusDungeon', dungeon)
+async def updateSettingFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, settingKey : str, settingVal):
+    await interaction.response.defer()
+    if interaction.user.id != session.userId:
+        return await asyncio.sleep(0)
+    view.pageData['roomSettings'][settingKey] = settingVal
+    await view.refresh()
 async def updateFormationFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, player : Player, newDist : int):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
@@ -1135,11 +1238,14 @@ async def updateFormationFn(interaction : discord.Interaction, session : GameSes
     if session.currentDungeon is not None:
         session.currentDungeon.startingPlayerTeamDistances[player] = newDist
     await view.refresh()
-async def enterDungeonFn(interaction : discord.Interaction, session : GameSession, dungeon : DungeonData):
+async def enterDungeonFn(interaction : discord.Interaction, session : GameSession, dungeon : DungeonData, roomSettings : dict):
     await interaction.response.defer()
     if interaction.user.id != session.userId:
         return await asyncio.sleep(0)
-    await session.enterDungeon(dungeon)
+    if len(dungeon.dungeonRooms) > 0 and isinstance(dungeon.dungeonRooms[0], SettingsDungeonRoomData):
+        if dungeon.dungeonRooms[0].roomSettingsKey is not None:
+            GLOBAL_STATE.accountDataMap[session.userId].roomSettingMemory[dungeon.dungeonRooms[0].roomSettingsKey] = roomSettings
+    await session.enterDungeon(dungeon, roomSettings)
 async def makePartyFn(interaction : discord.Interaction, session : GameSession, view : InterfaceView, dungeon : DungeonData):
     await interaction.response.defer()
     if interaction.user.id != session.userId:

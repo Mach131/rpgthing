@@ -474,8 +474,8 @@ ALCHEFY_DESCRIPTIONS_ADVANCED = {
     AlchefyProducts.NIGHTBLOOM_TEA: "Neutral Magic, 1.2x MAG. Attempts to apply a random debuff.",
     AlchefyProducts.ALLOY_BRULEE: "Physical, 1x ATK + 0.6x MAG.",
     AlchefyProducts.CREAM_OF_BISMUTH: "Physical, 1.1x ATK, 30% additional Critical Hit Rate. On crit, attack repeats once.",
-    AlchefyProducts.SCRAMBLED_SUNLIGHT: "Light Magic, 0.8x MAG. For 4 turns, all allies have 25% less time between actions.",
-    AlchefyProducts.POACHED_JADE: "Dark Magic, 0.6x MAG. For 4 turns, all allies have 30% reduced MP costs.",
+    AlchefyProducts.SCRAMBLED_SUNLIGHT: "Light Magic, 0.8x MAG. For 6 turns, all allies have 25% less time between actions.",
+    AlchefyProducts.POACHED_JADE: "Dark Magic, 0.8x MAG. For 4 turns, all allies have 40% reduced MP costs.",
     AlchefyProducts.ELIXIR_TEA: "Neutral Magic, 1x ATK. Heals all allies with 1.7x strength."
 }
 
@@ -892,6 +892,7 @@ class Milestones(Enum):
     CLASS_SABOTEUR_UNLOCKED = auto()
     CLASS_SUMMONER_UNLOCKED = auto()
     NULL = auto()
+    ANALYSIS_ROOM_COMPLETE = auto()
 
 MAX_USER_CHARACTERS = 4
 MAX_NAME_LENGTH = 15
@@ -912,6 +913,10 @@ ADAPTABLE_SALE_BONUS_MULT = 1.1
 
 WEAPON_BONUS_TRAIT_LEVELS = [0, 2, 4]
 NONWEAPON_BONUS_TRAIT_LEVELS = [0, 3]
+
+class DungeonCategory(Enum):
+    NORMAL = auto()
+    SPECIAL = auto()
 
 """ Logging """
 

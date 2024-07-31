@@ -16,6 +16,7 @@ from structures.rpg_items import *
 from structures.rpg_messages import LocalMessageCollector, MessageCollector
 from rpg_loadout_testing import *
 from gameData.rpg_enemy_data import *
+from gameData.rpg_enemy_data2 import *
 
 async def simpleCombatSimulation(team1 : list[Player], team2 : list[Player], t1Random : bool, t2Random : bool, sleepTime : int) -> None:
     mainLogger = LocalMessageCollector()
@@ -57,10 +58,10 @@ if __name__ == '__main__':
     dungeonController = DungeonController(storehouseDungeon,
                                           {player: DungeonInputHandler(player, LocalPlayerInputHandler)},
                                           {player: DEFAULT_STARTING_DISTANCE},
-                                          {player: LocalMessageCollector()})
+                                          {player: LocalMessageCollector()}, {})
     # asyncio.run(dungeonController.runDungeon(False))
 
-    asyncio.run(betterCombatSimulation([test_knight, test_mercenary, test_sniper, test_saint], [asSalali({})]))
+    asyncio.run(betterCombatSimulation([tp_sniper], [damageTestDummy({})]))
 
     # print(tp_mercenary.getTotalStatString())
     # print("--")

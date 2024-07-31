@@ -84,8 +84,8 @@ PassiveSkillData("Mage's Patience", BasePlayerClassNames.MAGE, 1, False,
     {BaseStats.MP: 50, BaseStats.MAG: 10, BaseStats.RES: 5}, {}, [])
 
 AttackSkillData("Magic Missile", BasePlayerClassNames.MAGE, 2, False, 15,
-    "Attack with 1x MAG from any range.",
-    False, AttackType.MAGIC, 1, DEFAULT_ATTACK_TIMER_USAGE,
+    "Attack with 1.1x MAG from any range.",
+    False, AttackType.MAGIC, 1.1, DEFAULT_ATTACK_TIMER_USAGE,
     [SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)])
 
 PassiveSkillData("Mana Flow", BasePlayerClassNames.MAGE, 3, True,
@@ -152,8 +152,8 @@ PassiveSkillData("Battle Frenzy", AdvancedPlayerClassNames.MERCENARY, 4, False,
     {}, {}, [SkillEffect("", [EFOnStatsChange(frenzyFn)], None)])
 
 ActiveToggleSkillData("Berserk", AdvancedPlayerClassNames.MERCENARY, 5, False, 10,
-    "[Toggle] Decrease DEF, RES, and AVO by 50%. Increase ATK by 50% and SPD by 25%.", MAX_ACTION_TIMER / 10, {},
-    {BaseStats.ATK: 1.5, BaseStats.SPD: 1.25, BaseStats.DEF: 0.5, BaseStats.RES: 0.5, BaseStats.AVO: 0.5}, [],
+    "[Toggle] Decrease DEF, RES, and AVO by 50%. Increase ATK by 50% and SPD by 15%.", MAX_ACTION_TIMER / 10, {},
+    {BaseStats.ATK: 1.5, BaseStats.SPD: 1.15, BaseStats.DEF: 0.5, BaseStats.RES: 0.5, BaseStats.AVO: 0.5}, [],
     0, 0, True)
 
 PassiveSkillData("Determination", AdvancedPlayerClassNames.MERCENARY, 6, True,
@@ -393,8 +393,8 @@ PassiveSkillData("Nimble Feet", AdvancedPlayerClassNames.SNIPER, 8, True,
     {}, {CombatStats.REPOSITION_ACTION_TIME_MULT: 0.7}, [])
 
 AttackSkillData("Winds of Solitude", AdvancedPlayerClassNames.SNIPER, 9, False, 25,
-    "Attack with 1x ATK; on hit, increase distance to the target by 1 and attempt to inflict RESTRICT for 2 turns. (RESTRICTED opponents cannot reposition.)",
-    True, None, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect("", [
+    "Attack with 1.2x ATK; on hit, increase distance to the target by 1 and attempt to inflict RESTRICT for 2 turns. (RESTRICTED opponents cannot reposition.)",
+    True, None, 1.2, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect("", [
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void((
             increaseDistanceFn(controller, user, target, attackResult, _),
             controller.applyStatusCondition(target, RestrictStatusEffect(user, target, 2)))
@@ -411,17 +411,17 @@ PassiveSkillData("Hunter's Willpower", AdvancedPlayerClassNames.HUNTER, 1, False
 def lacedStatus(statusString : str, controller : CombatController, user : CombatEntity, target : CombatEntity):
     if statusString.upper() == "POISON":
         poisonStrength = math.ceil(controller.combatStateMap[user].getTotalStatValue(BaseStats.ATK) * 0.5)
-        return PoisonStatusEffect(user, target, 6, poisonStrength)
+        return PoisonStatusEffect(user, target, 7, poisonStrength)
     elif statusString.upper() == "BLIND":
-        return BlindStatusEffect(user, target, 4)
+        return BlindStatusEffect(user, target, 5)
     elif statusString.upper() == "STUN":
         return StunStatusEffect(user, target, 2)
     else:
         raise KeyError
 ActiveSkillDataSelector("Laced Ammunition", AdvancedPlayerClassNames.HUNTER, 2, False, 20,
     "Select a status effect. Attack with 0.8x ATK, attempting to inflict the selected status condition.",
-    "__POISON__: The opponent takes damage at the end of their turn, based on your ATK when inflicting POISON. Duration: 6 Turns\n"
-    "__BLIND__: The opponent's accuracy is reduced as if their distance from you is increased by 1. Duration: 4 Turns\n"
+    "__POISON__: The opponent takes damage at the end of their turn, based on your ATK when inflicting POISON. Duration: 7 Turns\n"
+    "__BLIND__: The opponent's accuracy is reduced as if their distance from you is increased by 1. Duration: 5 Turns\n"
     "__STUN__: The opponent's turn is skipped. Duration: 2 Turns",
     DEFAULT_ATTACK_TIMER_USAGE, 1, True,
     lambda statusString: AttackSkillData(f"Laced Ammunition ({statusString[0] + statusString[1:].lower()})",
@@ -570,9 +570,9 @@ ambushSkillEffects : dict[str, SkillEffect] = {
                 controller.logMessage(MessageType.EFFECT, f"{target.shortName}'s Eyes of the Dark stacks were consumed to increase {user.shortName}'s ATK, ACC, and SPD!")
                     if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) > 0 else None,
                 controller.applyMultStatBonuses(user, {
-                    BaseStats.ATK: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.04),
-                    BaseStats.SPD: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.04),
-                    BaseStats.ACC: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.08)
+                    BaseStats.ATK: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.03),
+                    BaseStats.SPD: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.02),
+                    BaseStats.ACC: 1 + (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.05)
                 }),
                 controller.revertMultStatBonuses(target, {
                     BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.03),
@@ -588,10 +588,10 @@ ambushSkillEffects : dict[str, SkillEffect] = {
                 controller.logMessage(MessageType.EFFECT, f"{target.shortName}'s Eyes of the Dark stacks were consumed to decrease their ATK, DEF, MAG, and RES!")
                     if controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) > 0 else None,
                 controller.applyMultStatBonuses(target, {
-                    BaseStats.ATK: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
-                    BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
-                    BaseStats.MAG: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035),
-                    BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.035)
+                    BaseStats.ATK: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.025),
+                    BaseStats.DEF: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.025),
+                    BaseStats.MAG: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.025),
+                    BaseStats.RES: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.025)
                 }),
                 controller.revertMultStatBonuses(target, {
                     BaseStats.AVO: 1 - (controller.combatStateMap[target].getStack(EffectStacks.EYES_OF_THE_DARK) * 0.03),
@@ -633,8 +633,8 @@ ambushSkillEffects : dict[str, SkillEffect] = {
 }
 ActiveSkillDataSelector("Ambush", AdvancedPlayerClassNames.ASSASSIN, 5, False, 30,
     "Select an effect and attack a target, removing all Eyes of the Dark stacks on hit.",
-    "__INTERROGATE__: Attack with 0.5x ATK. Per stack removed, +4% ATK/SPD and +8% ACC.\n" +
-    "__DISABLE__: Attack with 0.8x ATK. Per stack removed, opponent ATK/DEF/MAG/RES - 3.5%.\n" +
+    "__INTERROGATE__: Attack with 0.5x ATK. Per stack removed, +3% ATK, +2% SPD, and +5% ACC.\n" +
+    "__DISABLE__: Attack with 0.8x ATK. Per stack removed, opponent ATK/DEF/MAG/RES -2.5%.\n" +
     "__EXECUTE__: Attack with 0.7x ATK, +0.2x per stack removed. Additional 10% Critical Hit rate per stack removed.",
     DEFAULT_ATTACK_TIMER_USAGE, 1, True,
     lambda ambushString: AttackSkillData(f"Ambush ({ambushString[0] + ambushString[1:].lower()})",
@@ -708,10 +708,10 @@ PassiveSkillData("Acrobat's Flexibility", AdvancedPlayerClassNames.ACROBAT, 1, F
     {}, {BaseStats.AVO: 1.25, BaseStats.SPD: 1.1}, [])
 
 AttackSkillData("Bedazzle", AdvancedPlayerClassNames.ACROBAT, 2, False, 15,
-    "Attack with 1x ATK, attempting to inflict BLIND for 3 turns. (BLINDED opponents calculate accuracy as if their distance is 1 greater.)",
+    "Attack with 1.2x ATK, attempting to inflict BLIND for 4 turns. (BLINDED opponents calculate accuracy as if their distance is 1 greater.)",
     True, None, 1, DEFAULT_ATTACK_TIMER_USAGE, [SkillEffect("", [
         EFAfterNextAttack(lambda controller, user, target, attackResult, _: void(
-                        controller.applyStatusCondition(target, BlindStatusEffect(user, target, 3)) if attackResult.attackHit else None))
+                        controller.applyStatusCondition(target, BlindStatusEffect(user, target, 4)) if attackResult.attackHit else None))
     ], 0)])
 
 PassiveSkillData("Mockery", AdvancedPlayerClassNames.ACROBAT, 3, True,
@@ -1522,7 +1522,7 @@ def secretArtApplyFn(controller : CombatController, user : CombatEntity, target 
             controller.logMessage(MessageType.EFFECT,
                 f"{user.shortName} brings out the Secret Art's full power!")
             controller.applyMultStatBonuses(user, {
-                BaseStats.ATK: 2 / 1.5
+                BaseStats.ATK: 2.2 / 1.7
             })
             revertEffect = SkillEffect("", [EFAfterNextAttack(
                 lambda controller, user, _1, result, _2: secretArtNormalRevertFn(controller, user, result, hitBonus)
@@ -1537,7 +1537,7 @@ def secretArtApplyFn(controller : CombatController, user : CombatEntity, target 
             CombatStats.CRIT_RATE: 1
         })
         controller.applyMultStatBonuses(user, {
-            BaseStats.ATK: 3 / 1.5,
+            BaseStats.ATK: 3.5 / 1.7,
             BaseStats.ACC: 2
         })
         revertEffect = SkillEffect("", [EFAfterNextAttack(
@@ -1546,7 +1546,7 @@ def secretArtApplyFn(controller : CombatController, user : CombatEntity, target 
         controller.addSkillEffect(user, revertEffect)
 def secretArtNormalRevertFn(controller : CombatController, user : CombatEntity, result : AttackResultInfo, hitBonus : EffectStacks):
     controller.revertMultStatBonuses(user, {
-        BaseStats.ATK: 2 / 1.5
+        BaseStats.ATK: 2.2 / 1.7
     })
     if result.attackHit:
         controller.combatStateMap[user].setStack(hitBonus, 1)
@@ -1555,13 +1555,13 @@ def secretArtDemonRevertFn(controller : CombatController, user : CombatEntity):
         CombatStats.CRIT_RATE: 1
     })
     controller.revertMultStatBonuses(user, {
-        BaseStats.ATK: 3 / 1.5,
+        BaseStats.ATK: 3.5 / 1.7,
         BaseStats.ACC: 2
     })
     for stack in [EffectStacks.SECRET_ART_TIGER, EffectStacks.SECRET_ART_HORSE, EffectStacks.SECRET_ART_CRANE]:
         controller.combatStateMap[user].setStack(stack, 0)
 ActiveSkillDataSelector("Secret Art", SecretPlayerClassNames.STRIKER, 9, True, 40,
-    "Select a technique; attack with 1.5x ATK. Bonus power may apply based on your stance or highest stat, excluding HP and MP.",
+    "Select a technique; attack with 1.7x ATK. Bonus power may apply based on your stance or highest stat, excluding HP and MP.",
     "__TIGER DESTRUCTION__: Attacks with Slashing damage. +50% ATK if in Tiger stance or highest stat is SPD/AVO.\n" + 
     "__OROCHI BREAKER__: Attacks with Crushing damage. +50% ATK if in Horse stance or highest stat is DEF/RES.\n" + 
     "__HOYOKUSEN__: Attacks with Piercing damage. +50% ATK if in Crane stance or highest stat is ATK/MAG/ACC.\n" + 
@@ -1569,7 +1569,7 @@ ActiveSkillDataSelector("Secret Art", SecretPlayerClassNames.STRIKER, 9, True, 4
     DEFAULT_ATTACK_TIMER_USAGE, 1, True, 
     lambda technique: AttackSkillData(
         f"Secret Art: {secretArtNameMap[technique]}", SecretPlayerClassNames.STRIKER, 9, True, 40, "",
-        True, AttackType.MELEE, 1.5, DEFAULT_ATTACK_TIMER_USAGE, secretArtEnchantmentMap[technique] +
+        True, AttackType.MELEE, 1.7, DEFAULT_ATTACK_TIMER_USAGE, secretArtEnchantmentMap[technique] +
         [
             SkillEffect("", [
                 EFBeforeNextAttack({}, {},
@@ -1899,7 +1899,7 @@ def alchefyProductEffectFn(controller : CombatController, user : CombatEntity, t
                             }),
                             _controller.addSkillEffect(
                                 ally, SkillEffect(
-                                    "Scrambled Sunlight", [], 4, "Scrambled Sunlight wore off.", [
+                                    "Scrambled Sunlight", [], 6, "Scrambled Sunlight wore off.", [
                                         EFImmediate(
                                             lambda controller, user, _1, _2: controller.revertMultStatBonuses(user, {
                                                 CombatStats.ACTION_GAUGE_USAGE_MULTIPLIER: 0.75
@@ -1917,20 +1917,20 @@ def alchefyProductEffectFn(controller : CombatController, user : CombatEntity, t
             MessageType.EFFECT, f"The attack's magic washes calmingly over their allies, reducing MP costs!")
         controller.addSkillEffect(
             user, EnchantmentSkillEffect("", MagicalAttackAttribute.DARK, True, {}, {
-                BaseStats.MAG: 0.6
+                BaseStats.MAG: 0.8
             }, [
                 EFAfterNextAttack(
                     lambda _controller, _user, _target, _attackResult, _: void((
                         [(
                             _controller.applyMultStatBonuses(ally, {
-                                CombatStats.MANA_COST_MULT: 0.7
+                                CombatStats.MANA_COST_MULT: 0.6
                             }),
                             _controller.addSkillEffect(
                                 ally, SkillEffect(
                                     "Poached Jade", [], 4, "Poached Jade wore off.", [
                                         EFImmediate(
                                             lambda controller, user, _1, _2: controller.revertMultStatBonuses(user, {
-                                                CombatStats.MANA_COST_MULT: 0.7
+                                                CombatStats.MANA_COST_MULT: 0.6
                                             })
                                         )
                                     ]
@@ -1969,11 +1969,11 @@ def activateAlchefyFn(controller : CombatController, user : CombatEntity, target
         controller.combatStateMap[user].alchefyPrepared = controller.combatStateMap[user].alchefyPrepared[2:]
         controller.combatStateMap[user].setStack(EffectStacks.ALCHEFY_ACTIVATED, 1)
 PassiveSkillData("Alchefist's Reasoning", SecretPlayerClassNames.ALCHEFIST, 1, False,
-    "Increases ATK/MAG/ACC by 5% and MP by 10%.",
+    "Increases ATK/MAG/ACC/MP by 10%.",
     {}, {
-        BaseStats.ATK: 1.05,
-        BaseStats.MAG: 1.05,
-        BaseStats.ACC: 1.05,
+        BaseStats.ATK: 1.1,
+        BaseStats.MAG: 1.1,
+        BaseStats.ACC: 1.1,
         BaseStats.MP: 1.1
     }, [
         # Secretly activates alchefy skills
@@ -1987,8 +1987,8 @@ PassiveSkillData("Alchefist's Reasoning", SecretPlayerClassNames.ALCHEFIST, 1, F
         )
     ])
 
-baseAlchefyTime = 0.35
-enhancedAlchefyTimeMult = 0.25 / baseAlchefyTime
+baseAlchefyTime = 0.3
+enhancedAlchefyTimeMult = 0.15 / baseAlchefyTime
 
 selectorToElementMap = {
     "FLOUR": AlchefyElements.WOOD,
@@ -2155,7 +2155,7 @@ PassiveSkillData("Stewing Schemes", SecretPlayerClassNames.ALCHEFIST, 8, True,
 
 
 ActiveBuffSkillData("Transcendent Brunch", SecretPlayerClassNames.ALCHEFIST, 9, True, 0,
-    "Gain 45 MP.",
+    "Gain 50 MP.",
     MAX_ACTION_TIMER * 2, {}, {}, [
         SkillEffect("", [EFImmediate(lambda controller, user, _1, _2: void(controller.gainMana(user, 45)))], 0)
     ], 0, 0, False)

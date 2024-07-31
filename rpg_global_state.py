@@ -10,7 +10,7 @@ from rpg_consts import *
 from structures.rpg_combat_entity import Player
 from structures.rpg_dungeons import DungeonData
 
-CURRENT_VERSION = "0.1.4"
+CURRENT_VERSION = "0.1.4b"
 
 if TYPE_CHECKING:
     from rpg_discord_interface import GameSession
@@ -94,11 +94,15 @@ class GlobalState(object):
 
                     # Upgrades
                     if lastSaveVersion != CURRENT_VERSION:
+                        accountData.roomSettingMemory = {}
                         for character in accountData.allCharacters:
                             character.summonName = random.choice(DEFAULT_SUMMON_NAMES)
                             for secretClassName in SecretPlayerClassNames:
-                                character.classRanks[secretClassName] = 1
-                                character.classExp[secretClassName] = 0
+                                if secretClassName not in character.classRanks:
+                                    character.classRanks[secretClassName] = 1
+                                if secretClassName not in character.classExp:
+                                    character.classExp[secretClassName] = 0
+                                
 
                 print(f"loaded state from {lastSaveTimestamp}")
         except FileNotFoundError:
@@ -130,5 +134,6 @@ class AccountData(object):
                     self.enabledLogFilters.add(logFilter)
 
         self.allCharacters = [self.currentCharacter]
+        self.roomSettingMemory : dict[str, dict] = {}
 
 GLOBAL_STATE = GlobalState()

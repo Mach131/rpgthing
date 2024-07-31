@@ -42,7 +42,7 @@ class PoisonStatusEffect(StatusEffect):
         super().__init__(StatusConditionNames.POISON, inflicter, duration, [self.poisonEffectFunction])
 
     def _poisonTick(self, controller : CombatController, target : CombatEntity, skipDurationTick : bool, result : EffectFunctionResult):
-        if not skipDurationTick:
+        if not skipDurationTick and controller.getCurrentHealth(target) > 0:
             controller.logMessage(MessageType.EFFECT,
                                   f"{target.shortName} takes damage from POISON!")
             controller.applyDamage(self.inflicter, target, self.poisonStrength, fromDot=True)
@@ -59,7 +59,7 @@ class BurnStatusEffect(StatusEffect):
         super().__init__(StatusConditionNames.BURN, inflicter, duration, [burnEffectFunction])
 
     def _burnTick(self, controller : CombatController, target : CombatEntity, skipDurationTick : bool, result : EffectFunctionResult):
-        if not skipDurationTick:
+        if not skipDurationTick and controller.getCurrentHealth(target) > 0:
             controller.logMessage(MessageType.EFFECT,
                                   f"{target.shortName} takes damage from BURN!")
             controller.applyDamage(self.inflicter, target, self.burnStrength, fromDot=True)

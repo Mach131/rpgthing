@@ -47,6 +47,7 @@ class GameSession(object):
         
     @staticmethod
     def restoreUnpickledState(session : GameSession):
+        session.__class__ = GameSession
         session.newCharacterName = ""
         session.isActive = False
         session.currentEmbed = discord.Embed()
@@ -112,7 +113,7 @@ class GameSession(object):
         if accountData is not None:
             return accountData.currentCharacter
 
-    async def enterDungeon(self, dungeonData : DungeonData):
+    async def enterDungeon(self, dungeonData : DungeonData, roomSettings : dict):
         player = self.getPlayer()
         assert(player is not None)
         sessionPlayerMap : dict[GameSession, Player] = {self: player} if self.currentParty is None else self.currentParty.getSessionPlayerMap()
@@ -124,7 +125,7 @@ class GameSession(object):
         loggerMap : dict[Player, MessageCollector] = {
             sessionPlayerMap[session]: DiscordMessageCollector(session) for session in sessionPlayerMap}
 
-        newDungeon = DungeonController(dungeonData, inputHandlerMap, startingDistanceMap, loggerMap)
+        newDungeon = DungeonController(dungeonData, inputHandlerMap, startingDistanceMap, loggerMap, roomSettings)
         if self.currentParty is not None:
             for session in self.currentParty.allSessions:
                 session.currentDungeon = newDungeon
