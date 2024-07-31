@@ -1858,7 +1858,8 @@ def optionsMainContent(session : GameSession, view : InterfaceView):
                           description="This command gives a few settings you can change that affect all of your characters " + \
                             "(or it will, when I think of some).")
     embed.add_field(name="General Information",
-                    value="idk what to put here yet, but if anything breaks reach out to Serp")
+                    value="In general, if anything breaks, reach out to Serp\n" +
+                    "Patch notes here: https://docs.google.com/document/d/1LeJWNNzja3oxt9y514dPUrfmFWQMFAtRm_WcmR1zcRQ/edit?usp=sharing")
     return embed
 OPTIONS_MAIN_PAGE = InterfacePage("Info", discord.ButtonStyle.secondary, [],
                                   optionsMainContent, lambda session: True, changePageCallback)

@@ -1,16 +1,17 @@
-Version 0.1.4
+Version 0.1.4b
 
 - started tracking version numbers; should hopefully let me do updates without needing to delete characters anymore
 - these patch notes and all of the future ones should be accessible in the options menu if i remember to put a google doc link there (/options or ch.options)
 
 __New Content__
-- Added a new category of dungeons (Special), currently only containing a training dummy that can report damage done over a given period of time. It's accessible after clearing the Abandoned Storehouse. [todo]
+- Added a new category for special dungeons, currently only containing a training dummy that can report damage done over a given period of time. It's accessible after clearing the Abandoned Storehouse.
 
 Data for new classes that can be unlocked post-storehouse has been added, but not the ways to unlock them yet; please watch warmly until it is finished
 
 __General__
 - probability information now appears in the combat log by default; it's under 'ch.options' if it doesn't automatically change for your or if you want to disable it
 - the class selection menu now only shows up to 10 classes at a time; if you have more unlocked, it can be navigated with arrow buttons (similar to equipment menu)
+- the abbreviation for Training Yard was changed to Yard
 
 __Combat Systems__
 - reduced the initiative penalty from starting at distance 1 or 3 by 40%
@@ -30,6 +31,8 @@ __Classes__
 (B = bug fix, + = buff, - = nerf, ~ = probably)
 - (B-) Endurance (Warrior Rank 3): No longer revives you if you would have died during your turn (e.g. POISON/BURN damage)
 
+- (+) Magic Missile (Mage Rank 2): MAG increased from 1x to 1.1x.
+
 - (B) Confrontation (Mercenary Rank 3): Fixed an issue with stats not reverting properly if repositioning mid-attack
 - (-) Berserk (Mercenary Rank 5): SPD bonus decreased from 25% to 15%
 - (~+) Deadly Dance (Mercenary Rank 7): Behavior changed to perform a bonus attack with 0.4x ATK, rather than scaling off of damage dealt.
@@ -39,11 +42,13 @@ __Classes__
 - (B) Clarity (Sniper Rank 7): Fixed an issue with stats not reverting properly if repositioning mid-attack
 - (+) Winds of Solitude (Sniper Rank 9): ATK increased from 1x to 1.2x
 
+- (+) Laced Ammunition (Hunter Rank 2): POISON effect duration increased from 6 to 7. BLIND effect duration increased from 4 to 5.
 - (B) Camouflage (Hunter Rank 3): Fixed an issue with stats not reverting properly if repositioning mid-attack
 - (+) Primal Fear (Hunter Rank 7): Status effect duration increased from 3 to 4
 
 - (-) Ambush (Assassin Rank 5): INTERROGATE buff per mark reduced from 4% ATK/4% SPD/8% ACC to 3% ATK/2% SPD/5% ACC. DISABLE debuff per mark reduced from 3.5% ATK/DEF/MAG/RES to 2.5% ATK/DEF/MAG/RES.
 
+- (+) Bedazzle (Acrobat Rank 2): ATK increased from 1 to 1.2x, status effect duration increased from 3 to 4
 - (-) Insidious Killer (Acrobat Rank 9): Now has a duration of 8 turns, rather than being a permanent modifier
 
 - (+) Raging Mana (Wizard Rank 7): Bonus attack strength increased from 0.4x MAG to 0.5x MAG.
