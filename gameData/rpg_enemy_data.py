@@ -352,8 +352,8 @@ def ffSlimeBoss(params : dict) -> Enemy:
                                    MAX_ACTION_TIMER, {}, {}, [
                                        SkillEffect("", [
                                            EFImmediate(lambda controller, slime, _1, _2: void((
-                                               controller.spawnNewEntity(ffSlime(params, controller.rng), True),
-                                               controller.spawnNewEntity(ffSlime(params, controller.rng), True),
+                                               controller.spawnNewEntity(slime, ffSlime(params, controller.rng), True),
+                                               controller.spawnNewEntity(slime, ffSlime(params, controller.rng), True),
                                            )))
                                        ], 0)
                                    ], None, 0, True, False)
@@ -1909,8 +1909,8 @@ def sfRuneBoss(params : dict, rng : random.Random | None = None) -> Enemy:
                                                 MAX_ACTION_TIMER * 0.2, {}, {}, [
                                                     SkillEffect("", [
                                                         EFImmediate(lambda controller, user, _2, _3: void((
-                                                            controller.spawnNewEntity(sfElemental(altParams[MagicalAttackAttribute[element]], controller.rng), True),
-                                                            controller.spawnNewEntity(sfElemental(altParams[MagicalAttackAttribute[element]], controller.rng), True)
+                                                            controller.spawnNewEntity(user, sfElemental(altParams[MagicalAttackAttribute[element]], controller.rng), True),
+                                                            controller.spawnNewEntity(user, sfElemental(altParams[MagicalAttackAttribute[element]], controller.rng), True)
                                                         )))
                                                     ], 0)
                                                 ], None, 0, True, False),
@@ -2056,7 +2056,7 @@ def asSpawner(params : dict, rng : random.Random | None = None) -> Enemy:
             MAX_ACTION_TIMER, {}, {}, [
                 SkillEffect("", [
                     EFImmediate(lambda controller, user, _2, _3: void((
-                        controller.spawnNewEntity(controller.rng.choice(ratOptions)(summonParams, controller.rng), True)
+                        controller.spawnNewEntity(user, controller.rng.choice(ratOptions)(summonParams, controller.rng), True)
                     )))
                 ], 0)
             ], None, 0, True, False)
@@ -2361,7 +2361,7 @@ def asSalali(params : dict, rng : random.Random | None = None) -> Enemy:
             MAX_ACTION_TIMER * 0.5, {}, {}, [
                 SkillEffect("", [
                     EFImmediate(lambda controller, user, _2, _3: void((
-                        controller.spawnNewEntity(asSpawner(summonParams, controller.rng), True)
+                        controller.spawnNewEntity(user, asSpawner(summonParams, controller.rng), True)
                     )))
                 ], 0)
             ], None, 0, True, False)

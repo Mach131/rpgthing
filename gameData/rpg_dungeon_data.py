@@ -4,7 +4,7 @@ from typing import Callable, TYPE_CHECKING, Generator
 
 from structures.rpg_combat_entity import EnemyReward
 from rpg_consts import *
-from structures.rpg_dungeons import DungeonData, DungeonRoomData, IntRoomSetting, SettingsDungeonRoomData
+from structures.rpg_dungeons import DungeonData, DungeonRoomData, IntRoomSetting, PlayerTeamRoomSetting, SettingsDungeonRoomData
 from gameData.rpg_enemy_data import *
 from gameData.rpg_enemy_data2 import *
 
@@ -200,3 +200,24 @@ arenaDungeon = DungeonData("Arena: Lightweight Bracket", "Arena I", DungeonCateg
                                                           makeBasicCommonDrop(controller.rng, MAX_ITEM_RANK, MAX_ITEM_RANK, 1),
                                                           set([Milestones.ARENA_I_COMPLETE])),
                         Milestones.ARENA_I_COMPLETE)
+
+pvpDungeon = DungeonData("Open Arena", "Arena PvP", DungeonCategory.SPECIAL,
+                                "Champions have free access to the city's arena when tournaments are not in progress, providing a popular sparring ground.\n" +
+                                "Most adventurer's skills are not built for fighting other adventurers, but as with the normal arena, most of the charm is in the variety.",
+                                "Bragging Rights",
+                                set([Milestones.ARENA_I_COMPLETE]),
+                                6, 1, False, 1, 1,
+                                [
+                                    SettingsDungeonRoomData(
+                                        [([damageTestDummy], 1)], [
+                                            PlayerTeamRoomSetting("{} Team", "playerTeam0", "Team selected for {}.", True, 0),
+                                            PlayerTeamRoomSetting("{} Team", "playerTeam1", "Team selected for {}.", False, 1),
+                                            PlayerTeamRoomSetting("{} Team", "playerTeam2", "Team selected for {}.", True, 2),
+                                            PlayerTeamRoomSetting("{} Team", "playerTeam3", "Team selected for {}.", False, 3),
+                                            PlayerTeamRoomSetting("{} Team", "playerTeam4", "Team selected for {}.", True, 4),
+                                            PlayerTeamRoomSetting("{} Team", "playerTeam5", "Team selected for {}.", False, 5)
+                                        ], "pvpRoom"
+                                    )
+                                ],
+                                lambda _1, _2: EnemyReward(0, 0, 0, None, set([Milestones.ARENA_PVP_COMPLETE])),
+                                Milestones.ARENA_PVP_COMPLETE, True)

@@ -936,6 +936,7 @@ class Milestones(Enum):
     NULL = auto()
     ANALYSIS_ROOM_COMPLETE = auto()
     ARENA_I_COMPLETE = auto()
+    ARENA_PVP_COMPLETE = auto()
 
 MAX_USER_CHARACTERS = 4
 MAX_NAME_LENGTH = 15

@@ -2,7 +2,9 @@
 
 
 	New Content
-Added small tips to the main character menu.
+Many new dungeons added, primarily for levels 5-10. Clearing certain dungeons will provide access to special content.
+	- A PvP arena can be unlocked through one of the earlier post-storehouse dungeons. No balance changes have been made for PvP, and minimal testing has been done for it, but it's there.
+Added small tips to the main character info menu.
 
 	General
 Fixed a display issue with equipped items that don't have any traits.
@@ -12,6 +14,8 @@ The Defend action now protects you from all attacks until your next turn, rather
 
 	Classes
 (+-) Mana Flow (Mage Rank 3): Restored MP is now capped by 10% of max MP, rather than a flat 30.
+
+(-) Battle Frenzy (Mercenary Rank 4): ATK bonus reduced from 10% of missing HP to 5%.
 
 (+-) Serendipity (Wizard Rank 3): Restored MP is now capped by 10% of max MP, rather than a flat 30.
 

@@ -13,7 +13,7 @@ from structures.rpg_classes_skills import ActiveSkillDataSelector, PlayerClassDa
 from structures.rpg_combat_entity import CombatEntity, Player
 from structures.rpg_combat_interface import CombatInputHandler, CombatInterface
 from structures.rpg_combat_state import CombatController
-from structures.rpg_dungeons import DungeonController, DungeonData, DungeonInputHandler, IntRoomSetting, RoomSetting, SettingsDungeonRoomData
+from structures.rpg_dungeons import DungeonController, DungeonData, DungeonInputHandler, IntRoomSetting, PlayerTeamRoomSetting, RoomSetting, SettingsDungeonRoomData
 from structures.rpg_items import Equipment, EquipmentTrait, Weapon, getAdaptOptionsForEquip
 import gameData.rpg_dungeon_data
 from structures.rpg_messages import LogMessageCollection, MessageCollector
@@ -1038,6 +1038,17 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
 
         enterButton = discord.ui.Button(label="Enter (Solo)", style=discord.ButtonStyle.green, row=2)
         enterButton.callback = lambda interaction: enterDungeonFn(interaction, session, focusDungeon, roomSettings)
+        if focusDungeon.pvpMode:
+            foundAlpha = False
+            foundBeta = False
+            roomSettings = view.pageData.get('roomSettings', {})
+            for i in range(len(session.getPartySessions())):
+                if roomSettings.get(f"playerTeam{i}", i % 2 == 0):
+                    foundAlpha = True
+                else:
+                    foundBeta = True
+            if not foundAlpha or not foundBeta:
+                enterButton.disabled = True
         view.add_item(enterButton)
 
         # Party handling
@@ -1156,12 +1167,29 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
             currentSettingEditIdx = view.pageData.get('currentSettingEditIdx', None)
 
             currentSettingStrings = []
+            partySessions = session.getPartySessions()
             for csei, setting in enumerate(roomSettingsTemplate):
-                settingString = f"**{setting.settingName}**: {roomSettings.get(setting.settingKey, setting.settingDefault)}"
+                isTeamSetting = isinstance(setting, PlayerTeamRoomSetting)
+                if isTeamSetting and setting.playerIdx >= len(partySessions):
+                    continue
+
+                settingName = setting.settingName
+                settingValue = roomSettings.get(setting.settingKey, setting.settingDefault)
+                if isTeamSetting:
+                    targetTeamPlayer = partySessions[setting.playerIdx].getPlayer()
+                    assert targetTeamPlayer is not None
+                    settingName = settingName.format(targetTeamPlayer.name)
+                    settingValue = "Alpha" if settingValue else "Beta"
+                settingString = f"**{settingName}**: {settingValue}"
                 currentSettingStrings.append(settingString)
 
                 if currentSettingEditIdx is None:
-                    editSettingButton = discord.ui.Button(label=setting.settingName, style=discord.ButtonStyle.blurple)
+                    editSettingLabel = setting.settingName
+                    if isTeamSetting:
+                        targetTeamPlayer = partySessions[setting.playerIdx].getPlayer()
+                        assert targetTeamPlayer is not None
+                        editSettingLabel = editSettingLabel.format(targetTeamPlayer.name)
+                    editSettingButton = discord.ui.Button(label=editSettingLabel, style=discord.ButtonStyle.blurple)
                     editSettingButton.callback = (lambda idx:
                                                   lambda interaction: updateDataCallbackFn(interaction, session, view, 'currentSettingEditIdx', idx))(csei)
                     view.add_item(editSettingButton)
@@ -1175,8 +1203,15 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
             if currentSettingEditIdx is not None:
                 changingSetting : RoomSetting = roomSettingsTemplate[currentSettingEditIdx]
                 changingSettingValue = roomSettings.get(changingSetting.settingKey, changingSetting.settingDefault)
+                changingSettingDescription = changingSetting.settingDescription
+
+                if isinstance(changingSetting, PlayerTeamRoomSetting):
+                    targetTeamPlayer = partySessions[changingSetting.playerIdx].getPlayer()
+                    assert targetTeamPlayer is not None
+                    changingSettingDescription = changingSettingDescription.format(targetTeamPlayer.name)
+
                 embed.add_field(name=f"Changing Setting: {changingSetting.settingName}",
-                                value=changingSetting.settingDescription)
+                                value=changingSettingDescription)
                 
                 if isinstance(changingSetting, IntRoomSetting):
                     positiveButtons = []
@@ -1197,6 +1232,21 @@ def dungeonListContentFn(session : GameSession, view : InterfaceView):
                         negativeButtons.append(decreaseButton)
                     [view.add_item(posButton) for posButton in positiveButtons]
                     [view.add_item(negButton) for negButton in negativeButtons]
+
+                if isinstance(changingSetting, PlayerTeamRoomSetting):
+                    targetTeamPlayer = partySessions[changingSetting.playerIdx].getPlayer()
+                    assert targetTeamPlayer is not None
+                    
+                    alphaButton = discord.ui.Button(label="Team Alpha", style=discord.ButtonStyle.green,
+                                                    disabled=changingSettingValue)
+                    alphaButton.callback = lambda interaction: updateSettingFn(interaction, session, view, changingSetting.settingKey, True)
+                    
+                    betaButton = discord.ui.Button(label="Team Beta", style=discord.ButtonStyle.green,\
+                                                   disabled=not changingSettingValue)
+                    betaButton.callback = lambda interaction: updateSettingFn(interaction, session, view, changingSetting.settingKey, False)
+                    
+                    view.add_item(alphaButton)
+                    view.add_item(betaButton)
                 
                 settingReturnButton = discord.ui.Button(label="Back (Settings)", style=discord.ButtonStyle.secondary)
                 settingReturnButton.callback = lambda interaction: updateDataCallbackFn(interaction, session, view, 'currentSettingEditIdx', None)

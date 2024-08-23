@@ -15,7 +15,7 @@ class DungeonData(object):
     def __init__(self, dungeonName : str, shortDungeonName : str, dungeonCategory : DungeonCategory, description : str, rewardDescription : str,
                  milestoneRequirements : set[Milestones], maxPartySize : int, recLevel : int, allowRetryFights : bool, hpBetweenRooms : float,
                  mpBetweenRooms : float, dungeonRooms: list[DungeonRoomData], rewardFn: Callable[[DungeonController, Player], EnemyReward],
-                 clearFlag : Milestones):
+                 clearFlag : Milestones, pvpMode : bool = False):
         self.dungeonName = dungeonName
         self.shortDungeonName = shortDungeonName
         self.dungeonCategory = dungeonCategory
@@ -30,6 +30,7 @@ class DungeonData(object):
         self.dungeonRooms = dungeonRooms
         self.rewardFn = rewardFn
         self.clearFlag = clearFlag
+        self.pvpMode = pvpMode
 
         DungeonData.registeredDungeons.append(self)
 
@@ -91,17 +92,23 @@ class IntRoomSetting(RoomSetting):
         self.settingMax = settingMax
         self.settingIncrements = settingIncrements if len(settingIncrements) > 0 else [1]
 
+class PlayerTeamRoomSetting(RoomSetting):
+    def __init__(self, settingName : str, settingKey : str, settingDescription : str, settingDefault : bool, playerIdx : int):
+        super().__init__(settingName, settingKey, settingDescription, settingDefault)
+        self.playerIdx = playerIdx
+
 
     
 class DungeonController(object):
     def __init__(self, dungeonData : DungeonData, playerTeamHandlers : dict[Player, DungeonInputHandler],
                  startingPlayerTeamDistances : dict[CombatEntity, int], loggers : dict[Player, MessageCollector],
-                 roomSettings : dict):
+                 roomSettings : dict, partyOrder : list[Player]):
         self.dungeonData = dungeonData
         self.playerTeamHandlers = playerTeamHandlers
         self.startingPlayerTeamDistances = startingPlayerTeamDistances
         self.loggers = loggers
         self.roomSettings = roomSettings
+        self.partyOrder = partyOrder
 
         self.playersToRemove : list[Player] = []
 
@@ -129,22 +136,50 @@ class DungeonController(object):
 
     def beginRoom(self) -> CombatInterface | None:
         if self.currentRoom < self.totalRooms and self.currentCombatInterface is None:
-            playerHandlerMap : dict[CombatEntity, CombatInputHandler] = {player: self.playerTeamHandlers[player].makeCombatInputController()
-                                                                         for player in self.playerTeamHandlers}
             nextRoom = self.dungeonData.dungeonRooms[self.currentRoom]
 
-            isRetry = len(self.currentEnemyTeam) > 0
-            if isinstance(nextRoom, SettingsDungeonRoomData):
-                self.currentEnemyTeam = nextRoom.spawnEnemies(self, isRetry, self.roomSettings)
-            else:
-                self.currentEnemyTeam = nextRoom.spawnEnemies(self, isRetry)
+            if not self.dungeonData.pvpMode:
+                playerHandlerMap : dict[CombatEntity, CombatInputHandler] = {player: self.playerTeamHandlers[player].makeCombatInputController()
+                                                                            for player in self.playerTeamHandlers}
+                isRetry = len(self.currentEnemyTeam) > 0
+                if isinstance(nextRoom, SettingsDungeonRoomData):
+                    self.currentEnemyTeam = nextRoom.spawnEnemies(self, isRetry, self.roomSettings)
+                else:
+                    self.currentEnemyTeam = nextRoom.spawnEnemies(self, isRetry)
 
-            enemyHandlerMap : dict[CombatEntity, CombatInputHandler] = {enemy: NPCInputHandler(enemy) for enemy in self.currentEnemyTeam}
-            self.currentCombatInterface = CombatInterface(playerHandlerMap, enemyHandlerMap, {player : self.loggers[player] for player in self.loggers},
-                                                          self.currentHealth, self.currentMana, self.startingPlayerTeamDistances)
-            return self.currentCombatInterface
+                enemyHandlerMap : dict[CombatEntity, CombatInputHandler] = {enemy: NPCInputHandler(enemy) for enemy in self.currentEnemyTeam}
+                self.currentCombatInterface = CombatInterface(playerHandlerMap, enemyHandlerMap, {player : self.loggers[player] for player in self.loggers},
+                                                            self.currentHealth, self.currentMana, self.startingPlayerTeamDistances)
+                return self.currentCombatInterface
+            
+            else:
+                # Expects room settings to indicate a map from "teamX" to bool, indicating whether or not that player is on the alpha time
+                alphaTeam, betaTeam = [], []
+                for idx, player in enumerate(self.partyOrder):
+                    if self.roomSettings.get(f"playerTeam{idx}", idx % 2 == 0):
+                        alphaTeam.append(player)
+                    else:
+                        betaTeam.append(player)
+                assert len(alphaTeam) > 0
+                assert len(betaTeam) > 0
+
+                alphaHandlerMap : dict[CombatEntity, CombatInputHandler] = {player: self.playerTeamHandlers[player].makeCombatInputController()
+                                                                            for player in alphaTeam}
+                betaHandlerMap : dict[CombatEntity, CombatInputHandler] = {player: self.playerTeamHandlers[player].makeCombatInputController()
+                                                                           for player in betaTeam}
+                self.currentCombatInterface = CombatInterface(alphaHandlerMap, betaHandlerMap, {player : self.loggers[player] for player in self.loggers},
+                                                              {}, {}, {}, True)
+                return self.currentCombatInterface
     
     def completeRoom(self) -> dict[Player, DungeonReward] | None:
+        if self.dungeonData.pvpMode:
+            self.currentRoom += 1
+            if self.currentRoom < self.totalRooms:
+                self.doDungeonRestoration()
+            self.currentCombatInterface = None
+            self.currentEnemyTeam = []
+            return {}
+        
         if self.currentCombatInterface is not None and self.currentCombatInterface.cc.checkPlayerVictory():
             rewards = {player : DungeonReward() for player in self.playerTeamHandlers}
             for enemy in self.currentEnemyTeam:
@@ -303,17 +338,20 @@ class DungeonController(object):
                     self.playerTeamHandlers.pop(player, None)
                 self.playersToRemove = []
 
-                if not self.currentCombatInterface.cc.checkPlayerVictory():
-                    if not (await self._processRetry()):
-                        return False
-                else:
-                    rewardMap = self.completeRoom()
-                    assert(rewardMap is not None)
-                    await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
-                    if self.currentRoom < self.totalRooms:
-                        await self._processReady()
-                        if len(self.playerTeamHandlers) == 0:
+                if not self.dungeonData.pvpMode:
+                    if not self.currentCombatInterface.cc.checkPlayerVictory():
+                        if not (await self._processRetry()):
                             return False
+                    else:
+                        rewardMap = self.completeRoom()
+                        assert rewardMap is not None
+                        await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
+                        if self.currentRoom < self.totalRooms:
+                            await self._processReady()
+                            if len(self.playerTeamHandlers) == 0:
+                                return False
+                else:
+                    self.completeRoom()
             else:
                 # Attempt to handle interruptions between rooms
                 assert(reload)
@@ -323,11 +361,12 @@ class DungeonController(object):
                 else:
                     await self._processReady()
 
-        self.logMessage(MessageType.BASIC,
-                        f"**{makeTeamString([player for player in self.playerTeamHandlers])} cleared {self.dungeonData.dungeonName}!**\n")
-        rewardMap = self.completeDungeon()
-        assert(rewardMap is not None)
-        await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
+        if not self.dungeonData.pvpMode:
+            self.logMessage(MessageType.BASIC,
+                            f"**{makeTeamString([player for player in self.playerTeamHandlers])} cleared {self.dungeonData.dungeonName}!**\n")
+            rewardMap = self.completeDungeon()
+            assert(rewardMap is not None)
+            await asyncio.gather(*[self.handleRewardsForPlayer(player, rewardMap[player]) for player in self.playerTeamHandlers])
         self.sendAllLatestMessages()
         [self.playerTeamHandlers[player].onDungeonComplete() for player in self.playerTeamHandlers]
 
@@ -380,7 +419,6 @@ class DungeonInputHandler(object):
         Allows free skills, equips, and formation positions to be changed.
     """
     async def waitReady(self, dungeonController : DungeonController):
-        # TODO
         # add a "waiting for allies" message before returning
         return True
     
@@ -391,5 +429,4 @@ class DungeonInputHandler(object):
     async def getEquip(self, dungeonController : DungeonController, newEquip : Equipment):
         hadSpace = self.player.storeEquipItem(newEquip)
         if not hadSpace:
-            # TODO
             pass

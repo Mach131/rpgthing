@@ -58,7 +58,7 @@ if __name__ == '__main__':
     dungeonController = DungeonController(arenaDungeon,
                                           {player: DungeonInputHandler(player, LocalPlayerInputHandler) for player in players},
                                           {player: DEFAULT_STARTING_DISTANCE for player in players},
-                                          {players[0]: LocalMessageCollector()}, {})
+                                          {players[0]: LocalMessageCollector()}, {}, [])
     asyncio.run(dungeonController.runDungeon(False))
 
     # asyncio.run(betterCombatSimulation([test_knight], [arenaSaint({'roomNumber': 4})]))

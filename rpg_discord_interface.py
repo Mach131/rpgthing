@@ -125,7 +125,13 @@ class GameSession(object):
         loggerMap : dict[Player, MessageCollector] = {
             sessionPlayerMap[session]: DiscordMessageCollector(session) for session in sessionPlayerMap}
 
-        newDungeon = DungeonController(dungeonData, inputHandlerMap, startingDistanceMap, loggerMap, roomSettings)
+        partyOrder = []
+        if self.currentParty is not None:
+            for partySession in self.currentParty.allSessions:
+                partyOrder.append(partySession.getPlayer())
+        else:
+            partyOrder.append(player)
+        newDungeon = DungeonController(dungeonData, inputHandlerMap, startingDistanceMap, loggerMap, roomSettings, partyOrder)
         if self.currentParty is not None:
             for session in self.currentParty.allSessions:
                 session.currentDungeon = newDungeon

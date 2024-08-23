@@ -55,7 +55,7 @@ class CombatInputHandler(object):
         combatController.performDefend(self.entity)
 
     def onPlayerLeaveDungeon(self) -> None:
-        raise NotImplementedError()
+        pass
 
     async def takeTurn(self, combatController : CombatController) -> None:
         raise NotImplementedError()
@@ -410,12 +410,14 @@ class NPCInputHandler(CombatInputHandler):
 class CombatInterface(object):
     def __init__(self, players : dict[CombatEntity, CombatInputHandler], opponents: dict[CombatEntity, CombatInputHandler],
                  loggers : dict[CombatEntity, MessageCollector], startingPlayerHealth : dict[CombatEntity, int],
-                 startingPlayerMana : dict[CombatEntity, int], startingPlayerDistances : dict[CombatEntity, int]):
+                 startingPlayerMana : dict[CombatEntity, int], startingPlayerDistances : dict[CombatEntity, int],
+                 pvpMode : bool = False):
         self.players : list[CombatEntity] = list(players.keys())
         self.opponents : list[CombatEntity] = list(opponents.keys())
         self.handlerMap : dict[CombatEntity, CombatInputHandler] = players.copy()
         self.handlerMap.update(opponents.copy())
         self.loggers : dict[CombatEntity, MessageCollector] = loggers
+        self.pvpMode = pvpMode
 
         self.activePlayer : CombatEntity | None = None
         
@@ -432,16 +434,20 @@ class CombatInterface(object):
                 self.cc.spendMana(player, manaDelta, True)
 
     def spawnEntity(self, entity : CombatEntity, enemyTeam : bool):
-        if not enemyTeam:
-            assert isinstance(entity, PlayerSummon)
-            summonHandler = NPCInputHandler(entity)
-            self.players.append(entity)
-            self.handlerMap[entity] = summonHandler
-        else:
-            assert isinstance(entity, Enemy)
-            enemyHandler = NPCInputHandler(entity)
-            self.opponents.append(entity)
-            self.handlerMap[entity] = enemyHandler
+        assert isinstance(entity, NPCEntity)
+        teamList = self.opponents if enemyTeam else self.players
+        teamList.append(entity)
+        self.handlerMap[entity] = NPCInputHandler(entity)
+        # if not enemyTeam:
+        #     if isinstance(entity, PlayerSummon):
+        #         summonHandler = NPCInputHandler(entity)
+        #         self.players.append(entity)
+        #         self.handlerMap[entity] = summonHandler
+        # else:
+        #     if isinstance(entity, Enemy):
+        #         enemyHandler = NPCInputHandler(entity)
+        #         self.opponents.append(entity)
+        #         self.handlerMap[entity] = enemyHandler
         
     def sendAllLatestMessages(self):
         [logger.sendNewestMessages(None, False) for logger in self.loggers.values()]
@@ -464,14 +470,16 @@ class CombatInterface(object):
             
         self.sendAllLatestMessages()
         if self.cc.checkPlayerVictory():
-            self.cc.logMessage(MessageType.BASIC, f"**Your party is victorious!**\n")
+            victoryMessage = "**Team Alpha is victorious!**" if self.pvpMode else "**Your party is victorious!**\n"
+            self.cc.logMessage(MessageType.BASIC, victoryMessage)
             for opponent in self.cc.opponentTeam:
                 defeatMessage = opponent.defeatMessage if isinstance(opponent.defeatMessage, str) \
                     else opponent.defeatMessage(self.cc.playerTeam) # type: ignore
                 if len(defeatMessage) > 0:
                     self.cc.logMessage(MessageType.DIALOGUE, defeatMessage)
         else:
-            self.cc.logMessage(MessageType.BASIC, f"**Your party is defeated...**\n")
+            defeatMessage = "**Team Beta is victorious!**\n" if self.pvpMode else "**Your party is defeated...**\n"
+            self.cc.logMessage(MessageType.BASIC, defeatMessage)
         self.sendAllLatestMessages()
 
     def removePlayer(self, player : Player):
@@ -481,7 +489,10 @@ class CombatInterface(object):
 
     def getPlayerTeamSummary(self, player : Player):
         teamInfoStrings = []
-        for member in self.cc.playerTeam:
+        playerTeam = self.cc.playerTeam
+        if self.pvpMode and player in self.opponents:
+            playerTeam = self.cc.opponentTeam
+        for member in playerTeam:
             overviewString = self.cc.combatStateMap[member].getStateOverviewString()
             nextActionTime = self.cc.getTimeToFullAction(member) * ACTION_TIME_DISPLAY_MULTIPLIER
             overviewString += f"\n--*To Next Action: {nextActionTime:.3f}*"
@@ -493,7 +504,10 @@ class CombatInterface(object):
 
     def getEnemyTeamSummary(self, player : Player):
         teamInfoStrings = []
-        for member in self.cc.opponentTeam:
+        opponentTeam = self.cc.opponentTeam
+        if self.pvpMode and player in self.opponents:
+            opponentTeam = self.cc.playerTeam
+        for member in opponentTeam:
             overviewString = self.cc.combatStateMap[member].getStateOverviewString()
             distance = self.cc.checkDistance(player, member)
             if distance is not None:
@@ -516,12 +530,16 @@ class CombatInterface(object):
         if onlyAlive:
             return self.cc.getTeammates(player)
         else:
+            if self.pvpMode and player in self.opponents:
+                return self.cc.opponentTeam
             return self.cc.playerTeam
     
     def getOpponents(self, player : Player, onlyAlive : bool):
         if onlyAlive:
             return self.cc.getTargets(player)
         else:
+            if self.pvpMode and player in self.opponents:
+                return self.cc.playerTeam
             return self.cc.opponentTeam
         
     def getSkillManaCost(self, player : Player, skillData : SkillData):

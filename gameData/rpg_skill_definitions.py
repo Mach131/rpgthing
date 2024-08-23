@@ -2514,7 +2514,7 @@ PassiveSkillData("Summoner's Pact", SecretPlayerClassNames.SUMMONER, 1, False,
         SkillEffect("", [
             EFOnAdvanceTurn(
                 lambda controller, user, previousPlayer, _2, timePassed, _3: void((
-                    controller.spawnNewEntity(snapsSummonFn(user), False)
+                    controller.spawnNewEntity(user, snapsSummonFn(user), False)
                         if len(controller.getTeammates(user)) < 8 else None,
                     [controller.combatStateMap[summon].increaseActionTimer(timePassed, True)
                      for summon in controller.getActiveSummons(user)]

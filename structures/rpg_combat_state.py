@@ -491,13 +491,16 @@ class CombatController(object):
     def logMessage(self, messageType : MessageType, messageText : str):
         [log.addMessage(messageType, messageText) for log in self.loggers.values()]
     
-    def spawnNewEntity(self, entity : CombatEntity, enemyTeam : bool):
+    def spawnNewEntity(self, spawner : CombatEntity, entity : CombatEntity, spawnFromEnemy : bool):
+        enemyTeam = spawner in self.opponentTeam
+
         self.spawnerCallback(entity, enemyTeam)
         if enemyTeam:
             self.opponentTeam.append(entity)
             for player in self.playerTeam:
                 self.distanceMap[player][entity] = DEFAULT_STARTING_DISTANCE
-            self._removeDuplicateOpponentNames(entity)
+            if spawnFromEnemy:
+                self._removeDuplicateOpponentNames(entity)
         else:
             self.playerTeam.append(entity)
             self.distanceMap[entity] = {}
@@ -510,7 +513,8 @@ class CombatController(object):
             [self.addSkillEffect(entity, skillEffect) for skillEffect in skill.skillEffects]
         self.logMessage(MessageType.BASIC, f"*{entity.shortName} joins the battle!*")
 
-        self._cleanupEnemies()
+        if spawnFromEnemy:
+            self._cleanupEnemies()
 
     def _cleanupEnemies(self):
         defeatedEnemies = [entity for entity in self.opponentTeam if self.getCurrentHealth(entity) <= 0]
