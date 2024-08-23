@@ -201,21 +201,24 @@ class DungeonController(object):
     async def handleRewardsForPlayer(self, player : Player, reward : DungeonReward):
         scaledExp = self._scaleDungeonExp(player, reward.exp)
         levelUp, rankUp = player.gainExp(scaledExp)
-        self.loggers[player].addMessage(
-            MessageType.BASIC, f"*Gained **{scaledExp} EXP!***{' *(Scaled down because you outlevel this dungeon.)*' if scaledExp != reward.exp else ''}"
-        )
-        if levelUp:
+        if player in self.loggers:
             self.loggers[player].addMessage(
-                MessageType.BASIC, f"**Your level increased to {player.level}! Gained {STAT_POINTS_PER_LEVEL} stat points.**"
+                MessageType.BASIC, f"*Gained **{scaledExp} EXP!***{' *(Scaled down because you outlevel this dungeon.)*' if scaledExp != reward.exp else ''}"
             )
+        if levelUp:
+            if player in self.loggers:
+                self.loggers[player].addMessage(
+                    MessageType.BASIC, f"**Your level increased to {player.level}! Gained {STAT_POINTS_PER_LEVEL} stat points.**"
+                )
         if rankUp:
             classData =  PlayerClassData.PLAYER_CLASS_DATA_MAP[player.currentPlayerClass]
             newSkillData = classData.getSingleSkillForRank(player.currentPlayerClass, player.classRanks[player.currentPlayerClass])
             newSkillString = f" Gained new skill: {newSkillData.skillName}!" if newSkillData is not None else "" 
-            self.loggers[player].addMessage(
-                MessageType.BASIC, f"**Your {classData.className.name[0] + classData.className.name[1:].lower()}" +
-                    f" rank increased to {player.classRanks[player.currentPlayerClass]}!{newSkillString}**"
-            )
+            if player in self.loggers:
+                self.loggers[player].addMessage(
+                    MessageType.BASIC, f"**Your {classData.className.name[0] + classData.className.name[1:].lower()}" +
+                        f" rank increased to {player.classRanks[player.currentPlayerClass]}!{newSkillString}**"
+                )
         
         player.wup += reward.wup
         player.swup += reward.swup
@@ -224,14 +227,16 @@ class DungeonController(object):
         swupString = f"**{reward.swup} SWUP**" if reward.swup > 0 else ""
         andString = " and " if reward.wup > 0 and reward.swup > 0 else ""
         if reward.wup > 0 or reward.swup > 0:
-            self.loggers[player].addMessage(
-                MessageType.BASIC, f"*Picked up {wupString}{andString}{swupString}!*"
-            )
+            if player in self.loggers:
+                self.loggers[player].addMessage(
+                    MessageType.BASIC, f"*Picked up {wupString}{andString}{swupString}!*"
+                )
 
         for equip in reward.equips:
-            self.loggers[player].addMessage(
-                MessageType.BASIC, f"*Picked up {equip.name}!*"
-            )
+            if player in self.loggers:
+                self.loggers[player].addMessage(
+                    MessageType.BASIC, f"*Picked up {equip.name}!*"
+                )
             self.sendAllLatestMessages()
             await self.playerTeamHandlers[player].getEquip(self, equip)
 

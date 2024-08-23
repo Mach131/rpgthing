@@ -89,9 +89,11 @@ AttackSkillData("Magic Missile", BasePlayerClassNames.MAGE, 2, False, 15,
     [SkillEffect("", [EFBeforeNextAttack({CombatStats.IGNORE_RANGE_CHECK: 1}, {}, None, None)], 0)])
 
 PassiveSkillData("Mana Flow", BasePlayerClassNames.MAGE, 3, True,
-    "When attacking, restore MP equal to 5% of the damge you deal (max 30).",
+    "When attacking, restore MP equal to 5% of the damge you deal (up to 10% of your max MP).",
     {}, {}, [SkillEffect("", [EFAfterNextAttack(
-        lambda controller, user, _1, attackInfo, _2: void(controller.gainMana(user, min(math.ceil(attackInfo.damageDealt * 0.05), 30)))
+        lambda controller, user, _1, attackInfo, _2: void(controller.gainMana(user, min(
+            math.ceil(attackInfo.damageDealt * 0.05),
+            math.ceil(controller.getMaxMana(user) * 0.1))))
     )], None)])
 
 
@@ -146,9 +148,9 @@ def frenzyFn(controller, user, originalStats, finalStats, _):
         newMissing = finalStats[BaseStats.HP] - currentHP
     else:
         return
-    controller.applyFlatStatBonuses(user, {BaseStats.ATK: (newMissing - originalMissing)* 0.1})
+    controller.applyFlatStatBonuses(user, {BaseStats.ATK: (newMissing - originalMissing) * 0.05})
 PassiveSkillData("Battle Frenzy", AdvancedPlayerClassNames.MERCENARY, 4, False,
-    "Increases ATK by 10% of your missing HP.",
+    "Increases ATK by 5% of your missing HP.",
     {}, {}, [SkillEffect("", [EFOnStatsChange(frenzyFn)], None)])
 
 ActiveToggleSkillData("Berserk", AdvancedPlayerClassNames.MERCENARY, 5, False, 10,
@@ -889,10 +891,13 @@ ActiveSkillDataSelector("Nature's Blessing", AdvancedPlayerClassNames.WIZARD, 2,
                         )))], 0)], 1, 0, False, False), ["FIRE", "ICE", "WIND"])
 
 PassiveSkillData("Serendipity", AdvancedPlayerClassNames.WIZARD, 3, True,
-    "Increases critical hit rate by 5%. On critical hit, restore additional MP equal to 5% of the damge you deal (max 30).",
+    "Increases critical hit rate by 5%. On critical hit, restore additional MP equal to 5% of the damge you deal (up to 10% of your max MP).",
     {CombatStats.CRIT_RATE: 0.05}, {}, [SkillEffect("", [EFAfterNextAttack(
         lambda controller, user, _1, attackInfo, _2:
-            void(controller.gainMana(user, min(math.ceil(attackInfo.damageDealt * 0.05), 30))) if attackInfo.isCritical else None
+            void(controller.gainMana(user, min(
+                math.ceil(attackInfo.damageDealt * 0.05),
+                math.ceil(controller.getMaxMana(user) * 0.1))))
+            if attackInfo.isCritical else None
     )], None)])
 
 PassiveSkillData("Arcane Flow", AdvancedPlayerClassNames.WIZARD, 4, False,

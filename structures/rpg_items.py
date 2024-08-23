@@ -9,46 +9,6 @@ from structures.rpg_classes_skills import EffectFunction, PassiveSkillData, Skil
     EFImmediate, EFBeforeNextAttack, EFAfterNextAttack, EFWhenAttacked
 from gameData.rpg_status_definitions import STATUS_CLASS_MAP, StatusEffect
 
-DESCRIPTIVE_ADJECTIVES = [
-    "Accurate", "Advanced", "Alluring", "Antique", "Appealing", "Artificial", "Astonishing", "Attractive","Automated", "Bad", "Beautiful",
-    "Big", "Small", "Bland", "Bold", "Boring", "Breakable", "Bright", "Broken", "Cheap", "Classic", "Classy", "Clean", "Clear", "Clever",
-    "Colorful", "Comfortable", "Common", "Compact", "Complete", "Complicated", "Cool", "Craft", "Crafted", "Fine Crafted", "Cute", "Damaged",
-    "Dangerous", "Dashing", "Definitive", "Delicate", "Delightful", "Detailed", "Dreadful", "Distinct", "Dull", "Durable", "Effective", "Efficient",
-    "Electric", "Elegant", "Emergent", "Enchanted", "Engaging", "Entertaining", "Essential", "Expensive", "Inexpensive", "Faded", "Fake",
-    "Fancy", "Fashionable", "Unfashionable", "Fine", "Finished", "Unfinished", "Flat", "Flawless", "Folk", "Fragile",
-    "Fresh", "Friendly", "Unfriendly", "Frightful", "Fun", "Futuristic", "Genuine", "Good", "Hideous", "Hot", "Cold", "Iconic",
-    "Idiosyncratic", "Imaginative", "Imperfect", "Important", "Imported", "Impromptu", "Improved", "Inadequate", "Ineffectual", "Inferior",
-    "Innovative", "Inoperative", "Insubstantial", "Intelligent", "Inventive", "Lame", "Latest", "Light", "Local", "Lovely", "Lush",
-    "Luxurious", "Makeshift", "Massive", "Masterpiece", "Material", "Messy", "Modern", "Modish", "Moldy", "Musty", "Monstrous", "Natural",
-    "Neat", "Necessary", "Nice", "Nondescript", "Nonsensical", "Nonstop", "Nontraditional", "Notable", "Novel", "Odd", "Offbeat", "Old",
-    "New", "Old-fashioned", "Open", "Ordinary", "Organic", "Original", "Outstanding", "Overengineered", "Pathetic", "Perfect", "Pleasant",
-    "Pleasing", "Polished", "Poor", "Popular", "Posh", "Precious", "Quaint", "Quality", "Quiet", "Rapid", "Red", "Blue", "Green", "Black",
-    "White", "Yellow", "Orange", "Purple", "Redundant", "Refined", "Regular", "Repulsive", "Resilient", "Responsible", "Rotten", "Rough",
-    "Round", "Sad", "Safe", "Scientific", "Second-rate", "Shiny", "Simple", "Slick", "Smart", "Snappy", "Sophisticated", "Stable",
-    "Standard", "State of the Art", "Strange", "Streamlined", "Stunning", "Stylish", "Sublime", "Subtle", "Superb", "Superficial",
-    "Superior", "Sweet", "Tall", "Tangible", "Tasteful", "Terrible", "Traditional", "Trashy", "Trendy", "Trim", "Typical", "Ugly",
-    "Ultramodern", "Unassuming", "Unattractive", "Uncommon", "Unconventional", "Unique", "Unnatural", "Unnecessary", "Unsightly", "Unusable",
-    "Urbane", "Usable", "Used", "Useful", "Useless", "Vacuous", "Valuable", "Venerable", "Vintage", "Visionary", "Wacky", "Wasteful",
-    "Weird", "Wild", "Wonderful", "Worthless", "Based", "Gray", "Pink"]
-
-DESCRIPTIVE_ADVERBS = [
-    "Very", "Always", "Ever", "Seldom", "Rarely", "Gradually", "Eventually", "Most", "Quickly", "Slowly", "Incidentally", "Immediately",
-    "Simultaneously", "Happily", "Sadly", "Frequently", "Commonly", "Sincerely", "Faithfully", "Sweetly", "Badly", "Dearly", "Patiently",
-    "Mostly", "Silently", "Willingly", "Hardly", "Often", "Occasionally", "Regularly", "Normally", "Actually", "Basically",
-    "Extremely", "Exceedingly", "Arguably", "Comparatively", "Consecutively", "Honestly", "Truthfully", "Lovingly", "Perfectly", "Highly",
-    "Likely", "Nearly", "Barely", "Least", "Deeply", "Fully", "Completely", "Casually", "Tastefully", "Madly", "Purely", "Privately",
-    "Publicly", "Eagerly", "Beautifully", "Proudly", "Elegantly", "Confidently", "Incessantly", "Boldly", "Carefully", "Cautiously",
-    "Carelessly", "Easily", "Awkwardly", "Nearby", "Cheerfully", "Abruptly", "Late", "Everyday", "Coldly", "Angrily", "Curiously",
-    "Noisily", "Loudly", "Earnestly", "Interestingly", "Readily", "Vaguely", "Unwillingly", "Obediently", "Rapidly", "Continuously",
-    "Consciously", "Instinctively", "Boldly", "Brightly", "Cunningly", "Suitably", "Appropriately", "Currently", "Doubtfully", "Ambiguously",
-    "Momentarily", "Gently", "Superficially", "Supremely", "Adequately", "Comfortably", "Conveniently", "Generously", "Briefly",
-    "Accidentally", "Fiercely", "Fearfully", "Gracefully", "Graciously", "Busily", "Randomly", "Joyously", "Mysteriously", "Joyfully",
-    "Poorly", "Repeatedly", "Seriously", "Smoothly", "Promptly", "Roughly", "Successfully", "Sufficiently", "Skillfully", "Sceptically",
-    "Differently", "Physically", "Psychologically", "Logically", "Analytically", "Graphically", "Tightly", "Loosely", "Unexpectedly",
-    "Tactfully", "Lazily", "Tremendously", "Vicariously", "Vividly", "Cleverly", "Victoriously", "Widely", "Purposefully", "Wisely",
-    "Properly", "Sickly", "Legally", "Nicely", "Legibly", "Thoroughly", "Shortly", "Simply", "Tidily", "Necessarily", "Tenaciously",
-    "Strongly", "Humbly", "Consequently", "Similarly", "Unlikely", "Possibly", "Probably"]
-
 # Concept: all items are named "[adjective] [item type]"; rarity-3 gets 1 adverb, rarity-5 gets two
 
 class Item(object):

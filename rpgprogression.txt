@@ -468,27 +468,179 @@ P2: [1500]		/125/105/125/105	/200/215/145
 all dungeons begin having more enemies, partying likely needed
 
 
-Beach
-	likely to run into magic-using enemies
-Swamp
+	mrc: 370/78	/198/25/34/76	/193/64/110
+	knt: 1056/53	/113/135/10/43	/148/84/82
+	snp: 260/50	/140/67/10/75	/208/115/134
+	hnt: 281/77	/111/73/28/39	/182/109/79
+	asn: 120/94	/173/38/10/47	/153/194/238
+	acb: 222/57	/160/29/11/38	/182/282/209
+	wiz: 143/161	/10/67/176/108	/210/60/94
+	snt: 143/176	/34/10/174/178	/156/60/67
+(low-investment def/res may be sub-50 (probably fine to punish people for ignoring defensive stats tho))
+
+
+Arena - lv6 [req storehouse]
+	player-like enemies
+	not many drops, but good exp if clearing the whole thing (swup as clear prize?)
+	might add difficulties eventually; for this version no special final boss (besides being v strong, maybe more members)
+	[not required for other dungeon progress, but might unlock pvp?]
+
+	2 fight -> 2 balanced -> 3 fight -> 3 fight stronger -> 3 balanced stronger
+	high exp but not much else - ~6 exp per enemy, ~12 clear bonus + ~3 WUP (no swup at all, maybe high rank common item as clear bonus)
+
+	mercenary: 350/30	/150/30/30/30		/160/60/100
+	-> Level 6, 6 EXP
+	variances: +150 HP, +40 MP, +50 ATK, +30 DEF, +30 RES, +40 ACC, +20 AVO, +30 SPD
+ 	rushdown; attack target, sweeping blow if not close to defeat, then spam great swing
+		berserk if low on health
+
+	knight: 700/40		/90/120/30/50		/130/60/70
+	-> Level 6, 6 EXP
+	variances: +300 HP, +40 MP, +30 ATK, +40 DEF, +40 RES, +20 ACC, +15 AVO, +15 SPD
+	gain aggro when allies are attacked, stand at R0
+		challenge - if target doesn't attack before next turn, challenges again with 3x damage
+		parry - if hit with the same attribute 5 times in a row, may parry if enough MP; long action timer, fails if not hit before then
+
+	sniper: 250/50		/110/60/30/60		/180/90/110
+	-> Level 6, 6 EXP
+	variances: +150 HP, +40 MP, +30 ATK, +20 DEF, +20 RES, +40 ACC, +30 AVO, +30 SPD
+	when enough MP for both skills tries, strafe -> piercing shot combo (doesn't piercing shot if target moves in)
+
+	hunter: 300/70		/80/70/30/70		/170/80/80
+	-> Level 6, 6 EXP
+	variances: +150 HP, +60 MP, +30 ATK, +20 DEF, +20 RES, +30 ACC, +20 AVO, +20 SPD 
+	uses a random status if target doesn't have one, otherwise throws one in every ~3 turns (if target doesn't change)
+		on successful stun, transfer most of aggro towards target to allies (they attack them, hunter looks for new target)
+		instead of weakening trap, can use covered tracks as an active skill - lasts for like 3 turns
+
+	assassin: 200/70	/100/30/30/30		/120/150/160
+	-> Level 6, 6 EXP
+	variances: +100 HP, +40 MP, +30 ATK, +20 DEF, +20 RES, +30 ACC, +40 AVO, +50 SPD
+	slow to lose aggro towards a target; if being outdamaged, retreat & share aggro with allies (call out)
+		at low stacks, may go for shadowing + attack if opponent at range 2+ (tries to keep MP high-ish)
+		at high stacks, will try for shadowing + ambush when enough MP for both
+			disable if at high health and target at high health, only once per target
+			interrogate if at high health and target at low health, only once per fight
+			execute otherwise
+
+	acrobat: 200/50		/95/30/30/30		/130/200/130
+	-> Level 6, 6 EXP
+	variances: +150 HP, +40 MP, +30 ATK, +20 DEF, +20 RES, +30 ACC, +50 AVO, +30 SPD
+	gain aggro when allies attacked, stand at R1
+		bedazzle if opponent not blinded, but tries to reserve some sidestep MP
+		sidestep - similar to parry, but depends on being attacked (not hit)
+
+	wizard: 250/150		/30/50/140/80		/160/60/80
+	-> Level 6, 6 EXP
+	Variances: +150 HP, +50 MP, +50 MAG, +20 DEF, +30 RES, +40 ACC, +20 AVO, +30 SPD
+	buffs with enough MP if not in immediate danger
+		if an opponent has a weakness, will always use that element on self; otherwise buffs randomly (prefers attackers (inc self), then tanks, then support)
+		once below a certain threshold, only magic missiles
+
+	saint: 250/150		/30/30/110/110		/130/60/75
+	-> Level 6, 6 EXP
+	Variances: +150 HP, +50 MP, +40 MAG, +20 DEF, +40 RES, +30 ACC< +20 AVO, +25 SPD
+	focuses on reserving heal MP
+		if opponent has a weakness, will use buff on random ally; may also buff if no allies low on HP for long enough (~4 turns) (prefers tanks, then attackers, then support)
+		heals allies as soon as they're low enough, based on like 80% of heal strength
+		
+Beach - lv7 [req storehouse]
+	likely to run into magic-using enemies, esp. ice/wind
+	drop magic equips
+	rare Frey boss fight?
+
+	crab - tanky, high crit rate, loses def/res + may be stunned if crit
+	seafarer fairy - ice affinity, wind weakness; can manipulate distance to other enemies
+	sandcastle - high res, wind affinity, ice weakness; can increase one physical resistance at a time for a duration when hit by it
+	ice cream - ice affinity, fire weakness; slow, can spend HP to give all allies healing + buff (spd, avo, crit rate, crit damage; maybe gets more intense each time used)
+	
+	crab boss - gimmick of extending weak spot to a certain distance before attack warning, then until turn after attack can be hit from that dist as if it were range 0
+		higher crit damage, high crit rate on this special attack
+		if crits lower defense too many times, may summon crabs and use a defense-raising skill until they go away
+	surfer boss - comes with seafarer fairies, favors attacks that reposition to 0 and are stronger with distance moved
+		whirlpool restrict skill - R1 AoE
+		long CD wave skill pushing everyone to R3; pushes less if they defend?
+
+	Frey - comes with one of each enemy, more of a support-based boss (anarchic - may be against the player as a pawn of The System)
+		pretty high base HP
+		pretty strong heal skill, though moderate CD (and other things to prioritize)
+		can Liberate the abilities of specific allies; ties distance to them temporarily, shares health in some form
+			Crab - higher crit damage, immune to crits
+			seafarer - increases range, all attacks increase distance to all enemies + attempt exhaustion
+			sand castle - can use up to 3 resistance buffs, also has magic resistance buffs
+			ice cream - attacks don't cost HP, shorter time between buffs
+		mostly alternates between healing and 2-3 turn liberation
+		with fewer allies left, may use an advancing-wave AOE - after warning, hits R0-R1-R2-R3 in sequence
+
+		can drop a special amulet, gives bonus MP? support-class oriented
+
+	
+
+Valley - lv7 [req storehouse]
+	has physically tanky enemies (may or may not have magic), a boss may be a dragon (somewhere around bridge to world's end)
+	drop physical equips
+	rare Kenelm boss fight?
+		can drop a special tower sword-like thing, trades power for more def/hp
+
+Lost Farm - lv8 [req storehouse]
+		farm that went out of business because the owner got a job in the city; large numbers of animals mysteriously appearing again
+	spawner enemies with some fancier gimmick
+	less equipment, more wup
+	rare Risuri boss fight?
+
+Swamp - lv9 [requires Beach/Valley/Farm]
+	cursed equip drops
 	likely to run into status-using enemies
-Abandoned Castle
-	likely to run into physically strong enemies
-Grasslands
-	high enemy variation, longer than usual
+	Quade boss
+
+
+Aqi Rematch - after getting any class to Rank 9
+	Main Mechanic - when stunning opponent, regain action; +100% crit, 50% crit damage against stunned enemies
+		heavenly storm breaker - usually used after stun, R0 attack with like a 3 (normal or fast-time) turn startup, but like 30x damage
+	starting rush - after warning, rushes towards opponent; if they weren't at R0, attempts to apply stun
+	tipper attack - medium-length warning, but increased ATK + can stun opponents at R1
+	tide in/tide out - after warning, quickly attacks 3-2-1 or 0-1-2; magic damage, stuns
+	(lower health/phase) counter/feint - approaches 3 with one of two slightly different warnings; either does tide out after, or does parry-like counter if attacked (long-ish downtime if not attacked)
+	(lower health/phase) hydro cannon - retreats 3 with a warning; if damage threshold not broken, strong magic attack that stuns
+
+	
+**Special Dungeons - unlock after Farm (should have some clear notice that new special dungeons are available)
+	places to seek out information - books, gossip, or tutors
+Alley
+	single boss (Cloaked Fighter)
+	after Aqi Rematch, unlocks second fight against Fleet
+		periodic "clone" summons with different strongest distances
+		striker unlock
+
+Library
+	single boss (theft prevention system)
+		5 enemies, one for each element; different behaviors, intensify as more are defeated
+	after Aqi Rematch, unlocks second fight against EOS
+		element-coded mechanics (e.g scatter, gather); 3 tests at HP thresholds, DPS check after
+		alchefist unlock
+
+Pub
+		unexpectedly, most patrons are monsters (esp. plant ones - wind attribute)
+	single boss (mob); various monsters, but they periodically drink which has random effects (some negative, but usually a net positive); different drinks used with different frequencies
+	after Aqi Rematch, unlocks second fight against Azalea
+		damaging aura that can close off ranges, some weaker attacks that build stacks dealing high damage periodically, a few weak debuff-applying summons
+		saboteur unlock
 
 Tower
-	requires Abandoned Castle clear
-	single boss (Clover the Roc); high speed/avoidability, weak to wind and piercing
+	single boss (Grace the Roc); high speed/avoidability, weak to wind and piercing
 		repositions quickly upon aggro changing, can act fairly quickly after repositioning
+	after Aqi Rematch, unlocks second fight with Will + Grace
+		summoner unlock
 
+	
+
+-- lv 10-14
+Grasslands
+	high enemy variation, longer than usual
 Meadow
 	requires Grasslands clear
 	duo boss (salali & risuri); mechanics requiring specific positioning relative to each boss
 		enrage AOEs if one defeated without the other
-	
-
--- lv 10-14
 
 Graveyard
 	enemies with immunities

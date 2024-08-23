@@ -1,3 +1,22 @@
+(https://docs.google.com/document/d/1LeJWNNzja3oxt9y514dPUrfmFWQMFAtRm_WcmR1zcRQ/edit?usp=sharing)
+
+
+	New Content
+Added small tips to the main character menu.
+
+	General
+Fixed a display issue with equipped items that don't have any traits.
+
+	Combat Systems
+The Defend action now protects you from all attacks until your next turn, rather than only the next one. In exchange, getting hit while defending only grants 2 MP rather than 3.
+
+	Classes
+(+-) Mana Flow (Mage Rank 3): Restored MP is now capped by 10% of max MP, rather than a flat 30.
+
+(+-) Serendipity (Wizard Rank 3): Restored MP is now capped by 10% of max MP, rather than a flat 30.
+
+---
+
 Version 0.1.4b
 
 - started tracking version numbers; should hopefully let me do updates without needing to delete characters anymore
@@ -14,7 +33,7 @@ __General__
 - the abbreviation for Training Yard was changed to Yard
 
 __Combat Systems__
-- reduced the initiative penalty from starting at distance 1 or 3 by 40%
+- reduced the initiative penalty for changing your starting distance by 40%
 - the combat log now indicates when a weakness or resistance is targeted
 - increased the maximum display of the combat log before it needs to be expanded (hopefully won't break anything?)
 - POISON and BURN should no longer apply damage to defeated enemies
@@ -28,14 +47,14 @@ __Equipment__
 - - Pistol Crossbow
 
 __Classes__
-(B = bug fix, + = buff, - = nerf, ~ = probably)
+(B = bug fix, + = buff, - = nerf, ? = probably)
 - (B-) Endurance (Warrior Rank 3): No longer revives you if you would have died during your turn (e.g. POISON/BURN damage)
 
 - (+) Magic Missile (Mage Rank 2): MAG increased from 1x to 1.1x.
 
 - (B) Confrontation (Mercenary Rank 3): Fixed an issue with stats not reverting properly if repositioning mid-attack
 - (-) Berserk (Mercenary Rank 5): SPD bonus decreased from 25% to 15%
-- (~+) Deadly Dance (Mercenary Rank 7): Behavior changed to perform a bonus attack with 0.4x ATK, rather than scaling off of damage dealt.
+- (+?) Deadly Dance (Mercenary Rank 7): Behavior changed to perform a bonus attack with 0.4x ATK, rather than scaling off of damage dealt.
 
 - (+) Target Lock (Sniper Rank 2): ATK increased from 1x to 1.2x, status effect duration increased from 3 to 4
 - (B) Perfect Shot (Sniper Rank 5): Fixed an issue with stats not reverting properly if repositioning mid-attack

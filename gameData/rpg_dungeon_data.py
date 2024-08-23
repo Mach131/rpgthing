@@ -172,3 +172,31 @@ damageTestDungeon = DungeonData("Analysis Room", "Analysis", DungeonCategory.SPE
                                 ],
                                 lambda _1, _2: EnemyReward(0, 0, 0, None, set([Milestones.ANALYSIS_ROOM_COMPLETE])),
                                 Milestones.ANALYSIS_ROOM_COMPLETE)
+
+arAttackerOptions = [arenaMercenary, arenaSniper, arenaAssassin, arenaWizard ]
+arDefenderOptions = [arenaKnight, arenaAcrobat]
+arSupportOptions = [arenaHunter, arenaSaint]
+arPairs = [(combo, 1) for combo in enemyCombosIter(arAttackerOptions + arDefenderOptions + arSupportOptions, 2)]
+arTrios = [(combo, 1) for combo in enemyCombosIter(arAttackerOptions + arDefenderOptions + arSupportOptions, 3)]
+arBalanced = []
+for attacker in arAttackerOptions:
+    for defender in arDefenderOptions:
+        for support in arSupportOptions:
+            arBalanced.append(([attacker, defender, support], 1))
+arenaDungeon = DungeonData("Arena: Lightweight Bracket", "Arena I", DungeonCategory.NORMAL,
+                           "The city's arena holds tournaments between adventurer teams, offering a fresh experience for the rat-dungeon-weary.\n" +
+                           "This tournament is intended for newer adventurers with minimal renown. While there is a small prize, it mostly pays in experience.",
+                           "~90 EXP",
+                           set([Milestones.ABANDONED_STOREHOUSE_COMPLETE]),
+                           3, 6, False, 1, 1,
+                           [
+                               DungeonRoomData(arPairs, {'roomNumber': 0 }),
+                               DungeonRoomData(arPairs, {'roomNumber': 1 }),
+                               DungeonRoomData(arTrios, {'roomNumber': 2 }),
+                               DungeonRoomData(arTrios, {'roomNumber': 3 }),
+                               DungeonRoomData(arBalanced, {'roomNumber': 4 })
+                           ],
+                           lambda controller, player: EnemyReward(15, 3, 0,
+                                                          makeBasicCommonDrop(controller.rng, MAX_ITEM_RANK, MAX_ITEM_RANK, 1),
+                                                          set([Milestones.ARENA_I_COMPLETE])),
+                        Milestones.ARENA_I_COMPLETE)

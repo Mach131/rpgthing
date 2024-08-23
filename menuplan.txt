@@ -103,4 +103,7 @@ In Combat:
 	
 
 Todos:
-
+ deployment reminder: 
+	stop old process (ps aux | grep python, kill [proc #])
+	source env/bin/activate
+	nohup python3.11 ./rpg_discord_interface.py & 

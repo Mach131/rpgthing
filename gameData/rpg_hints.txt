@@ -1,0 +1,55 @@
+In combat, entities are defeated when their HP reaches 0.
+MP is required to use most skills. In combat, actions other than using skills will restore small amounts of MP.
+You can check stats during combat using the Party and Enemies menus.
+The damage of Physical attacks is generally based on the ratio between the users ATK and the target's DEF.
+The damage of Magic attacks is generally based on the ratio between the users MAG and the target's RES.
+The chance for an attack is generally based on the users ACC, the target's AVO, and the Distance between them.
+The time between your actions depends on your SPD, as well as how fast the actions you take are.
+You get 3 Stat Points every level to increase your base stats. These can be re-allocated at any time outside of combat.
+The maximum number of Stat Points you can have in any given stat is equal to your Player Level.
+Class Ranks are tracked separately from each other and your Player Level. Gaining EXP counts towards your current Class's Rank.
+You can change classes at any time when not in a dungeon.
+Raising a Base Class to its maximum level will unlock new classes. The base class's skills will still be available while using these.
+Free Skills can be used on any class once they've been learned. You can use up to 4 Free Skills at once.
+Equipment can have 5 rarities: Common, Uncommon, Rare, Epic, or Legendary. Rarity has a large influence on the equipment's strength.
+Equipment can have a rank between 1 and 10. Rank has an influence on the equipment's strength, though less so than Rarity.
+Equipment will often drop with names that have no relation to their traits or stats. Sorry for the confusion.
+The rank of equipment can usually be increased by spending WUP.
+The rarity of Rank 10 equipment can be increased by spending both WUP and SWUP. It can be expensive, and higher level dungeons may provide higher rarities more freely.
+After increasing the rarity of equipment, it becomes Adaptable. This allows you to spend SWUP to change its traits.
+The number and strength of Traits on a piece of equipment depends on the rarity. Weapons can have up to 3, while other pieces of gear usually have up to 2.
+Some pieces of equipment may come with Curses, which have negative effects in exchange for strengthening one of the normal traits.
+Your default attacking range is mostly determined by your equipped Weapon.
+Adaptable equipment is more valuable when sold, but there's no way to get a refund on any Adaptations actually applied.
+Most dungeons are difficult to clear at the recommended levels when playing alone. There is strength in numbers.
+You can use the Formation menu before and between dungeon rooms to change the distance you start at. Changing this will delay your first turn in combat, however.
+While in a party, you can give equipment to your allies.
+Defending will reduce the damage you take from attacks until your next turn, as well as giving you MP for each hit you take. It's the slowest basic action, however.
+Approaching is faster than Retreating, but either way, repositioning by 1 distance is faster than Attacking. Repositioning further or relative to more enemies takes longer, however.
+Physical attack attributes include Slashing, Crushing, and Piercing. They're generally determined by your weapon, but certain skills can attack with specific attributes.
+Magical attack attributes include Neutral, Fire, Ice, Wind, Light, and Dark. These can most commonly be changed by Mage Advanced Class skills.
+Hit chance can be heavily influenced by distance to the opponent. Consider increasing ACC and using the Ranger free skill if you're struggling to hit at range.
+It can take several turns to get MP back after running out. Consider increasing MP and using the Mage free skill if you're struggling to manage your class skills.
+Debuffs that don't specify a duration typically don't have one. Bosses with multiple phases can reset their stats and conditions when changing phases, though.
+The success of applying Status Conditions is related to the target's level, as well as their Status Resistance. Failing to apply a Status Condition will make it easier to apply the same one next time.
+After recovering from a Status Condition, it becomes harder to apply the same Status Condition again.
+If a Status Condition is applied to an enemy already inflicted with it, it will be Amplified. The effect of this depends on the condition.
+Inflicting POISON will cause ATK-based damage over time, while inflicting BURN will cause MAG-based damage over time. Amplifying either will increase the DoT.
+Amplifying TARGET, STUN, RESTRICT, or FEAR has a chance to extend the status condition's duration by 1 turn.
+Inflicting TARGET guarantees that attacks will hit the target. This is helpful when the user has much higher ACC than their allies.
+Inflicting BLIND lowers ACC and effective distance for calculating hit chance. Amplifying it increases the ACC penalty.
+Inflicting STUN skips the target's turns. Since it's based on their turns, it can be less effective against fast enemies.
+Inflicting MISFORTUNE lowers the target's luck. Amplifying it makes their luck worse.
+Inflicting RESTRICT prevents the target from repositioning. This may make enemies extremely confused (whoops).
+Inflicting PERPLEXITY increases the target's MP costs. Amplifying increases them further.
+Inflicting FEAR causes the user's attacks to lower a random stat on the target. This is especially effective when the user outspeeds the target.
+The Options menu (/options or ch.options) allows you to show or hide certain combat log messages, including chances to hit and amounts of MP gained.
+If you ever happen to meet a friendly reptile, you can use /name_summon or ch.name_summon to give it a name.
+Attacks can generally only hit if the user's range is greater than or equal to the distance to the target. Some skills can hit at any range, though.
+If you're stuck on a dungeon even with a party, try leveling classes for Free Skills or upgrading your equipment with WUP and SWUP.
+Warriors have access to the largest variety of weapons, but none of them have a range greater than 1.
+Rangers have access to many long-range weapons, but they're more limited in their available damage attributes.
+Rogues have access to at least one weapon for every range, but the ones best complementing their abilities tend to have lower ATK.
+Mages can choose between high MAG weapons that are nearly useless when out of MP, or lower MAG weapons that enable MAG-based basic attacks.
+Certain types of equipment have lower base stats, but provide an extra trait in return.
+Aggro determines the target that enemies will choose for their attacks. It's largely based on who they took the most damage from and how recently.

@@ -54,14 +54,14 @@ def rerollOtherEquips(player : Player, testRarity : int = 0):
 
 if __name__ == '__main__':
     # asyncio.run(betterCombatSimulation([bgp_warrior], [trainingBoss()]))
-    player = test_knight
-    dungeonController = DungeonController(storehouseDungeon,
-                                          {player: DungeonInputHandler(player, LocalPlayerInputHandler)},
-                                          {player: DEFAULT_STARTING_DISTANCE},
-                                          {player: LocalMessageCollector()}, {})
-    # asyncio.run(dungeonController.runDungeon(False))
+    players = [test_knight, test_sniper, test_mercenary]
+    dungeonController = DungeonController(arenaDungeon,
+                                          {player: DungeonInputHandler(player, LocalPlayerInputHandler) for player in players},
+                                          {player: DEFAULT_STARTING_DISTANCE for player in players},
+                                          {players[0]: LocalMessageCollector()}, {})
+    asyncio.run(dungeonController.runDungeon(False))
 
-    asyncio.run(betterCombatSimulation([tp_sniper], [damageTestDummy({})]))
+    # asyncio.run(betterCombatSimulation([test_knight], [arenaSaint({'roomNumber': 4})]))
 
     # print(tp_mercenary.getTotalStatString())
     # print("--")

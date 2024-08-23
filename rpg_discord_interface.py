@@ -373,7 +373,7 @@ class CharacterDeletionPrompt(object):
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = commands.Bot(command_prefix='ch.', intents=intents) # TODO: change if beta
+bot = commands.Bot(command_prefix='chb.', intents=intents) # TODO: change if beta
 
 @bot.event
 async def on_ready():
@@ -685,7 +685,8 @@ async def toggle_secrets(ctx : commands.Context):
                 Milestones.CLASS_ALCHEFIST_UNLOCKED,
                 Milestones.CLASS_SABOTEUR_UNLOCKED,
                 Milestones.CLASS_STRIKER_UNLOCKED,
-                Milestones.CLASS_SUMMONER_UNLOCKED
+                Milestones.CLASS_SUMMONER_UNLOCKED,
+                Milestones.ABANDONED_STOREHOUSE_COMPLETE
             ])
             if Milestones.CLASS_STRIKER_UNLOCKED not in currentPlayer.milestones:
                 currentPlayer.milestones = currentPlayer.milestones.union(secretMilestones)

@@ -741,7 +741,6 @@ class CombatController(object):
             defenseReduction *= DEFEND_DAMAGE_MULTIPLIER
             defenseReduction *= self.combatStateMap[defender].getTotalStatValueFloat(CombatStats.DEFEND_ACTION_DAMAGE_MULT)
             self.gainMana(defender, DEFEND_HIT_MP_GAIN)
-            self.combatStateMap[defender].defendActive = False
 
         statRatio : float = attackerOS/defenderDS
         damageFactor : float = 1 - math.exp((statRatio ** DAMAGE_FORMULA_C) * math.log(1 - DAMAGE_FORMULA_K))

@@ -5,12 +5,12 @@ from structures.rpg_items import *
 
 ### randomly generated classes
 
-def rerollWeapon(player : Player, testRarity : int = 0):
+def rerollWeapon(player : Player, testRarity : int = 0, testRank : int = 10):
     weaponClass = random.choice(list(filter(
         lambda wc: any([baseClass in weaponTypeAttributeMap[weaponClassAttributeMap[wc].weaponType].permittedClasses
                         for baseClass in PlayerClassData.getBaseClasses(player.currentPlayerClass)]),
         [weaponClass for weaponClass in WeaponClasses])))
-    newWeapon = generateWeapon(testRarity, 10, weaponClass)
+    newWeapon = generateWeapon(testRarity, testRank, weaponClass)
     # print(newWeapon.getDescription())
     player.equipItem(newWeapon)
 
@@ -227,51 +227,70 @@ def ratReadyPlayer(name, baseClass, advanceClass, statList):
     # print(rrp.getTotalStatString())
     return rrp
 
-test_mercenary = ratReadyPlayer("mercenary", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.MERCENARY,
-                              [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC,
-                               BaseStats.ATK, BaseStats.ACC, BaseStats.SPD,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.MP,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.ACC])
-test_knight = ratReadyPlayer("knight", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.KNIGHT,
-                              [BaseStats.ATK, BaseStats.DEF, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.HP, BaseStats.DEF,
-                               BaseStats.ACC, BaseStats.DEF, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.DEF, BaseStats.HP,
-                               BaseStats.MP, BaseStats.DEF, BaseStats.HP])
-test_sniper = ratReadyPlayer("sniper", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.SNIPER,
-                              [BaseStats.ATK, BaseStats.SPD, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.ACC, BaseStats.SPD,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.MP,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.HP])
-test_hunter = ratReadyPlayer("hunter", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.HUNTER,
-                              [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC,
-                               BaseStats.ATK, BaseStats.MP, BaseStats.SPD,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.MP,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.MP])
-test_assassin = ratReadyPlayer("assassin", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ASSASSIN,
-                              [BaseStats.ATK, BaseStats.SPD, BaseStats.ACC,
-                               BaseStats.ATK, BaseStats.ACC, BaseStats.SPD,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.HP,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.MP,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.ACC])
-test_acrobat = ratReadyPlayer("acrobat", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ACROBAT,
-                              [BaseStats.ATK, BaseStats.SPD, BaseStats.AVO,
-                               BaseStats.ATK, BaseStats.ACC, BaseStats.AVO,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.AVO,
-                               BaseStats.ATK, BaseStats.SPD, BaseStats.AVO,
-                               BaseStats.ATK, BaseStats.AVO, BaseStats.ACC])
-test_wizard = ratReadyPlayer("wizard", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.WIZARD,
-                              [BaseStats.MAG, BaseStats.SPD, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.ACC, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.SPD, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.SPD, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.ACC, BaseStats.MP])
-test_saint = ratReadyPlayer("saint", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.SAINT,
-                              [BaseStats.MAG, BaseStats.RES, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.RES, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.RES, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.HP, BaseStats.MP,
-                               BaseStats.MAG, BaseStats.HP, BaseStats.MP])
+def postRatPlayer(name, baseClass, advanceClass, statList):
+    rrp = beginnerPlayer(name, baseClass)
+    rrp.gainExp(EXP_TO_NEXT_PLAYER_LEVEL[0])
+    rrp.changeClass(advanceClass)
+
+    for i in range(1, 6):
+        rrp.gainExp(EXP_TO_NEXT_PLAYER_LEVEL[i])
+    rrp.assignStatPoints(statList)
+    rrp.wup = 1000
+    rrp.swup = 100
+    weaponClass = random.choice(list(filter(
+        lambda wc: any([baseClass in weaponTypeAttributeMap[weaponClassAttributeMap[wc].weaponType].permittedClasses
+                        for baseClass in PlayerClassData.getBaseClasses(rrp.currentPlayerClass)]),
+        [weaponClass for weaponClass in WeaponClasses])))
+    rrp.equipItem(generateWeapon(1, 6, weaponClass, 0))
+    # for i in range(10): rrp.increaseItemRank(rrp.equipment[EquipmentSlot.WEAPON])
+    # rrp.increaseItemRarity(rrp.equipment[EquipmentSlot.WEAPON])
+    # for i in range(5): rrp.increaseItemRank(rrp.equipment[EquipmentSlot.WEAPON])
+    
+    rrp.equipItem(generateHat(1, 2, None, 0))
+    rrp.equipItem(generateOverall(1, 2, None, 0))
+    rrp.equipItem(generateShoes(1, 2, None, 0))
+    print(advanceClass)
+    print(rrp.getTotalStatString())
+    return rrp
+
+test_mercenary = postRatPlayer("mercenary", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.MERCENARY,
+                               [BaseStats.ATK] * 6 +
+                               [BaseStats.SPD] * 6 +
+                               [BaseStats.HP] * 4 + 
+                               [BaseStats.ACC] * 2)
+test_knight = postRatPlayer("knight", BasePlayerClassNames.WARRIOR, AdvancedPlayerClassNames.KNIGHT,
+                               [BaseStats.HP] * 6 +
+                               [BaseStats.DEF] * 4 +
+                               [BaseStats.ATK] * 4 + 
+                               [BaseStats.ACC] * 2 + 
+                               [BaseStats.MP] * 2)
+test_sniper = postRatPlayer("sniper", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.SNIPER,
+                               [BaseStats.ATK] * 6 +
+                               [BaseStats.SPD] * 6 +
+                               [BaseStats.HP] * 4 + 
+                               [BaseStats.MP] * 2)
+test_hunter = postRatPlayer("hunter", BasePlayerClassNames.RANGER, AdvancedPlayerClassNames.HUNTER,
+                               [BaseStats.ATK] * 6 +
+                               [BaseStats.SPD] * 4 +
+                               [BaseStats.HP] * 4 + 
+                               [BaseStats.MP] * 4)
+test_assassin = postRatPlayer("assassin", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ASSASSIN,
+                               [BaseStats.ATK] * 6 +
+                               [BaseStats.SPD] * 6 +
+                               [BaseStats.MP] * 4 + 
+                               [BaseStats.ACC] * 2)
+test_acrobat = postRatPlayer("acrobat", BasePlayerClassNames.ROGUE, AdvancedPlayerClassNames.ACROBAT,
+                               [BaseStats.AVO] * 6 +
+                               [BaseStats.SPD] * 6 +
+                               [BaseStats.ATK] * 4 + 
+                               [BaseStats.ACC] * 2)
+test_wizard = postRatPlayer("wizard", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.WIZARD,
+                               [BaseStats.MAG] * 6 +
+                               [BaseStats.MP] * 6 +
+                               [BaseStats.ACC] * 4 + 
+                               [BaseStats.SPD] * 2)
+test_saint = postRatPlayer("saint", BasePlayerClassNames.MAGE, AdvancedPlayerClassNames.SAINT,
+                               [BaseStats.MP] * 6 +
+                               [BaseStats.MAG] * 5 +
+                               [BaseStats.RES] * 5 + 
+                               [BaseStats.SPD] * 2)

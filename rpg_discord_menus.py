@@ -281,6 +281,8 @@ def characterDetailContent(session : GameSession, view : InterfaceView):
 
     embed.add_field(name="Material:",
                     value=f"WUP: {player.wup}\nSWUP: {player.swup}")
+    
+    embed.add_field(name="*Tip*", value=f"*{random.choice(ALL_HINTS)}*", inline=False)
     return embed
 CHARACTER_DETAIL_SUBPAGE = InterfacePage("Summary", discord.ButtonStyle.secondary, [],
                                       characterDetailContent,
@@ -696,7 +698,7 @@ def equipMainContentFn(session : GameSession, view : InterfaceView):
                 compareItem = player.equipment.get(focusItem.equipSlot, None)
                 if compareItem is not None:
                     embed.add_field(name=f"*Currently Equipped {enumName(focusItem.equipSlot)}:*",
-                                    value=f"*{compareItem.getDescription()}*", inline=False)
+                                    value=f"*{compareItem.getDescription().strip()}*", inline=False)
             embed.add_field(name=f"Selected Item{equippedString}:", value=focusItem.getDescription(), inline=False)
 
             if inPending:

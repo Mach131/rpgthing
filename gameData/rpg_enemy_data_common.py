@@ -3,8 +3,8 @@ from typing import Any, Callable
 import random
 
 from gameData.rpg_item_data import *
-from gameData.rpg_status_definitions import RestrictStatusEffect, StunStatusEffect
-from structures.rpg_classes_skills import ActiveBuffSkillData, ActiveSkillDataSelector, ActiveToggleSkillData, AttackSkillData, CounterSkillData, EFAfterNextAttack, EFBeforeAllyAttacked, EFBeforeAttacked, EFBeforeNextAttack, EFEndTurn, EFImmediate, EFOnStatsChange, EFOnStatusApplied, EFOnToggle, EFStartTurn, EFWhenAttacked, EffectFunctionResult, SkillEffect, EFOnAdvanceTurn, EFOnOpponentDotDamage
+from gameData.rpg_status_definitions import RestrictStatusEffect, StunStatusEffect, ExhaustionStatusEffect
+from structures.rpg_classes_skills import ActiveBuffSkillData, ActiveSkillDataSelector, ActiveToggleSkillData, AttackSkillData, CounterSkillData, EFAfterNextAttack, EFBeforeAllyAttacked, EFBeforeAttacked, EFBeforeNextAttack, EFEndTurn, EFImmediate, EFOnStatsChange, EFOnStatusApplied, EFOnToggle, EFStartTurn, EFWhenAttacked, EffectFunctionResult, SkillEffect, EFOnAdvanceTurn, EFOnOpponentDotDamage, EFOnDistanceChange
 from rpg_consts import *
 from structures.rpg_combat_entity import *
 from structures.rpg_combat_state import AttackResultInfo
