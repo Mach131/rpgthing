@@ -520,16 +520,6 @@ def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
                 availableFreeSkills.append(skill)
                 if skill.playerClass in currentSkillClasses:
                     activeFreeSkillStrings.append(getSkillDescription(skill, False))
-                else:
-                    availableFreeSkillStrings.append(getSkillDescription(skill, False))
-
-    equippedSkillString = "*None Yet*" if len(equippedFreeSkillStrings) == 0 else '\n'.join(equippedFreeSkillStrings)
-    activeSkillString = "*None Yet*" if len(activeFreeSkillStrings) == 0 else '\n'.join(activeFreeSkillStrings)
-    availableSkillString = "*None Yet*" if len(availableFreeSkillStrings) == 0 else '\n'.join(availableFreeSkillStrings)
-    embed.add_field(name=f"__Equipped Free Skills ({len(equippedFreeSkills)}/{MAX_FREE_SKILLS}):__",
-                    value=equippedSkillString, inline=False)
-    embed.add_field(name="__Current Class Free Skills:__", value=activeSkillString, inline=False)
-    embed.add_field(name="__Unlocked Free Skills:__", value=availableSkillString, inline=False)
 
     if SCROLL_IDX not in view.pageData:
         view.pageData[SCROLL_IDX] = 0
@@ -551,6 +541,8 @@ def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
     for i in range(scrollWindowMin, scrollWindowMax):
         if i >= 0 and i < len(availableFreeSkills):
             skill = availableFreeSkills[i]
+            if skill.playerClass not in currentSkillClasses:
+                availableFreeSkillStrings.append(getSkillDescription(skill, False))
             skillButton = discord.ui.Button(label=f"+{skill.skillName}", style=discord.ButtonStyle.blurple, disabled=atFreeSkillCapacity)
             if skill.playerClass in currentSkillClasses:
                 skillButton.disabled = True
@@ -558,6 +550,16 @@ def characterFreeSkillsContent(session : GameSession, view : InterfaceView):
             skillButton.callback = (lambda _skill:(lambda interaction:
                                                     toggleFreeSkillButton(interaction, session, player, _skill, True)))(skill)
             view.add_item(skillButton)
+
+
+    equippedSkillString = "*None Yet*" if len(equippedFreeSkillStrings) == 0 else '\n'.join(equippedFreeSkillStrings)
+    activeSkillString = "*None Yet*" if len(activeFreeSkillStrings) == 0 else '\n'.join(activeFreeSkillStrings)
+    availableSkillString = "*None Yet*" if len(availableFreeSkillStrings) == 0 else '\n'.join(availableFreeSkillStrings)
+    embed.add_field(name=f"__Equipped Free Skills ({len(equippedFreeSkills)}/{MAX_FREE_SKILLS}):__",
+                    value=equippedSkillString, inline=False)
+    embed.add_field(name="__Current Class Free Skills:__", value=activeSkillString, inline=False)
+    embed.add_field(name="__Unlocked Free Skills:__", value=availableSkillString, inline=False)
+
 
     totalSkills = len(availableFreeSkills) + len(equippedFreeSkills)
     if totalSkills > window_size:

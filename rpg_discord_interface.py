@@ -97,8 +97,8 @@ class GameSession(object):
 
     def cleanEmbed(self):
         for field in self.currentEmbed.fields:
-            if field.value is not None and len(field.value) >= 1024 - 5:
-                field.value = field.value[:1024-5] + "(...)"
+            if field.value is not None and len(field.value) >= 1023 - 5:
+                field.value = field.value[:1023-5] + "(...)"
 
     async def recreateEmbed(self, channel : Channel):
         self.cleanEmbed()
@@ -257,6 +257,7 @@ class InterfaceView(discord.ui.View):
 
         self.refreshButtons()
         self.session.currentEmbed = page.getContent(self.session, self)
+        self.session.cleanEmbed()
         await self.session.updateEmbed()
 
     async def refresh(self):
