@@ -1487,7 +1487,7 @@ def combatMainContentFn(session : GameSession, view : InterfaceView):
                     else chosenSkill.optionDescription(combatInterface.cc, player)
                 instructionContent = f"Options for {chosenSkill.skillName}:\n{optionDescription}"
                 for option in chosenSkill.options:
-                    optionName = option[0] + option[1:].lower()
+                    optionName = option[0] + option[1:].lower().replace('_', ' ')
                     optionAvailable = chosenSkill.checkOptionAvailable(option, combatInterface.cc, player)
                     optionSkill = chosenSkill.selectSkill(option)
                     optionButton = discord.ui.Button(label=optionName, style=discord.ButtonStyle.blurple, disabled=not optionAvailable)

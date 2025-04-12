@@ -2543,10 +2543,10 @@ PassiveSkillData("Summoner's Pact", SecretPlayerClassNames.SUMMONER, 1, False,
     ])
 
 class SNAPS_COMMAND(Enum):
-    GOWILD = 0
-    LETSRIDE = 1
-    FOLLOWME = 2
-    HOLDON = 3
+    GO_WILD = 0
+    LETS_RIDE = 1
+    FOLLOW_ME = 2
+    HOLD_ON = 3
 snapsCommands = ["Go Wild!", "Let's Ride!", "Follow Me!", "Hold On!"]
 snapsCommandEffectString : list[Callable[[CombatEntity, CombatEntity], str]] = [
     lambda s, u: f"{s.shortName} follows its natural instincts!",
@@ -2580,7 +2580,7 @@ ActiveSkillDataSelector("Command", SecretPlayerClassNames.SUMMONER, 2, False, 5,
                                     controller.getActiveSummons(user)[0], opponent,
                                     controller.checkDistanceStrict(user, opponent))
                                 for opponent in controller.getTargets(user)
-                            ] if command == "FOLLOWME" else None
+                            ] if command == "FOLLOW_ME" else None
                         )) if len(controller.getActiveSummons(user)) > 0 else None
                     )
                 ], 0
@@ -2961,16 +2961,16 @@ def snapsSummonFn(summoner : CombatEntity) -> CombatEntity:
             if numTargets > 0 and preparedCastigator and castigatorCost <= currentMana:
                 preparedCastigatorCheck = True
 
-        if commandMode == SNAPS_COMMAND.GOWILD.value:
+        if commandMode == SNAPS_COMMAND.GO_WILD.value:
             pass
-        elif commandMode == SNAPS_COMMAND.LETSRIDE.value:
+        elif commandMode == SNAPS_COMMAND.LETS_RIDE.value:
             summonerTarget = data.get("lastSummonerTarget", None)
             if summonerTarget is not None and controller.getCurrentHealth(summonerTarget) > 0:
                 target = summonerTarget
                 targetIdx = allTargets.index(target)
             else:
                 return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
-        elif commandMode == SNAPS_COMMAND.FOLLOWME.value:
+        elif commandMode == SNAPS_COMMAND.FOLLOW_ME.value:
             approachesNeeded = {}
             retreatsNeeded = {}
             for opponent in allTargets:
@@ -3014,7 +3014,7 @@ def snapsSummonFn(summoner : CombatEntity) -> CombatEntity:
             else:
                 if not preparedCastigatorCheck:
                     return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
-        elif commandMode == SNAPS_COMMAND.HOLDON.value:
+        elif commandMode == SNAPS_COMMAND.HOLD_ON.value:
             return EntityAIAction(CombatActions.DEFEND, None, [], None, None)
         
 

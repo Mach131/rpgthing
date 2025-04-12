@@ -485,7 +485,7 @@ Arena - lv6 [req storehouse]
 	might add difficulties eventually; for this version no special final boss (besides being v strong, maybe more members)
 	[not required for other dungeon progress, but might unlock pvp?]
 
-	2 fight -> 2 balanced -> 3 fight -> 3 fight stronger -> 3 balanced stronger
+	2 fight -> 2 fight -> 3 fight -> 3 fight stronger -> 3 balanced stronger
 	high exp but not much else - ~6 exp per enemy, ~12 clear bonus + ~3 WUP (no swup at all, maybe high rank common item as clear bonus)
 
 	mercenary: 350/30	/150/30/30/30		/160/60/100
@@ -530,16 +530,16 @@ Arena - lv6 [req storehouse]
 		bedazzle if opponent not blinded, but tries to reserve some sidestep MP
 		sidestep - similar to parry, but depends on being attacked (not hit)
 
-	wizard: 250/150		/30/50/140/80		/160/60/80
+	wizard: 250/150		/30/50/130/80		/160/60/80
 	-> Level 6, 6 EXP
 	Variances: +150 HP, +50 MP, +50 MAG, +20 DEF, +30 RES, +40 ACC, +20 AVO, +30 SPD
 	buffs with enough MP if not in immediate danger
 		if an opponent has a weakness, will always use that element on self; otherwise buffs randomly (prefers attackers (inc self), then tanks, then support)
 		once below a certain threshold, only magic missiles
 
-	saint: 250/150		/30/30/110/110		/130/60/75
+	saint: 250/150		/30/30/90/110		/130/60/75
 	-> Level 6, 6 EXP
-	Variances: +150 HP, +50 MP, +40 MAG, +20 DEF, +40 RES, +30 ACC< +20 AVO, +25 SPD
+	Variances: +150 HP, +50 MP, +40 MAG, +20 DEF, +40 RES, +30 ACC, +20 AVO, +25 SPD
 	focuses on reserving heal MP
 		if opponent has a weakness, will use buff on random ally; may also buff if no allies low on HP for long enough (~4 turns) (prefers tanks, then attackers, then support)
 		heals allies as soon as they're low enough, based on like 80% of heal strength
@@ -549,26 +549,76 @@ Beach - lv7 [req storehouse]
 	drop magic equips
 	rare Frey boss fight?
 
-	crab - tanky, high crit rate, loses def/res + may be stunned if crit
-	seafarer fairy - ice affinity, wind weakness; can manipulate distance to other enemies
-	sandcastle - high res, wind affinity, ice weakness; can increase one physical resistance at a time for a duration when hit by it
-	ice cream - ice affinity, fire weakness; slow, can spend HP to give all allies healing + buff (spd, avo, crit rate, crit damage; maybe gets more intense each time used)
+Ref:
+	mrc: 370/78	/198/25/34/76	/193/64/110
+	knt: 1056/53	/113/135/10/43	/148/84/82
+	snp: 260/50	/140/67/10/75	/208/115/134
+	hnt: 281/77	/111/73/28/39	/182/109/79
+	asn: 120/94	/173/38/10/47	/153/194/238
+	acb: 222/57	/160/29/11/38	/182/282/209
+	wiz: 143/161	/10/67/176/108	/210/60/94
+	snt: 143/176	/34/10/174/178	/156/60/67
+
+- crab: 300/1		/85/120/1/120		/120/120/95
+	-> Level 7, 5 EXP
+	Variances: +100 HP, +20 ATK, +30 DEF, +30 RES, +15 ACC, +10 AVO, +10 SPD
+
+	Basic Attack R0, Piercing Damage
+	Has bonus crit rate (+15%?)
+	if hit by a crit, loses 10% DEF/RES and may be stunned
+
+
+- seafarer fairy: 250/100	/50/80/85/105	/150/130/125
+	-> Level 7, 5 EXP
+	Variances: +70 HP, +50 MP, +20 MAG, +15 DEF, +25 RES, +20 ACC, +20 AVO, +20 SPD
+
+	Basic Attack R1, Ice Magic Damage
+	Ice Resistance, Wind Weakness
+	Slight reposition bonus
+	15 MP missile skill, if out of range
+	25 MP skill with cooldown; magic attack (no range increase) can increase/decrease target distance to allies
+		push away: seafarer fairy, ice cream, frey
+		pull closer: crab, sandcastle
+
+- sandcastle: 280/60		/95/100/1/130	/170/100/85
+	-> Level 7, 5 EXP
+	Variances: +100 HP, +40 MP, +20 ATK, +20 DEF, +20 RES, +30 ACC, +15 AVO, +15 SPD
+
+	Basic Attack R3, Crushing Damage
+		doesn't reposition
+	Wind Resistance, Ice Weakness
+	After hit by a physical attack, can spend 25 MP to get 2 stacks of resistance to the attribute for 3-4 turns
+		can only have one of these active at a time
+
+- ice cream: 400/100		/50/85/90/85	/120/120/75
+	-> Level 7, 5 EXP
+	Variances: +150 HP, +50 MP, +15 MAG, +15 DEF, +15 RES, +15 ACC, +15 AVO, +10 SPD
+
+	Basic Attack R0
+	ice resistance, fire weakness
+	20 MP: R0 Ice Magic skill that reduces speed and repositions by 1, but deprioritized (cooldown of 2? use if enemy in range)
+	Can spend 100 HP to heal and buff all enemies; grows stronger each time used (wont use if under 100 HP)
+		first: ~1.5x Heal
+		second: ~2x Heal, +10% spd/avo, +15% crit rate
+		third+: ~2.5x Heal, +15% spd/avo, +15% crit rate, +30% crit damage
+	30 MP: heal self (1x); only uses if under 100 HP with no enemy in range
+
 	
-	crab boss - gimmick of extending weak spot to a certain distance before attack warning, then until turn after attack can be hit from that dist as if it were range 0
+- crab boss - gimmick of extending weak spot to a certain distance before attack warning, then until turn after attack can be hit from that dist as if it were range 0
 		higher crit damage, high crit rate on this special attack
 		if crits lower defense too many times, may summon crabs and use a defense-raising skill until they go away
 	surfer boss - comes with seafarer fairies, favors attacks that reposition to 0 and are stronger with distance moved
 		whirlpool restrict skill - R1 AoE
 		long CD wave skill pushing everyone to R3; pushes less if they defend?
 
-	Frey - comes with one of each enemy, more of a support-based boss (anarchic - may be against the player as a pawn of The System)
+- Frey - comes with one of each enemy, more of a support-based boss (anarchic - may be against the player as a pawn of The System)
 		pretty high base HP
 		pretty strong heal skill, though moderate CD (and other things to prioritize)
 		can Liberate the abilities of specific allies; ties distance to them temporarily, shares health in some form
 			Crab - higher crit damage, immune to crits
 			seafarer - increases range, all attacks increase distance to all enemies + attempt exhaustion
 			sand castle - can use up to 3 resistance buffs, also has magic resistance buffs
-			ice cream - attacks don't cost HP, shorter time between buffs
+			ice cream - skills don't cost HP, shorter time between buffs
 		mostly alternates between healing and 2-3 turn liberation
 		with fewer allies left, may use an advancing-wave AOE - after warning, hits R0-R1-R2-R3 in sequence
 
@@ -633,7 +683,7 @@ Tower
 		summoner unlock
 
 	
-
+[[old ideas]]]
 -- lv 10-14
 Grasslands
 	high enemy variation, longer than usual

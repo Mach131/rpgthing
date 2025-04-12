@@ -3,7 +3,7 @@ from enum import Enum, auto
 def void(x):
     return None
 def enumName(e : Enum):
-    return e.name[0] + e.name[1:].lower()
+    return e.name[0] + e.name[1:].lower().replace('_', ' ')
 EPSILON = 0.0001
 
 """ Stats """

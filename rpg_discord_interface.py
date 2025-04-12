@@ -61,6 +61,7 @@ class GameSession(object):
         session.dungeonFailed = False
         session.currentParty = None
         session.pendingItems = []
+        session.cleanEmbed()
         
     def onLoadReset(self):
         # Originally had support for re-loading dungeons here, but too hard to figure out pickling at the moment
@@ -80,6 +81,7 @@ class GameSession(object):
                 await self.currentMessage.edit(view=None)
 
     async def updateEmbed(self, channel : Channel | None = None):
+        self.cleanEmbed()
         if self.isActive:
             if self.currentMessage is None:
                 print("warning: message to update not found")
@@ -93,7 +95,13 @@ class GameSession(object):
                 channel = self.currentMessage.channel
             await self.recreateEmbed(channel)
 
+    def cleanEmbed(self):
+        for field in self.currentEmbed.fields:
+            if field.value is not None and len(field.value) >= 1024 - 5:
+                field.value = field.value[:1024-5] + "(...)"
+
     async def recreateEmbed(self, channel : Channel):
+        self.cleanEmbed()
         self.isActive = True
         self.currentView.stop()
         clearOld = None

@@ -24,11 +24,11 @@ Class Active: [Cost 30 MP] Attack with 1.2x ATK. If in a stance, exit the stance
 Free Passive: Decreases the time between your actions by up to 20% based on your remaining MP percentage. [Stamina]
 Class Passive: While in a stance, +10% ATK/DEF/MAG/RES/ACC/AVO/SPD. [Inner Peace]
 Free Passive: Gain 2 stacks of resistance to all Physical attack attributes. [Combat Aura]
-Free Active: [40 MP] Select a move; attack with 1.5x ATK. Bonus damage can apply based on your stance or highest stat (excluding HP and MP). [Secret Art]
+Free Active: [40 MP] Select a move; attack with 1.7x ATK. Bonus damage can apply based on your stance or highest stat (excluding HP and MP). [Secret Art]
 	Tiger Destruction: Slashing Damage; if in Tiger Stance or highest stat is SPD/AVO, +50% ATK
 	Orochi Breaker: Crushing Damage; if in Horse Stance or highest stat is DEF/RES, +50% ATK
 	Hoyokusen: Piercing Damage; if in Crane Stance or highest stat is ATK/MAG/ACC, +50% ATK
-	{Raging Demon: available once after using the other three at full power; Approach to R0 before attack, +150% ATK, 100% Crit Rate}
+	{Raging Demon: available once after using the other three at full power; Approach to R0 before attack, +200% ATK, 100% Crit Rate}
 
 -------------
 
@@ -42,7 +42,7 @@ alchefist
 
 ~Concoct a variety of additional attack effects by combining ingredients!~
 
-Class Passive: +5% ATK, +5% MAG, +5% ACC, +10% MP. [Alchefist's Reasoning]
+Class Passive: +10% ATK, +10% MAG, +10% ACC, +10% MP. [Alchefist's Reasoning]
 Class Active: [Cost 10 MP] Select an ingredient to combine into your next attack. Attacks use at most two ingredients, and the cost of preparing the same ingredient multiple times in a row will increase. [Corporeal Ingredient]
 	{pretty fast action time; keeps a queue of last 4 ingredients, cost for 0/1/2/3+ appearances is 10/20/30/40}
 	Flour Flower: Prepares Wood Alchefy
@@ -57,7 +57,7 @@ Class Active: [Cost 10 MP] Select an ingredient to combine into your next attack
 Free Passive: +10% ACC, +10% AVO, +10% MP [Curiosity]
 Class Passive: Decreases the time taken by ingredient skills, and allows up to 5 ingredients to be prepared (attacks use the 2 most recently prepared ingredients). [Seasoned Cookware]
 Free Passive: If you do not attack for at least 3 turns in a row, gain 50% ATK/MAG/ACC on your next attack. [Stewing Schemes]
-Free Active: [Cost 0 MP] Gain 45 MP. {Very Slow action, like 2x action bar} [Transcendent Brunch]
+Free Active: [Cost 0 MP] Gain 50 MP. {Very Slow action, like 2x action bar} [Transcendent Brunch]
 
 *** yippee ***
 Wood: 1.2x Neutral Magic Attack [Flour Flower]
@@ -82,8 +82,8 @@ Wood + Fire/Sun: 1.2x Neutral Magic Attack; lowers a random (non hp/mp) stat by 
 Wood + Water/Moon: 1.2x Neutral Magic Attack, attempts to apply a random debuff [Night-Bloom Tea]
 Metal + Fire/Sun: 1x Attack, increases damage by 60% of MAG [Alloy Brulee]
 Metal + Water/Moon: 1.1x Attack, 30% Bonus Crit Rate; repeats (once) on crit [Cream of Bismuth]
-Earth + Fire/Sun:  0.8x Light Magic Attack, gives 4-turn buff to all allies reducing time between actions by 25% [Scrambled Sunlight]
-Earth + Water/Moon: 0.6x Dark Magic Attack, gives 4-turn buff to all allies reducing MP costs by 30% [Poached Jade]
+Earth + Fire/Sun:  0.8x Light Magic Attack, gives 6-turn buff to all allies reducing time between actions by 25% [Scrambled Sunlight]
+Earth + Water/Moon: 0.8x Dark Magic Attack, gives 4-turn buff to all allies reducing MP costs by 40% [Poached Jade]
 Fire/Sun + Water/Moon: 1x Neutral Magic Attack, 1.7x strength Heal to all allies [Elixir Tea of Life]
 *** *** ***
 
@@ -94,13 +94,13 @@ saboteur
 
 ~Wear down your targets with targeted debuffs, growing stronger each time they falter!~
 
-Class Passive: When you hit an opponent, apply a stacking debuff (max 10). Your attacks have 6% ATK increase per target's mark. [Inevitability: Remove all marks; apply POISON for 5 turns with 6% Strength per mark.] [Saboteur's Interference]
+Class Passive: Increases SPD by 20%. When you hit an opponent, apply a stacking debuff (max 10). Your attacks have 6% ATK increase per target's mark. [Inevitability: Remove all marks; apply POISON for 5 turns with 6% Strength per mark.] [Saboteur's Interference]
 Class Active: [Cost 30 MP] Attack with 1x ATK. Inevitability effects will activate if the target has a sufficient number of marks. [Inevitability]
 Free Passive: When an opponent takes POISON or BURN damage, apply a stacking debuff (max 5). Your attacks restore 1% of max HP/MP per target's stack. [Inevitability: Remove 3 marks; inflict damage proportional to the strength of active POISON/BURN effects. {dot strengths * 2 or so}] [Siphon]
-Class Passive: When you dodge an opponent's attack, apply a stacking debuff (max 6). You have 10% ACC/AVO per target/attacker's mark. [Inevitability: Remove 2 marks; on the attack, -50% action time, +35% Crit Rate.] [Blackout]
+Class Passive: Increases AVO by 20%. When you dodge an opponent's attack, apply a stacking debuff (max 6). You have 10% ACC/AVO per target/attacker's mark. [Inevitability: Remove 2 marks; on the attack, -50% action time, +35% Crit Rate.] [Blackout]
 Class Active: [Cost 20 MP] Attack with 1x ATK. If the opponent is POISONED or BURNED, attempt to inflict both with a proportional strength. {total dot strengths * 0.5} [Tampering]
 Free Passive: +5% Crit Rate; on crit, reduce time to next action {~15% gauge}. [Efficiency]
-Class Passive: When hitting an opponent with an attacking skill, apply a stacking debuff (max 4). +10% status condition application chance per mark. [Inevitability: Remove 4 marks; for next 2 turns, reduce MP costs by 65%.] [Traceless]
+Class Passive: Increases Status Resistance by 30%. When hitting an opponent with an attacking skill, apply a stacking debuff (max 4). +10% status condition application chance per mark. [Inevitability: Remove 4 marks; for next 2 turns, reduce MP costs by 65%.] [Traceless]
 Free Passive: When landing a critical hit, apply a stacking debuff (max 5). Your attacks have 4% Crit Damage per target's mark. [Inevitability: Remove 3 marks; Increase Critical Hit Rate by 5%.] [Infiltration]
 Free Active: [Cost 45 MP] Attack with 0.5x ATK and 0.7x ACC. If this defeats an opponent, fully restore your HP and MP. [No Witnesses]
 

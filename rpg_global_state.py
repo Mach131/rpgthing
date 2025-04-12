@@ -10,7 +10,7 @@ from rpg_consts import *
 from structures.rpg_combat_entity import Player
 from structures.rpg_dungeons import DungeonData
 
-CURRENT_VERSION = "0.1.4b"
+CURRENT_VERSION = "0.1.4c"
 
 if TYPE_CHECKING:
     from rpg_discord_interface import GameSession
