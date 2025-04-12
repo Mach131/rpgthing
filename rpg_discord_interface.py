@@ -387,7 +387,7 @@ class CharacterDeletionPrompt(object):
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = commands.Bot(command_prefix='chb.', intents=intents) # TODO: change if beta
+bot = commands.Bot(command_prefix='ch.', intents=intents) # TODO: change if beta
 
 @bot.event
 async def on_ready():
