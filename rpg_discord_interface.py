@@ -609,6 +609,7 @@ async def panic(ctx : commands.Context, confirmation : str | None = None):
             if GLOBAL_STATE.idRegistered(userId):
                 gameSession = GLOBAL_STATE.accountDataMap[userId].session
                 await gameSession.exitDungeon()
+                await gameSession.loadNewMenu(MAIN_MENU)
                 await ctx.send(f"Resetting your session (hopefully this worked...)")
             else:
                 await ctx.send("You don't have a character yet (which means you're probably not stuck)! Use the 'new_character [name]' command first.")
